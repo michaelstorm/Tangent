@@ -1,0 +1,10 @@
+#!/bin/bash
+for node in "$1"/*
+do
+	if [ "${node}" != "$1/0" ]
+	then
+		cd "${node}"
+		../../test conf > /dev/null 2>&1 &
+		cd ../..
+	fi
+done
