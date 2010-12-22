@@ -10,7 +10,6 @@
 #include "chord.h"
 #include "../utils/gen_utils.h"
 
-#if 0
 /* f_rand: return a random double between 0.0 and 1.0 */
 double f_rand(void)
 {
@@ -61,7 +60,7 @@ int unif_rand(int a, int b)
 /**********************************************************************/
 
 /* getusec: return wall time in usec */
-uint64_t wall_time(void)
+uint64_t wall_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -69,7 +68,7 @@ uint64_t wall_time(void)
 }
 
 /**********************************************************************/
-#endif
+
 void update_rtt(long *rtt_avg, long *rtt_dev, long new_rtt)
 {
   long err;
