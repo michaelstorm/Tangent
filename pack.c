@@ -394,7 +394,7 @@ int unpack_pong(Server *srv, int n, uchar *buf)
 /**********************************************************************/
 
 /* pack_fingers_get: pack get fingers packet */
-int pack_fingers_get(uchar *buf, ulong addr, ushort port, Key *key)
+int pack_fingers_get(uchar *buf, ulong addr, ushort port, chordID *key)
 {
 	return pack(buf, "cxls", CHORD_FINGERS_GET, key, addr, port);
 }
@@ -405,7 +405,7 @@ int pack_fingers_get(uchar *buf, ulong addr, ushort port, Key *key)
 int unpack_fingers_get(Server *srv, int n, uchar *buf)
 {
 	uchar type;
-	Key	 key;
+	chordID	 key;
 	ulong addr;
 	ushort port;
 

@@ -11,6 +11,6 @@
 
 #define CHORD_DEBUG_LEVEL 3
 
-#define CHORD_DEBUG(level, x)  if (level <= CHORD_DEBUG_LEVEL) x;
+#define CHORD_DEBUG(level, x) if (level <= CHORD_DEBUG_LEVEL) x;
 
 #endif

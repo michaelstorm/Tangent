@@ -193,7 +193,7 @@ int process_pong(Server *srv, chordID *id, ulong addr, ushort port, ulong time)
 
 /**********************************************************************/
 
-int process_fingers_get(Server *srv, ulong addr, ushort port, Key *key)
+int process_fingers_get(Server *srv, ulong addr, ushort port, chordID *key)
 {
 	CHORD_DEBUG(5, print_process(srv, "process_fingers_get", NULL, addr, port));
 	if (match_key(key) == 0)

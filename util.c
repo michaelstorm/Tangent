@@ -329,8 +329,7 @@ unsigned hash(chordID *id, unsigned n)
 	return h % n;
 }
 
-/* hash: compute hash value for ID */
-int match_key(Key *key)
+int match_key(chordID *key)
 {
 	int i;
 	for (i = 0; i < NumKeys; i++) {

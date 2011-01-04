@@ -94,7 +94,7 @@ void send_pong(Server *srv, ulong to_addr, ushort to_port, ulong time)
 /**********************************************************************/
 
 void send_fingers_get(Server *srv, ulong to_addr, ushort to_port,
-			  ulong addr, ushort port, Key *key)
+			  ulong addr, ushort port, chordID *key)
 {
   byte buf[BUFSIZE];
 

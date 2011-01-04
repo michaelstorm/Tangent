@@ -1,5 +1,5 @@
-#ifndef _CHORD_API_H
-#define _CHORD_API_H
+#ifndef CHORD_API_H
+#define CHORD_API_H
 
 typedef unsigned char byte;
 
@@ -8,7 +8,7 @@ enum {
 };
 
 typedef struct {
-    byte x[CHORD_ID_BITS/8];
+	byte x[CHORD_ID_BITS/8];
 } chordID;
 
 /* init: initialize chord server, provide configuration file */

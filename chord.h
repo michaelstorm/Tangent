@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include "debug.h"
 
-#ifndef INCL_CHORD_H
-#define INCL_CHORD_H
+#ifndef CHORD_H
+#define CHORD_H
 
 typedef struct Finger Finger;
 typedef struct Node Node;
@@ -32,11 +32,11 @@ enum {
 	STABILIZE_PERIOD = 1*1000000,  /* in usec */
 	BUFSIZE      = 65535,          /* buffer for packets */
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
-					*  (read from configuration file)
-					*/
+									*  (read from configuration file)
+									*/
 	MAX_SIMJOIN = 4,               /* maximum number of servers
-					* contacted simultaneously when joining
-					*/
+									* contacted simultaneously when joining
+									*/
 	PING_THRESH = 5,               /* this many unanswered pings are allowed */
 	DEF_TTL      = 64,             /* default TTL for multi-hop packets */
 };
@@ -71,11 +71,6 @@ typedef u_long ulong;
 typedef struct {
 	byte x[ID_LEN];
 } chordID;
-
-#define KEY_LEN 20
-typedef struct {
-	char x[KEY_LEN];
-} Key;
 
 struct Node
 {
@@ -140,39 +135,39 @@ extern int nknown;
  *  the security provided by this mechanism is quite weak)
  */
 #define ACCLIST_FILE "acclist.txt"
-extern Key KeyArray[MAX_KEY_NUM];
+extern chordID KeyArray[MAX_KEY_NUM];
 extern int NumKeys;
 
 /* chord.c */
-extern void chord_main(char *conf_file, int parent_sock);
-extern void initialize(Server *srv);
-extern void handle_packet(int network);
-extern int read_keys(char *file, Key *keyarray, int max_num_keys);
+void chord_main(char *conf_file, int parent_sock);
+void initialize(Server *srv);
+void handle_packet(int network);
+int read_keys(char *file, chordID *keyarray, int max_num_keys);
 
 /* finger.c */
-extern Finger *new_finger(Node *node);
-extern Finger *succ_finger(Server *srv);
-extern Finger *pred_finger(Server *srv);
-extern Finger *closest_preceding_finger(Server *srv, chordID *id, int fall);
-extern Node *closest_preceding_node(Server *srv, chordID *id, int fall);
-extern void remove_finger(Server *srv, Finger *f);
-extern Finger *get_finger(Server *srv, chordID *id);
-extern Finger *insert_finger(Server *srv, chordID *id, in_aWddr_t addr,
-							 in_port_t port, int *fnew);
+Finger *new_finger(Node *node);
+Finger *succ_finger(Server *srv);
+Finger *pred_finger(Server *srv);
+Finger *closest_preceding_finger(Server *srv, chordID *id, int fall);
+Node *closest_preceding_node(Server *srv, chordID *id, int fall);
+void remove_finger(Server *srv, Finger *f);
+Finger *get_finger(Server *srv, chordID *id);
+Finger *insert_finger(Server *srv, chordID *id, in_aWddr_t addr, in_port_t port,
+					  int *fnew);
 void free_finger_list(Finger *flist);
 
 /* hosts.c */
-extern in_addr_t get_addr(); /* get_addr: get IP address of server */
+in_addr_t get_addr(); /* get_addr: get IP address of server */
 
 /* join.c */
-extern void join(Server *srv, FILE *fp);
+void join(Server *srv, FILE *fp);
 
 /* pack.c */
-extern int dispatch(Server *srv, int n, uchar *buf);
+int dispatch(Server *srv, int n, uchar *buf);
 
-extern int pack(uchar *buf, char *fmt, ...);
-extern int unpack(uchar *buf, char *fmt, ...);
-extern int sizeof_fmt(char *fmt);
+int pack(uchar *buf, char *fmt, ...);
+int unpack(uchar *buf, char *fmt, ...);
+int sizeof_fmt(char *fmt);
 
 #ifdef CCURED
 // These are the kinds of arguments that we pass to pack
@@ -190,136 +185,131 @@ struct unpack_args {
 #pragma ccuredvararg("unpack", sizeof(struct unpack_args))
 #endif
 
-extern int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
-					 uchar *data);
-extern int unpack_data(Server *srv, int n, uchar *buf);
-extern int pack_fs(uchar *buf, byte ttl, chordID *id, ulong addr, ushort port);
-extern int unpack_fs(Server *srv, int n, uchar *buf);
-extern int pack_fs_repl(uchar *buf, chordID *id, ulong addr, ushort port);
-extern int unpack_fs_repl(Server *srv, int n, uchar *buf);
-extern int pack_stab(uchar *buf, chordID *id, ulong addr, ushort port);
-extern int unpack_stab(Server *srv, int n, uchar *buf);
-extern int pack_stab_repl(uchar *buf, chordID *id, ulong addr, ushort port);
-extern int unpack_stab_repl(Server *srv, int n, uchar *buf);
-extern int pack_notify(uchar *buf, chordID *id, ulong addr, ushort port);
-extern int unpack_notify(Server *srv, int n, uchar *buf);
+int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
+			  uchar *data);
+int unpack_data(Server *srv, int n, uchar *buf);
+int pack_fs(uchar *buf, byte ttl, chordID *id, ulong addr, ushort port);
+int unpack_fs(Server *srv, int n, uchar *buf);
+int pack_fs_repl(uchar *buf, chordID *id, ulong addr, ushort port);
+int unpack_fs_repl(Server *srv, int n, uchar *buf);
+int pack_stab(uchar *buf, chordID *id, ulong addr, ushort port);
+int unpack_stab(Server *srv, int n, uchar *buf);
+int pack_stab_repl(uchar *buf, chordID *id, ulong addr, ushort port);
+int unpack_stab_repl(Server *srv, int n, uchar *buf);
+int pack_notify(uchar *buf, chordID *id, ulong addr, ushort port);
+int unpack_notify(Server *srv, int n, uchar *buf);
 int pack_ping(uchar *buf, chordID *id, ulong addr, ushort port, ulong time);
-extern int unpack_ping(Server *srv, int n, uchar *buf);
-extern int pack_pong(uchar *buf, chordID *id, ulong addr, ushort port,
-					 ulong time);
-extern int unpack_pong(Server *srv, int n, uchar *buf);
-extern int pack_fingers_get(uchar *buf, ulong addr, ushort port, Key *key);
-extern int unpack_fingers_get(Server *srv, int n, uchar *buf);
-extern int pack_fingers_repl(uchar *buf, Server *srv);
-extern int unpack_fingers_repl(Server *null, int n, uchar *buf);
+int unpack_ping(Server *srv, int n, uchar *buf);
+int pack_pong(uchar *buf, chordID *id, ulong addr, ushort port, ulong time);
+int unpack_pong(Server *srv, int n, uchar *buf);
+int pack_fingers_get(uchar *buf, ulong addr, ushort port, chordID *key);
+int unpack_fingers_get(Server *srv, int n, uchar *buf);
+int pack_fingers_repl(uchar *buf, Server *srv);
+int unpack_fingers_repl(Server *null, int n, uchar *buf);
 
-extern int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type,
-						   byte ttl, byte hops);
-extern int unpack_traceroute(Server *srv, int n, uchar *buf);
-extern int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
-								ulong *paddr, ushort *pport, int one_hop);
-extern int unpack_traceroute_repl(Server *srv, int n, uchar *buf);
+int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
+					byte hops);
+int unpack_traceroute(Server *srv, int n, uchar *buf);
+int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
+						 ulong *paddr, ushort *pport, int one_hop);
+int unpack_traceroute_repl(Server *srv, int n, uchar *buf);
 
 /* process.c */
-extern int process_data(Server *srv, uchar type, byte ttl, chordID *id,
-						ushort len, uchar *data);
-extern int process_fs(Server *srv, byte ttl, chordID *id, ulong addr,
-					  ushort port);
-extern int process_fs_repl(Server *srv, chordID *id, ulong addr, ushort port);
-extern int process_stab(Server *srv, chordID *id, ulong addr, ushort port);
-extern int process_stab_repl(Server *srv, chordID *id, ulong addr, ushort port);
-extern int process_notify(Server *srv, chordID *id, ulong addr, ushort port);
-extern int process_ping(Server *srv, chordID *id, ulong addr, ushort port,
-						ulong time);
-extern int process_pong(Server *srv, chordID *id, ulong addr, ushort port,
-						ulong time);
-extern int process_fingers_get(Server *srv, ulong addr, ushort port, Key *key);
-extern int process_fingers_repl(Server *srv, uchar ret_code);
-extern int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
-							  byte ttl, byte hops);
-extern int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops);
+int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
+				 uchar *data);
+int process_fs(Server *srv, byte ttl, chordID *id, ulong addr, ushort port);
+int process_fs_repl(Server *srv, chordID *id, ulong addr, ushort port);
+int process_stab(Server *srv, chordID *id, ulong addr, ushort port);
+int process_stab_repl(Server *srv, chordID *id, ulong addr, ushort port);
+int process_notify(Server *srv, chordID *id, ulong addr, ushort port);
+int process_ping(Server *srv, chordID *id, ulong addr, ushort port, ulong time);
+int process_pong(Server *srv, chordID *id, ulong addr, ushort port, ulong time);
+int process_fingers_get(Server *srv, ulong addr, ushort port, chordID *key);
+int process_fingers_repl(Server *srv, uchar ret_code);
+int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
+					   byte ttl, byte hops);
+int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops);
 
 /* sendpkt.c */
-extern void send_raw(Server *srv, in_addr_t addr, in_port_t port, int n,
-					 uchar *buf);
-extern void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
-					  ushort n, uchar *data);
-extern void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port,
-					chordID *id, ulong addr, ushort port);
-extern void send_fs_repl(Server *srv, ulong to_addr, ushort to_port,
-						 chordID *id, ulong addr, ushort port);
-extern void send_stab(Server *srv, ulong to_addr, ushort to_port, chordID *id,
-					  ulong addr, ushort port);
-extern void send_stab_repl(Server *srv, ulong to_addr, ushort to_port,
-						   chordID *id, ulong addr, ushort port);
-extern void send_notify(Server *srv, ulong to_addr, ushort to_port, chordID *id,
-						ulong addr, ushort port);
-extern void send_ping(Server *srv, ulong to_addr, ushort to_port, ulong addr,
-					  ushort port, ulong time);
-extern void send_pong(Server *srv, ulong to_addr, ushort to_port, ulong time);
-extern void send_fingers_get(Server *srv, ulong to_addr, ushort to_port,
-							 ulong addr, ushort port, Key *key);
-extern void send_fingers_repl(Server *srv, ulong to_addr, ushort to_port);
-extern void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type,
-							byte ttl, byte hops);
-extern void send_traceroute_repl(Server *srv, uchar *buf, int ttl,
-				 int hops, int one_hop);
+void send_raw(Server *srv, in_addr_t addr, in_port_t port, int n, uchar *buf);
+void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
+			   ushort n, uchar *data);
+void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port, chordID *id,
+			 ulong addr, ushort port);
+void send_fs_repl(Server *srv, ulong to_addr, ushort to_port, chordID *id,
+				  ulong addr, ushort port);
+void send_stab(Server *srv, ulong to_addr, ushort to_port, chordID *id,
+			   ulong addr, ushort port);
+void send_stab_repl(Server *srv, ulong to_addr, ushort to_port, chordID *id,
+					ulong addr, ushort port);
+void send_notify(Server *srv, ulong to_addr, ushort to_port, chordID *id,
+				 ulong addr, ushort port);
+void send_ping(Server *srv, ulong to_addr, ushort to_port, ulong addr,
+			   ushort port, ulong time);
+void send_pong(Server *srv, ulong to_addr, ushort to_port, ulong time);
+void send_fingers_get(Server *srv, ulong to_addr, ushort to_port, ulong addr,
+					  ushort port, chordID *key);
+void send_fingers_repl(Server *srv, ulong to_addr, ushort to_port);
+void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, byte ttl,
+					 byte hops);
+void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
+						  int one_hop);
 
 /* stabilize.c */
-extern void stabilize(Server *srv);
-extern void set_stabilize_timer();
+void stabilize(Server *srv);
+void set_stabilize_timer();
 
 /* api.c */
-extern int chord_init(char *conf_file);
-extern void chord_cleanup(int signum);
-extern void chord_route(chordID *k, char *data, int len);
-extern void chord_deliver(int n, uchar *data);
-extern void chord_get_range(chordID *l, chordID *r);
+int chord_init(char *conf_file);
+void chord_cleanup(int signum);
+void chord_route(chordID *k, char *data, int len);
+void chord_deliver(int n, uchar *data);
+void chord_get_range(chordID *l, chordID *r);
 void chord_update_range(chordID *l, chordID *r);
 int chord_is_local(chordID *x);
 
 /* util.c */
-extern double f_rand();
-extern double funif_rand(double a, double b);
-extern int n_rand(int n);
-extern int unif_rand(int a, int b);
-extern uint64_t wall_time();
-extern ulong get_current_time();
-extern void update_rtt(long *rtt_avg, long *rtt_std, long new_rtt);
-extern chordID rand_ID();
-extern chordID successor(chordID id, int n);
-extern chordID predecessor(chordID id, int n);
-extern void add(chordID *a, chordID *b, chordID *res);
-extern void subtract(chordID *a, chordID *b, chordID *res);
-extern void random_between(chordID *a, chordID *b, chordID *res);
-extern int msb(chordID *x);
-extern int equals(chordID *a, chordID *b);
-extern int equals_id_str(chordID *a, char *b);
-extern int is_zero(chordID *x);
-extern int is_between(chordID *x, chordID *a, chordID *b);
-extern int copy_id( chordID *a, chordID *b);
-extern void print_id(FILE *f, chordID *id);
-extern chordID atoid(const char *str);
-extern unsigned hash(chordID *id, unsigned n);
-extern void print_chordID(chordID *id);
-extern void print_two_chordIDs(char *preffix, chordID *id1,
-							   char *middle, chordID *id2,
-							   char *suffix);
-extern void print_three_chordIDs(char *preffix, chordID *id1,
-								 char *middle1, chordID *id2,
-								 char *middle2, chordID *id3,
-								 char *suffix);
-extern void print_node(Node *node, char *prefix, char *suffix);
-extern void print_finger(Finger *f, char *prefix, char *suffix);
-extern void print_finger_list(Finger *fhead, char *prefix, char *suffix);
-extern void print_server(Server *s, char *prefix, char *suffix);
-extern void print_process(Server *srv, char *process_type, chordID *id,
-						  ulong addr, ushort port);
-extern void print_send(Server *srv, char *send_type, chordID *id, ulong addr,
-					   ushort port);
-extern void print_fun(Server *srv, char *fun_name, chordID *id);
+double f_rand();
+double funif_rand(double a, double b);
+int n_rand(int n);
+int unif_rand(int a, int b);
+uint64_t wall_time();
+ulong get_current_time();
+void update_rtt(long *rtt_avg, long *rtt_std, long new_rtt);
+chordID rand_ID();
+chordID successor(chordID id, int n);
+chordID predecessor(chordID id, int n);
+void add(chordID *a, chordID *b, chordID *res);
+void subtract(chordID *a, chordID *b, chordID *res);
+void random_between(chordID *a, chordID *b, chordID *res);
+int msb(chordID *x);
+int equals(chordID *a, chordID *b);
+int equals_id_str(chordID *a, char *b);
+int is_zero(chordID *x);
+int is_between(chordID *x, chordID *a, chordID *b);
+int copy_id( chordID *a, chordID *b);
+void print_id(FILE *f, chordID *id);
+chordID atoid(const char *str);
+unsigned hash(chordID *id, unsigned n);
+void print_chordID(chordID *id);
+void print_two_chordIDs(char *preffix, chordID *id1,
+						char *middle, chordID *id2,
+						char *suffix);
+void print_three_chordIDs(char *preffix, chordID *id1,
+						  char *middle1, chordID *id2,
+						  char *middle2, chordID *id3,
+						  char *suffix);
+void print_node(Node *node, char *prefix, char *suffix);
+void print_finger(Finger *f, char *prefix, char *suffix);
+void print_finger_list(Finger *fhead, char *prefix, char *suffix);
+void print_server(Server *s, char *prefix, char *suffix);
+void print_process(Server *srv, char *process_type, chordID *id, ulong addr,
+				   ushort port);
+void print_send(Server *srv, char *send_type, chordID *id, ulong addr,
+				ushort port);
+void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
-extern int match_key(Key *key);
+int match_key(chordID *key);
 
 #include "eprintf.h"
 

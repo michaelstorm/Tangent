@@ -23,12 +23,12 @@ extern Server *srv_ref;	/* For use in stabilize() */
 Server srv;
 Node well_known[MAX_WELLKNOWN];
 int nknown;
-Key KeyArray[MAX_KEY_NUM];
+chordID KeyArray[MAX_KEY_NUM];
 int NumKeys;
 
 void initialize(Server *srv);
 void handle_packet(int network);
-int read_keys(char *file, Key *keyarray, int max_num_keys);
+int read_keys(char *file, chordID *keyarray, int max_num_keys);
 
 void chord_main(char *conf_file, int parent_sock)
 {
@@ -76,9 +76,9 @@ void chord_main(char *conf_file, int parent_sock)
 
 	NumKeys = read_keys(ACCLIST_FILE, KeyArray, MAX_KEY_NUM);
 	if (NumKeys == -1)
-	  printf("Error opening file: %s\n", ACCLIST_FILE);
+		printf("Error opening file: %s\n", ACCLIST_FILE);
 	if (NumKeys == 0)
-	  printf("No key found in %s\n", ACCLIST_FILE);
+		printf("No key found in %s\n", ACCLIST_FILE);
 
 	/* Loop on input */
 	for (;;) {
@@ -87,16 +87,17 @@ void chord_main(char *conf_file, int parent_sock)
 		stabilize_wait = MAX(stabilize_wait,0);
 		timeout.tv_sec = stabilize_wait / 1000000UL;
 		timeout.tv_usec = stabilize_wait % 1000000UL;
+
 		nfound = select(nfds, &readable, NULL, NULL, &timeout);
-		if (nfound < 0 && errno == EINTR) {
-				continue;
-		}
-		if (nfound == 0) {
+		if (nfound < 0 && errno == EINTR)
+			continue;
+		else if (nfound == 0) {
 			stabilize_wait = (int64_t)(srv.next_stabilize_us - wall_time());
 			if (stabilize_wait <= 0)
 				stabilize(&srv);
 			continue;
 		}
+
 		if (FD_ISSET(srv.in_sock, &readable))
 			handle_packet(srv.in_sock);
 		else if (FD_ISSET(parent_sock, &readable))
@@ -142,8 +143,7 @@ void initialize(Server *srv)
 	srv->out_sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (srv->out_sock < 0)
 		eprintf("socket failed:");
-
-	if (bind(srv->out_sock, (struct sockaddr *)&sout, sizeof(sout)) < 0)
+	else if (bind(srv->out_sock, (struct sockaddr *)&sout, sizeof(sout)) < 0)
 		eprintf("bind failed:");
 }
 
@@ -161,13 +161,13 @@ void handle_packet(int network)
 	packet_len = recvfrom(network, buf, sizeof(buf), 0,
 						  (struct sockaddr *)&from, &from_len);
 	if (packet_len < 0) {
-	   if (errno != EAGAIN) {
-		   weprintf("recvfrom failed:");  /* ignore errors for now */
-		   return;
-	   }
+		if (errno != EAGAIN) {
+			weprintf("recvfrom failed:"); /* ignore errors for now */
+			return;
+		}
 
-	   weprintf("handle_packet: EAGAIN");
-	   return;   /* pick up this packet later */
+		weprintf("handle_packet: EAGAIN");
+		return; /* pick up this packet later */
 	}
 
 	dispatch(&srv, packet_len, buf);
@@ -176,20 +176,18 @@ void handle_packet(int network)
 
 /**********************************************************************/
 
-int read_keys(char *file, Key *keyarray, int max_num_keys)
+int read_keys(char *file, chordID *keyarray, int max_num_keys)
 {
-  int   i;
-  FILE *fp;
-
-  fp = fopen(file, "r");
-  if (fp == NULL)
+	FILE *fp = fopen(file, "r");
+	if (fp == NULL)
 	return -1;
 
-  for (i = 0; i < max_num_keys; i++) {
+	int i;
+	for (i = 0; i < max_num_keys; i++) {
 	if (fscanf(fp, "%20c\n", &keyarray[i]) != 1)
-	  break;
-  }
-  return i;
+		break;
+	}
 
-  fclose(fp);
+	fclose(fp);
+	return i;
 }
