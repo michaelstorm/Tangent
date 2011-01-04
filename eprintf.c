@@ -49,9 +49,7 @@ void weprintf(char *fmt, ...)
 /* emalloc: malloc and report if error */
 void *emalloc(size_t n)
 {
-	void *p;
-
-	p = malloc(n);
+	void *p = malloc(n);
 	if (p == NULL)
 		eprintf("malloc of %u bytes failed:", n);
 	return p;
@@ -60,9 +58,7 @@ void *emalloc(size_t n)
 /* erealloc: realloc and report if error */
 void *erealloc(void *vp, size_t n)
 {
-	void *p;
-
-	p = realloc(vp, n);
+	void *p = realloc(vp, n);
 	if (p == NULL)
 		eprintf("realloc of %u bytes failed:", n);
 	return p;
@@ -71,20 +67,16 @@ void *erealloc(void *vp, size_t n)
 /* ecalloc: calloc and report if error */
 void *ecalloc(size_t n, size_t w)
 {
-        void *p;
-	
-	p = calloc(n, w);
+	void *p = calloc(n, w);
 	if (p == NULL)
-	        eprintf("calloc of %u x %u bytes failed:", n, w);
+		eprintf("calloc of %u x %u bytes failed:", n, w);
 	return p;
 }
 
 /* estrdup: duplicate a string, report if error */
 char *estrdup(char *s)
 {
-	char *t;
-
-	t = (char *) malloc(strlen(s)+1);
+	char *t = (char *) malloc(strlen(s)+1);
 	if (t == NULL)
 		eprintf("estrdup(\"%.20s\") failed:", s);
 	strcpy(t, s);
@@ -97,12 +89,12 @@ static const char *progname;
 /* setprogname: set name of program */
 void setprogname(const char *name)
 {
-    progname = name;
+	progname = name;
 }
 
 /* getprogname: return name of program */
 const char *getprogname(void)
 {
-    return progname;
+	return progname;
 }
 #endif

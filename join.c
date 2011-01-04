@@ -12,31 +12,30 @@
 /* join: Send join messages to hosts in file */
 void join(Server *srv, FILE *fp)
 {
-    char addr[100], *p;
-    struct hostent *hp;
+	char addr[100], *p;
+	struct hostent *hp;
 
-    printf("joining well-known nodes:\n");
-    while (nknown < MAX_WELLKNOWN && fscanf(fp, " %s\n", addr) == 1) {
-        p = strchr(addr, ':');
-        assert(p != NULL);
-	*(p++) = '\0';
-	printf("\taddr=%s:%d\n", addr, atoi(p));
+	printf("joining well-known nodes:\n");
+	while (nknown < MAX_WELLKNOWN && fscanf(fp, " %s\n", addr) == 1) {
+		p = strchr(addr, ':');
+		assert(p != NULL);
+		*(p++) = '\0';
+		printf("\taddr=%s:%d\n", addr, atoi(p));
 
-	/* resolve address */	
-	hp = gethostbyname(addr);
-	if (hp == NULL)
-	    eprintf("gethostbyname(%s) failed:", addr);
+		/* resolve address */
+		hp = gethostbyname(addr);
+		if (hp == NULL)
+			eprintf("gethostbyname(%s) failed:", addr);
 
-	well_known[nknown].addr = ntohl(*((in_addr_t *) hp->h_addr));
-	well_known[nknown].port = (in_port_t) atoi(p);
-	nknown++;
-    }
+		well_known[nknown].addr = ntohl(*((in_addr_t *) hp->h_addr));
+		well_known[nknown].port = (in_port_t) atoi(p);
+		nknown++;
+	}
 
-    if (nknown == 0)
-        printf("Didn't find any known hosts.");
-       // eprintf("Didn't find any known hosts."); xxxx
+	if (nknown == 0)
+		printf("Didn't find any known hosts.");
 
-    chord_update_range(&srv->node.id, &srv->node.id);
-    set_stabilize_timer();
-    stabilize(srv);
+	chord_update_range(&srv->node.id, &srv->node.id);
+	set_stabilize_timer();
+	stabilize(srv);
 }
