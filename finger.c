@@ -67,9 +67,9 @@ Node *closest_preceding_node(Server *srv, chordID *id, int fall)
 	Finger *f = closest_preceding_finger(srv, id, fall);
 
 	if (f == NULL)
-		return &(srv->node);
+		return &srv->node;
 	else
-		return &(f->node);
+		return &f->node;
 }
 
 /**********************************************************************/
@@ -198,6 +198,3 @@ void free_finger_list(Finger *flist)
 		free(f);
 	}
 }
-
-
-

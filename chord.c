@@ -19,12 +19,7 @@
 #include "gen_utils.h"
 
 /* globals */
-extern Server *srv_ref;	/* For use in stabilize() */
 Server srv;
-Node well_known[MAX_WELLKNOWN];
-int nknown;
-chordID KeyArray[MAX_KEY_NUM];
-int NumKeys;
 
 void initialize(Server *srv);
 void handle_packet(int network);
@@ -39,6 +34,8 @@ void chord_main(char *conf_file, int parent_sock)
 	FILE *fp;
 	int64_t stabilize_wait;
 	struct timeval timeout;
+
+	srv.nknown = 0;
 
 	setprogname("chord");
 	srandom(getpid() ^ time(0));
@@ -65,7 +62,6 @@ void chord_main(char *conf_file, int parent_sock)
 	fprintf(stderr, "port=%d\n", srv.node.port);
 
 	initialize(&srv);
-	srv_ref = &srv;
 	join(&srv, fp);
 	fclose(fp);
 
@@ -74,10 +70,10 @@ void chord_main(char *conf_file, int parent_sock)
 	FD_SET(parent_sock, &interesting);
 	nfds = MAX(srv.in_sock, parent_sock) + 1;
 
-	NumKeys = read_keys(ACCLIST_FILE, KeyArray, MAX_KEY_NUM);
-	if (NumKeys == -1)
+	srv.num_keys = read_keys(ACCLIST_FILE, srv.key_array, MAX_KEY_NUM);
+	if (srv.num_keys == -1)
 		printf("Error opening file: %s\n", ACCLIST_FILE);
-	if (NumKeys == 0)
+	if (srv.num_keys == 0)
 		printf("No key found in %s\n", ACCLIST_FILE);
 
 	/* Loop on input */
@@ -173,19 +169,18 @@ void handle_packet(int network)
 	dispatch(&srv, packet_len, buf);
 }
 
-
 /**********************************************************************/
 
-int read_keys(char *file, chordID *keyarray, int max_num_keys)
+int read_keys(char *file, chordID *key_array, int max_num_keys)
 {
 	FILE *fp = fopen(file, "r");
 	if (fp == NULL)
-	return -1;
+		return -1;
 
 	int i;
 	for (i = 0; i < max_num_keys; i++) {
-	if (fscanf(fp, "%20c\n", &keyarray[i]) != 1)
-		break;
+		if (fscanf(fp, "%20c\n", (char *)&key_array[i]) != 1)
+			break;
 	}
 
 	fclose(fp);

@@ -329,11 +329,11 @@ unsigned hash(chordID *id, unsigned n)
 	return h % n;
 }
 
-int match_key(chordID *key)
+int match_key(chordID *key_array, int num_keys, chordID *key)
 {
 	int i;
-	for (i = 0; i < NumKeys; i++) {
-		if (memcmp((char *)&key->x[0], (char *)&KeyArray[i].x[0], KEY_LEN) == 0)
+	for (i = 0; i < num_keys; i++) {
+		if (memcmp((char *)&key->x[0], (char *)&key_array[i].x[0], ID_LEN) == 0)
 			return 1;
 	}
 	return 0;

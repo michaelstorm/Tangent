@@ -16,7 +16,7 @@ void join(Server *srv, FILE *fp)
 	struct hostent *hp;
 
 	printf("joining well-known nodes:\n");
-	while (nknown < MAX_WELLKNOWN && fscanf(fp, " %s\n", addr) == 1) {
+	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, " %s\n", addr) == 1) {
 		p = strchr(addr, ':');
 		assert(p != NULL);
 		*(p++) = '\0';
@@ -27,15 +27,15 @@ void join(Server *srv, FILE *fp)
 		if (hp == NULL)
 			eprintf("gethostbyname(%s) failed:", addr);
 
-		well_known[nknown].addr = ntohl(*((in_addr_t *) hp->h_addr));
-		well_known[nknown].port = (in_port_t) atoi(p);
-		nknown++;
+		srv->well_known[srv->nknown].addr = ntohl(*((in_addr_t *)hp->h_addr));
+		srv->well_known[srv->nknown].port = (in_port_t)atoi(p);
+		srv->nknown++;
 	}
 
-	if (nknown == 0)
+	if (srv->nknown == 0)
 		printf("Didn't find any known hosts.");
 
 	chord_update_range(&srv->node.id, &srv->node.id);
-	set_stabilize_timer();
+	set_stabilize_timer(srv);
 	stabilize(srv);
 }

@@ -75,7 +75,7 @@ static uint32_t name_to_addr(const char *name)
 			uint32_t addr = *((uint32_t *) hptr->h_addr_list[i]);
 			if (inet_addr(TRIVIAL_LOCAL_ADDR) != addr)
 				return addr;
-			}
+		}
 	}
 	return 0;
 }

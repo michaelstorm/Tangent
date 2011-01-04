@@ -104,12 +104,14 @@ struct Finger
 /* Finger table contains NFINGERS fingers, then predecessor, then
    the successor list */
 
+#define MAX_KEY_NUM 20
+
 struct Server
 {
 	Node node;          /* addr and ID */
 	Finger *head_flist; /* head and tail of finger  */
-	Finger *tail_flist; /* table + pred + successors
-			 */
+	Finger *tail_flist; /* table + pred + successors */
+
 	int to_fix_finger;  /* next finger to be fixed */
 	int to_fix_backup;  /* next successor/predecessor to be fixed */
 	int to_ping;        /* next node in finger list to be refreshed */
@@ -117,16 +119,18 @@ struct Server
 
 	int in_sock;      /* incoming socket */
 	int out_sock;     /* outgoing socket */
+
+	Node well_known[MAX_WELLKNOWN];
+	int nknown;
+
+	chordID key_array[MAX_KEY_NUM];
+	int num_keys;
 };
 
 #define PRED(srv)  (srv->tail_flist)
 #define SUCC(srv)  (srv->head_flist)
 
-/* GLOBALS */
-extern Node well_known[MAX_WELLKNOWN];
-extern int nknown;
-#define MAX_KEY_NUM 20
-/* the keys in KeyArray are read from file acclist.txt,
+/* the keys in key_array are read from file acclist.txt,
  * and are used to authenticate users sending control
  * messages such as CHORD_FINGERS_GET.
  * This mechanism is intended to prevent trivial DDoS attacks.
@@ -135,8 +139,6 @@ extern int nknown;
  *  the security provided by this mechanism is quite weak)
  */
 #define ACCLIST_FILE "acclist.txt"
-extern chordID KeyArray[MAX_KEY_NUM];
-extern int NumKeys;
 
 /* chord.c */
 void chord_main(char *conf_file, int parent_sock);
@@ -152,7 +154,7 @@ Finger *closest_preceding_finger(Server *srv, chordID *id, int fall);
 Node *closest_preceding_node(Server *srv, chordID *id, int fall);
 void remove_finger(Server *srv, Finger *f);
 Finger *get_finger(Server *srv, chordID *id);
-Finger *insert_finger(Server *srv, chordID *id, in_aWddr_t addr, in_port_t port,
+Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 					  int *fnew);
 void free_finger_list(Finger *flist);
 
@@ -164,7 +166,6 @@ void join(Server *srv, FILE *fp);
 
 /* pack.c */
 int dispatch(Server *srv, int n, uchar *buf);
-
 int pack(uchar *buf, char *fmt, ...);
 int unpack(uchar *buf, char *fmt, ...);
 int sizeof_fmt(char *fmt);
@@ -257,7 +258,7 @@ void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 
 /* stabilize.c */
 void stabilize(Server *srv);
-void set_stabilize_timer();
+void set_stabilize_timer(Server *srv);
 
 /* api.c */
 int chord_init(char *conf_file);
@@ -309,7 +310,7 @@ void print_send(Server *srv, char *send_type, chordID *id, ulong addr,
 				ushort port);
 void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
-int match_key(chordID *key);
+int match_key(chordID *key_array, int num_keys, chordID *key);
 
 #include "eprintf.h"
 

@@ -196,7 +196,7 @@ int process_pong(Server *srv, chordID *id, ulong addr, ushort port, ulong time)
 int process_fingers_get(Server *srv, ulong addr, ushort port, chordID *key)
 {
 	CHORD_DEBUG(5, print_process(srv, "process_fingers_get", NULL, addr, port));
-	if (match_key(key) == 0)
+	if (match_key(srv->key_array, srv->num_keys, key) == 0)
 		print_server(srv, "[process_fingers_get: invalid key]", "");
 	else
 		send_fingers_repl(srv, addr, port);
