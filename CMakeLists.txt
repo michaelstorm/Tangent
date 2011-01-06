@@ -6,7 +6,12 @@ set(CMAKE_INCLUDE_CURRENT_DIR on)
 
 file(GLOB lib_sources "*.c")
 
+find_package(OpenSSL)
+include_directories(${OPENSSL_INCLUDE_DIR})
+set(CMAKE_C_FLAGS "-ggdb")
+
 add_library(chord SHARED ${lib_sources})
+target_link_libraries(chord ${OPENSSL_LIBRARIES} dl)
 
 file(GLOB test_sources "test/*.c")
 add_executable(test ${test_sources})

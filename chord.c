@@ -15,6 +15,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/time.h>
+#include <openssl/rand.h>
 #include "chord.h"
 #include "gen_utils.h"
 
@@ -141,6 +142,21 @@ void initialize(Server *srv)
 		eprintf("socket failed:");
 	else if (bind(srv->out_sock, (struct sockaddr *)&sout, sizeof(sout)) < 0)
 		eprintf("bind failed:");
+
+	OpenSSL_add_all_digests();
+
+	if (!RAND_load_file("/dev/urandom", 64)) {
+		fprintf(stderr, "Could not seed random number generator.\n");
+		exit(2);
+	}
+
+	uchar key_data[16];
+	if (!RAND_bytes(key_data, sizeof(key_data))) {
+		fprintf(stderr, "Could not generate challenge key.\n");
+		exit(2);
+	}
+
+	BF_set_key(&srv->challenge_key, sizeof(key_data), key_data);
 }
 
 /**********************************************************************/

@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <openssl/blowfish.h>
 #ifdef __APPLE__
 #include <inttypes.h>  // Need uint64_t
 #endif
@@ -125,6 +126,8 @@ struct Server
 
 	chordID key_array[MAX_KEY_NUM];
 	int num_keys;
+
+	BF_KEY challenge_key;
 };
 
 #define PRED(srv)  (srv->tail_flist)
@@ -189,7 +192,8 @@ struct unpack_args {
 int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 			  uchar *data);
 int unpack_data(Server *srv, int n, uchar *buf);
-int pack_fs(uchar *buf, byte ttl, chordID *id, ulong addr, ushort port);
+int pack_fs(BF_KEY *key, uchar *buf, byte ttl, chordID *id, ulong addr,
+			ushort port);
 int unpack_fs(Server *srv, int n, uchar *buf);
 int pack_fs_repl(uchar *buf, chordID *id, ulong addr, ushort port);
 int unpack_fs_repl(Server *srv, int n, uchar *buf);
@@ -311,6 +315,15 @@ void print_send(Server *srv, char *send_type, chordID *id, ulong addr,
 void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
+
+void gen_challenge(BF_KEY *key, byte type, ulong addr, ushort port,
+				   const uchar *data, int data_len, uchar *out);
+int encrypt(const unsigned char *clear, int len, unsigned char *encrypted,
+			unsigned char *key, unsigned char *iv);
+void decrypt_block(const unsigned char *clear, unsigned char *encrypted,
+				   unsigned char *key_data, int key_len);
+int decrypt(const unsigned char *encrypted, int len, unsigned char *clear,
+			unsigned char *key, unsigned char *iv);
 
 #include "eprintf.h"
 

@@ -13,6 +13,8 @@ int pack(uchar *buf, char *fmt, ...)
 	chordID *id;
 	ushort s;
 	ulong l;
+	uchar *q;
+	int zero_len;
 
 	bp = buf;
 	va_start(args, fmt);
@@ -38,6 +40,25 @@ int pack(uchar *buf, char *fmt, ...)
 			memmove(bp, id->x, ID_LEN);
 			bp += ID_LEN;
 			break;
+		case 'q':	 /* challenge */
+			q = va_arg(args, uchar *);
+			memmove(bp, q, 8);
+			bp += 8;
+			break;
+		case '0':    /* zero/skip */
+		case '*':
+			switch (*(++p)) {
+			case 'c': zero_len = 1; break;
+			case 's': zero_len = sizeof(ushort); break;
+			case 'l': zero_len = sizeof(ulong); break;
+			case 'x': zero_len = ID_LEN; break;
+			case 'q': zero_len = 8; break;
+			default: va_end(args); return -1;
+			}
+			if (*(p-1) == '0')
+				bzero(bp, zero_len);
+			bp += zero_len;
+			break;
 		default:	 /* illegal type character */
 			va_end(args);
 			return -1;
@@ -58,6 +79,7 @@ int unpack(uchar *buf, char *fmt, ...)
 	chordID *id;
 	ushort *ps;
 	ulong *pl;
+	int zero_len;
 
 	bp = buf;
 	va_start(args, fmt);
@@ -81,6 +103,23 @@ int unpack(uchar *buf, char *fmt, ...)
 			id = va_arg(args, chordID *);
 			memmove(id->x, bp, ID_LEN);
 			bp += ID_LEN;
+			break;
+		case 'q':	 /* challenge */
+			pc = va_arg(args, uchar *);
+			memmove(pc, bp, 8);
+			bp += 8;
+			break;
+		case '0':    /* skip */
+		case '*':
+			switch (*(++p)) {
+			case 'c': zero_len = 1; break;
+			case 's': zero_len = sizeof(ushort); break;
+			case 'l': zero_len = sizeof(ulong); break;
+			case 'x': zero_len = ID_LEN; break;
+			case 'q': zero_len = 8; break;
+			default: va_end(args); return -1;
+			}
+			bp += zero_len;
 			break;
 		default:	 /* illegal type character */
 			va_end(args);
@@ -112,6 +151,21 @@ int sizeof_fmt(char *fmt)
 		case 'x':	 /* id */
 			len += ID_LEN;
 			break;
+		case 'q':	 /* challenge */
+			len += ID_LEN;
+			break;
+		case '0':	 /* zero/skip */
+		case '*':
+			switch (fmt[i+1]) {
+			case 'c': len += 1; break;
+			case 's': len += sizeof(ushort); break;
+			case 'l': len += sizeof(ulong); break;
+			case 'x': len += ID_LEN; break;
+			case 'q': len += 8; break;
+			default:
+				eprintf("fmt_len: illegal type character.\n");
+				return -1;
+			}
 		default:	 /* illegal type character */
 			eprintf("fmt_len: illegal type character.\n");
 			return -1;
@@ -217,9 +271,12 @@ int unpack_data(Server *srv, int n, uchar *buf)
 /**********************************************************************/
 
 /* pack_fs: pack find_successor packet */
-int pack_fs(uchar *buf, byte ttl, chordID *id, ulong addr, ushort port)
+int pack_fs(BF_KEY *key, uchar *buf, byte ttl, chordID *id, ulong addr,
+			ushort port)
 {
-	return pack(buf, "ccxls", CHORD_FS, ttl, id, addr, port);
+	int n = pack(buf, "c*qcxls", CHORD_FS, ttl, id, addr, port);
+	gen_challenge(key, CHORD_FS, addr, port, buf+9, n, buf+1);
+	return n;
 }
 
 /**********************************************************************/
@@ -228,12 +285,13 @@ int pack_fs(uchar *buf, byte ttl, chordID *id, ulong addr, ushort port)
 int unpack_fs(Server *srv, int n, uchar *buf)
 {
 	uchar type;
+	uchar chal[8];
 	byte	ttl;
 	ulong addr;
 	ushort port;
 	chordID id;
 
-	if (unpack(buf, "ccxls", &type, &ttl, &id, &addr, &port) != n)
+	if (unpack(buf, "cqcxls", &type, chal, &ttl, &id, &addr, &port) != n)
 		return -1;
 	if (--ttl == 0) {
 		print_two_chordIDs("TTL expired: fix_finger packet ", &id,

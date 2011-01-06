@@ -19,7 +19,8 @@ void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port, chordID *id,
   byte buf[BUFSIZE];
 
   CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_fs(buf, ttl, id, addr, port), buf);
+  send_raw(srv, to_addr, to_port, pack_fs(&srv->challenge_key, buf, ttl, id,
+										  addr, port), buf);
 }
 
 /**********************************************************************/
