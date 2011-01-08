@@ -13,11 +13,11 @@ set(CMAKE_C_FLAGS "-ggdb -fdump-rtl-expand")
 add_library(chord SHARED ${lib_sources})
 target_link_libraries(chord ${OPENSSL_LIBRARIES} dl)
 
-file(GLOB test_sources "test/*.c")
-add_executable(test ${test_sources})
+file(GLOB client_sources "client/*.c")
+add_executable(client ${client_sources})
 
-file(GLOB fingers_sources "chord_getfingers/*.c")
-add_executable(fingers ${fingers_sources})
+file(GLOB fingers_sources "getfingers/*.c")
+add_executable(getfingers ${fingers_sources})
 
-target_link_libraries(test chord)
-target_link_libraries(fingers chord)
+target_link_libraries(client chord)
+target_link_libraries(getfingers chord)
