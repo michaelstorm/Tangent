@@ -26,13 +26,13 @@ int pack(uchar *buf, char *fmt, ...)
 		case 's':	 /* short */
 			s = va_arg(args, int);
 			s = htons(s);
-			memmove(bp, (char *)&s, sizeof(ushort));
+			memmove(bp, (char *)&s, sizeof(uint16_t));
 			bp += sizeof(ushort);
 			break;
 		case 'l':	 /* long */
 			l = va_arg(args, ulong);
 			l = htonl(l);
-			memmove(bp, (char *)&l, sizeof(ulong));
+			memmove(bp, (char *)&l, sizeof(uint32_t));
 			bp += sizeof(ulong);
 			break;
 		case 'x':	 /* id */
@@ -42,18 +42,18 @@ int pack(uchar *buf, char *fmt, ...)
 			break;
 		case 'q':	 /* challenge */
 			q = va_arg(args, uchar *);
-			memmove(bp, q, 8);
-			bp += 8;
+			memmove(bp, q, CHALLENGE_LEN);
+			bp += CHALLENGE_LEN;
 			break;
 		case '0':    /* zero/skip */
 		case '*':
 			switch (*(++p)) {
-			case 'c': zero_len = 1; break;
-			case 's': zero_len = sizeof(ushort); break;
-			case 'l': zero_len = sizeof(ulong); break;
+			case 'c': zero_len = sizeof(uint8_t); break;
+			case 's': zero_len = sizeof(uint16_t); break;
+			case 'l': zero_len = sizeof(uint32_t); break;
 			case 'x': zero_len = ID_LEN; break;
-			case 'q': zero_len = 8; break;
-			default: va_end(args); return -1;
+			case 'q': zero_len = CHALLENGE_LEN; break;
+			default: va_end(args); return CHORD_PACK_ERROR;
 			}
 			if (*(p-1) == '0')
 				bzero(bp, zero_len);
@@ -61,7 +61,7 @@ int pack(uchar *buf, char *fmt, ...)
 			break;
 		default:	 /* illegal type character */
 			va_end(args);
-			return -1;
+			return CHORD_PACK_ERROR;
 		}
 	}
 	va_end(args);
@@ -91,13 +91,13 @@ int unpack(uchar *buf, char *fmt, ...)
 			break;
 		case 's':	 /* short */
 			ps = va_arg(args, ushort*);
-			*ps = ntohs(*(ushort*)bp);
-			bp += sizeof(ushort);
+			*ps = ntohs(*(uint16_t*)bp);
+			bp += sizeof(uint16_t);
 			break;
 		case 'l':	 /* long */
 			pl = va_arg(args, ulong*);
-			*pl	= ntohl(*(ulong*)bp);
-			bp += sizeof(ulong);
+			*pl	= ntohl(*(uint32_t*)bp);
+			bp += sizeof(uint32_t);
 			break;
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
@@ -106,24 +106,24 @@ int unpack(uchar *buf, char *fmt, ...)
 			break;
 		case 'q':	 /* challenge */
 			pc = va_arg(args, uchar *);
-			memmove(pc, bp, 8);
-			bp += 8;
+			memmove(pc, bp, CHALLENGE_LEN);
+			bp += CHALLENGE_LEN;
 			break;
 		case '0':    /* skip */
 		case '*':
 			switch (*(++p)) {
-			case 'c': zero_len = 1; break;
-			case 's': zero_len = sizeof(ushort); break;
-			case 'l': zero_len = sizeof(ulong); break;
+			case 'c': zero_len = sizeof(uint8_t); break;
+			case 's': zero_len = sizeof(uint16_t); break;
+			case 'l': zero_len = sizeof(uint32_t); break;
 			case 'x': zero_len = ID_LEN; break;
-			case 'q': zero_len = 8; break;
-			default: va_end(args); return -1;
+			case 'q': zero_len = CHALLENGE_LEN; break;
+			default: va_end(args); return CHORD_PACK_ERROR;
 			}
 			bp += zero_len;
 			break;
 		default:	 /* illegal type character */
 			va_end(args);
-			return -1;
+			return CHORD_PACK_ERROR;
 		}
 	}
 	va_end(args);
@@ -157,18 +157,18 @@ int sizeof_fmt(char *fmt)
 		case '0':	 /* zero/skip */
 		case '*':
 			switch (fmt[i+1]) {
-			case 'c': len += 1; break;
-			case 's': len += sizeof(ushort); break;
-			case 'l': len += sizeof(ulong); break;
+			case 'c': len = sizeof(uint8_t); break;
+			case 's': len = sizeof(uint16_t); break;
+			case 'l': len = sizeof(uint32_t); break;
 			case 'x': len += ID_LEN; break;
-			case 'q': len += 8; break;
+			case 'q': len += CHALLENGE_LEN; break;
 			default:
 				eprintf("fmt_len: illegal type character.\n");
-				return -1;
+				return CHORD_PACK_ERROR;
 			}
 		default:	 /* illegal type character */
 			eprintf("fmt_len: illegal type character.\n");
-			return -1;
+			return CHORD_PACK_ERROR;
 		}
 	}
 	return len;
@@ -193,7 +193,7 @@ static char *unpack_names[] = {
 	"unpack_traceroute_repl",
 };
 
-static int (*unpackfn[])(Server *, int, uchar *) = {
+static int (*unpackfn[])(Server *, int, uchar *, host *) = {
 	unpack_data,
 	unpack_data,
 	unpack_fs,
@@ -211,21 +211,47 @@ static int (*unpackfn[])(Server *, int, uchar *) = {
 };
 
 /* dispatch: unpack and process packet */
-int dispatch(Server *srv, int n, uchar *buf)
+int dispatch(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	int res;
 
 	type = buf[0];
 
-	if (type >= NELEMS(unpackfn)) {
-		printf("bad packet type 0x%x\n", type);
-		return -1;
+	if (type < NELEMS(unpackfn))
+		res = (*unpackfn[type])(srv, n, buf, from);
+	else {
+		weprintf("bad packet type 0x%02x", type);
+		res = CHORD_PROTOCOL_ERROR;
 	}
 
-	res = (*unpackfn[type])(srv, n, buf);
-	if (res == -1)
-			printf("protocol error, type %x length %d\n", type, n);
+	if (res < 0) {
+		char *err_str;
+		switch (res) {
+		case CHORD_PROTOCOL_ERROR:
+			err_str = "protocol error";
+			break;
+		case CHORD_TTL_EXPIRED:
+			err_str = "time-to-live expired";
+			break;
+		case CHORD_CHALLENGE_FAILED:
+			err_str = "challenge failed";
+			break;
+		case CHORD_PACK_ERROR:
+			err_str = "internal packing error";
+			break;
+		default:
+			err_str = "unknown error";
+			break;
+		}
+
+		char addr_str[INET_ADDRSTRLEN];
+		ulong n_addr = htonl(from->addr);
+		inet_ntop(AF_INET, &n_addr, addr_str, INET_ADDRSTRLEN);
+		weprintf("dropping packet type 0x%02x size %db from %s:%hu (%s)", type,
+				 n, addr_str, from->port, err_str);
+	}
+
 	return res;
 }
 
@@ -248,7 +274,7 @@ int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 /**********************************************************************/
 
 /* unpack_data: unpack and process data packet */
-int unpack_data(Server *srv, int n, uchar *buf)
+int unpack_data(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	byte	ttl;
@@ -258,11 +284,11 @@ int unpack_data(Server *srv, int n, uchar *buf)
 
 	len = unpack(buf, "ccxs", &type, &ttl, id.x, &pkt_len);
 	if (len < 0 || len + pkt_len != n)
-		return -1;
+		return CHORD_PROTOCOL_ERROR;
 	if (--ttl == 0) {
 		print_two_chordIDs("TTL expired: data packet ", &id,
 						   " dropped at node ", &srv->node.id, "\n");
-		return -2;
+		return CHORD_TTL_EXPIRED;
 	}
 	assert(type == CHORD_ROUTE || type == CHORD_ROUTE_LAST);
 	return process_data(srv, type, ttl, &id, pkt_len, buf + len);
@@ -275,55 +301,63 @@ int pack_fs(BF_KEY *key, uchar *buf, byte ttl, chordID *id, ulong addr,
 			ushort port)
 {
 	int n = pack(buf, "c*qcxls", CHORD_FS, ttl, id, addr, port);
-	gen_challenge(key, CHORD_FS, addr, port, buf+9, n, buf+1);
+	pack_challenge(key, buf+1, "c", CHORD_FS);
 	return n;
+}
+
+int pack_fs_forward(uchar *buf, uchar *challenge, byte ttl, chordID *id,
+					ulong addr, ushort port)
+{
+	return pack(buf, "cqcxls", CHORD_FS, challenge, ttl, id, addr, port);
 }
 
 /**********************************************************************/
 
 /* unpack_fs: unpack and process find_successor packet */
-int unpack_fs(Server *srv, int n, uchar *buf)
+int unpack_fs(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
-	uchar chal[8];
+	uchar challenge[CHALLENGE_LEN];
 	byte	ttl;
 	ulong addr;
 	ushort port;
 	chordID id;
 
-	if (unpack(buf, "cqcxls", &type, chal, &ttl, &id, &addr, &port) != n)
-		return -1;
+	if (unpack(buf, "cqcxls", &type, challenge, &ttl, &id, &addr, &port) != n)
+		return CHORD_PROTOCOL_ERROR;
 	if (--ttl == 0) {
 		print_two_chordIDs("TTL expired: fix_finger packet ", &id,
 						   " dropped at node ", &srv->node.id, "\n");
-		return -2;
+		return CHORD_TTL_EXPIRED;
 	}
 	assert(type == CHORD_FS);
-	return process_fs(srv, ttl, &id, addr, port);
+	return process_fs(srv, challenge, ttl, &id, addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_fs_repl: pack find_successor reply packet */
-int pack_fs_repl(uchar *buf, chordID *id, ulong addr, ushort port)
+int pack_fs_repl(uchar *buf, uchar *challenge, chordID *id, ulong addr,
+				 ushort port)
 {
-	return pack(buf, "cxls", CHORD_FS_REPL, id, addr, port);
+	return pack(buf, "cqxls", CHORD_FS_REPL, challenge, id, addr, port);
 }
 
 /**********************************************************************/
 
 /* unpack_fs_repl: unpack and process find_successor reply packet */
-int unpack_fs_repl(Server *srv, int n, uchar *buf)
+int unpack_fs_repl(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	ulong addr;
 	ushort port;
 	chordID id;
+	uchar challenge[CHALLENGE_LEN];
 
-	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
-		return -1;
+	if (unpack(buf, "cqxls", &type, challenge, &id, &addr, &port) != n)
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FS_REPL);
-	return process_fs_repl(srv, &id, addr, port);
+	return process_fs_repl(srv, challenge, &id, addr, port);
 }
 
 /**********************************************************************/
@@ -337,7 +371,7 @@ int pack_stab(uchar *buf, chordID *id, ulong addr, ushort port)
 /**********************************************************************/
 
 /* unpack_stab: unpack and process stabilize packet */
-int unpack_stab(Server *srv, int n, uchar *buf)
+int unpack_stab(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	ulong addr;
@@ -345,7 +379,7 @@ int unpack_stab(Server *srv, int n, uchar *buf)
 	chordID id;
 
 	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
-		return -1;
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_STAB);
 	return process_stab(srv, &id, addr, port);
 }
@@ -361,7 +395,7 @@ int pack_stab_repl(uchar *buf, chordID *id, ulong addr, ushort port)
 /**********************************************************************/
 
 /* unpack_stab_repl: unpack and process stabilize reply packet */
-int unpack_stab_repl(Server *srv, int n, uchar *buf)
+int unpack_stab_repl(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	ulong addr;
@@ -369,7 +403,7 @@ int unpack_stab_repl(Server *srv, int n, uchar *buf)
 	chordID id;
 
 	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
-		return -1;
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_STAB_REPL);
 	return process_stab_repl(srv, &id, addr, port);
 }
@@ -385,7 +419,7 @@ int pack_notify(uchar *buf, chordID *id, ulong addr, ushort port)
 /**********************************************************************/
 
 /* unpack_notify: unpack notify packet */
-int unpack_notify(Server *srv, int n, uchar *buf)
+int unpack_notify(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	ulong addr;
@@ -393,7 +427,7 @@ int unpack_notify(Server *srv, int n, uchar *buf)
 	chordID id;
 
 	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
-		return -1;
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_NOTIFY);
 	return process_notify(srv, &id, addr, port);
 }
@@ -401,89 +435,96 @@ int unpack_notify(Server *srv, int n, uchar *buf)
 /**********************************************************************/
 
 /* pack_ping: pack ping packet */
-int pack_ping(uchar *buf, chordID *id, ulong addr, ushort port, ulong time)
+int pack_ping(uchar *buf, uchar *challenge, chordID *id, ulong addr,
+			  ushort port, ulong time)
 {
-	return pack(buf, "cxlsl", CHORD_PING, id, addr, port, time);
+	return pack(buf, "cqxlsl", CHORD_PING, challenge, id, addr, port, time);
 }
 
 /**********************************************************************/
 
 /* unpack_ping: unpack and process ping packet */
-int unpack_ping(Server *srv, int n, uchar *buf)
+int unpack_ping(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
+	uchar challenge[CHALLENGE_LEN];
 	chordID id;
 	ulong addr;
 	ushort port;
 	ulong time;
 
-	if (unpack(buf, "cxlsl", &type, &id, &addr, &port, &time) != n)
-		return -1;
+	if (unpack(buf, "cqxlsl", &type, challenge, &id, &addr, &port, &time) != n)
+		return CHORD_PROTOCOL_ERROR;
+
 	assert(type == CHORD_PING);
-	return process_ping(srv, &id, addr, port, time);
+	return process_ping(srv, challenge, &id, addr, port, time);
 }
 
 /**********************************************************************/
 
 /* pack_pong: pack pong packet */
-int pack_pong(uchar *buf, chordID *id, ulong addr, ushort port, ulong time)
+int pack_pong(uchar *buf, uchar *challenge, chordID *id, ulong addr,
+			  ushort port, ulong time)
 {
-	return pack(buf, "cxlsl", CHORD_PONG, id, addr, port, time);
+	return pack(buf, "cqxlsl", CHORD_PONG, challenge, id, addr, port, time);
 }
 
 /**********************************************************************/
 
 /* unpack_pong: unpack pong packet */
-int unpack_pong(Server *srv, int n, uchar *buf)
+int unpack_pong(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
+	uchar challenge[CHALLENGE_LEN];
 	ulong addr;
 	ushort port;
 	chordID id;
-	ulong	 time;
+	ulong time;
 
-	if (unpack(buf, "cxlsl", &type, &id, &addr, &port, &time) != n)
-		return -1;
+	if (unpack(buf, "cqxlsl", &type, challenge, &id, &addr, &port, &time) != n)
+		return CHORD_PROTOCOL_ERROR;
+
 	assert(type == CHORD_PONG);
-	return process_pong(srv, &id, addr, port, time);
+	return process_pong(srv, challenge, &id, addr, port, time, from);
 }
 
 /**********************************************************************/
-/**********************************************************************/
 
 /* pack_fingers_get: pack get fingers packet */
-int pack_fingers_get(uchar *buf, ulong addr, ushort port, chordID *key)
+int pack_fingers_get(uchar *buf, uchar *challenge, ulong addr, ushort port,
+					 chordID *key)
 {
-	return pack(buf, "cxls", CHORD_FINGERS_GET, key, addr, port);
+	return pack(buf, "cqxls", CHORD_FINGERS_GET, challenge, key, addr, port);
 }
 
 /**********************************************************************/
 
 /* unpack_fingers_get: unpack and process fingers_get packet */
-int unpack_fingers_get(Server *srv, int n, uchar *buf)
+int unpack_fingers_get(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
+	uchar challenge[CHALLENGE_LEN];
 	chordID	 key;
 	ulong addr;
 	ushort port;
 
-	if (unpack(buf, "cxls", &type, &key, &addr, &port) != n)
-		return -1;
+	if (unpack(buf, "cqxls", &type, challenge, &key, &addr, &port) != n)
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FINGERS_GET);
-	return process_fingers_get(srv, addr, port, &key);
+	return process_fingers_get(srv, challenge, addr, port, &key);
 }
 
 #define INCOMPLETE_FINGER_LIST -1
 #define END_FINGER_LIST 0
 
 /* pack_fingers_repl: pack repl fingers packet */
-int pack_fingers_repl(uchar *buf, Server *srv)
+int pack_fingers_repl(uchar *buf, Server *srv, uchar *challenge)
 {
 	Finger *f;
 	int len, l;
 
 	assert(srv);
-	len = pack(buf, "cxls", CHORD_FINGERS_REPL, &srv->node.id,
+	len = pack(buf, "cqxls", CHORD_FINGERS_REPL, challenge, &srv->node.id,
 			 srv->node.addr, srv->node.port);
 
 	/* pack fingers */
@@ -502,7 +543,7 @@ int pack_fingers_repl(uchar *buf, Server *srv)
 
 
 /* unpack_fingers_repl: unpack and process fingers_repl packet */
-int unpack_fingers_repl(Server *srv, int n, uchar *buf)
+int unpack_fingers_repl(Server *srv, int n, uchar *buf, host *from)
 {
 	/* this message is received by a client;
 	 * it shouldn't be received by an i3 server
@@ -565,7 +606,7 @@ int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
 /* unpack_traceroute: unpack and process trace_route packet
  * (see pack_traceroute for packet format)
  */
-int unpack_traceroute(Server *srv, int n, uchar *buf)
+int unpack_traceroute(Server *srv, int n, uchar *buf, host *from)
 {
 	chordID id;
 	byte		type;
@@ -574,7 +615,7 @@ int unpack_traceroute(Server *srv, int n, uchar *buf)
 
 	/* unpack following fields: type, ttl, hops, and target id */
 	if (unpack(buf, "cccx", &type, &ttl, &hops, &id) >= n)
-		return -1;
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_TRACEROUTE || type == CHORD_TRACEROUTE_LAST);
 	return process_traceroute(srv, &id, buf, type, ttl, hops);
 }
@@ -643,7 +684,7 @@ int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
 /*	unpack_traceroute: unpack and process trace_route packet
  * (see pack_traceroute for packet format)
  */
-int unpack_traceroute_repl(Server *srv, int n, uchar *buf)
+int unpack_traceroute_repl(Server *srv, int n, uchar *buf, host *from)
 {
 	byte type;
 	byte ttl;
@@ -651,9 +692,8 @@ int unpack_traceroute_repl(Server *srv, int n, uchar *buf)
 
 	/* unpack following fields: type, ttl, and hops */
 	if (unpack(buf, "ccc", &type, &ttl, &hops) >= n)
-		return -1;
+		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_TRACEROUTE_REPL);
 
 	return process_traceroute_repl(srv, buf, ttl, hops);
 }
-

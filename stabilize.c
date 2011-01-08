@@ -51,13 +51,13 @@ void stabilize(Server *srv)
 
 	/* ping one node in the finger list; these nodes are
 	 * pinged in a round robin fashion.
-	 * In ddition, ping all nodes which have not replyed to previous pings
+	 * In addition, ping all nodes which have not replied to previous pings
 	 */
 	ping(srv);
 
 	/* stabilize successor */
 	if ((succ = succ_finger(srv)) == NULL)
-	return;
+		return;
 	send_stab(srv, succ->node.addr, succ->node.port, &srv->node.id,
 			  srv->node.addr, srv->node.port);
 
@@ -161,7 +161,7 @@ void fix_succs_preds(Server *srv)
 	Finger *f, *succ, *pred;
 	chordID id;
 
-	CHORD_DEBUG(5, print_fun(srv, "fix_successors", &f->node.id));
+	CHORD_DEBUG(5, print_fun(srv, "fix_successors", 0));
 
 	if (succ_finger(srv) == NULL)
 		return;
@@ -345,4 +345,3 @@ void set_stabilize_timer(Server *srv)
 	 */
 	srv->next_stabilize_us = wall_time();
 }
-

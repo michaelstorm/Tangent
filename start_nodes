@@ -4,7 +4,7 @@ do
 	if [ "${node}" != "$1/0" ]
 	then
 		cd "${node}"
-		../../test conf > /dev/null 2>&1 &
+		../../build/test conf > /dev/null 2>&1 &
 		cd ../..
 	fi
 done

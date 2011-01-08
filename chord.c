@@ -166,12 +166,12 @@ void handle_packet(int network)
 {
 	ssize_t packet_len;
 	socklen_t from_len;
-	struct sockaddr_in from;
+	struct sockaddr_in from_sa;
 	byte buf[BUFSIZE];
 
-	from_len = sizeof(from);
+	from_len = sizeof(from_sa);
 	packet_len = recvfrom(network, buf, sizeof(buf), 0,
-						  (struct sockaddr *)&from, &from_len);
+						  (struct sockaddr *)&from_sa, &from_len);
 	if (packet_len < 0) {
 		if (errno != EAGAIN) {
 			weprintf("recvfrom failed:"); /* ignore errors for now */
@@ -182,7 +182,10 @@ void handle_packet(int network)
 		return; /* pick up this packet later */
 	}
 
-	dispatch(&srv, packet_len, buf);
+	host from;
+	from.addr = ntohl(from_sa.sin_addr.s_addr);
+	from.port = ntohs(from_sa.sin_port);
+	dispatch(&srv, packet_len, buf, &from);
 }
 
 /**********************************************************************/

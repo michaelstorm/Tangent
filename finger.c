@@ -148,7 +148,6 @@ Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 	return new_f;
 }
 
-
 /**********************************************************************/
 
 void remove_finger(Server *srv, Finger *f)
