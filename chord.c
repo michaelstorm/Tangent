@@ -152,11 +152,11 @@ void initialize(Server *srv)
 
 	uchar key_data[16];
 	if (!RAND_bytes(key_data, sizeof(key_data))) {
-		fprintf(stderr, "Could not generate challenge key.\n");
+		fprintf(stderr, "Could not generate ticket key.\n");
 		exit(2);
 	}
 
-	BF_set_key(&srv->challenge_key, sizeof(key_data), key_data);
+	BF_set_key(&srv->ticket_key, sizeof(key_data), key_data);
 }
 
 /**********************************************************************/

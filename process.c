@@ -3,8 +3,8 @@
 #include <assert.h>
 #include "chord.h"
 
-int process_data(Server *srv, uchar type,
-		 byte ttl, chordID *id, ushort len, uchar *data)
+int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
+				 uchar *data)
 {
 	Node *np;
 	Finger *pf, *sf;
@@ -46,7 +46,7 @@ int process_data(Server *srv, uchar type,
 
 /**********************************************************************/
 
-int process_fs(Server *srv, uchar *challenge, byte ttl, chordID *id, ulong addr,
+int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, ulong addr,
 			   ushort port)
 {
 	Node *succ, *np;
@@ -57,34 +57,31 @@ int process_fs(Server *srv, uchar *challenge, byte ttl, chordID *id, ulong addr,
 	CHORD_DEBUG(5, print_process(srv, "process_fs", id, addr, port));
 
 	if (succ_finger(srv) == NULL) {
-		send_fs_repl(srv, challenge, addr, port, &srv->node.id, srv->node.addr,
+		send_fs_repl(srv, ticket, addr, port, &srv->node.id, srv->node.addr,
 					 srv->node.port);
 		return 1;
 	}
 	succ = &(succ_finger(srv)->node);
 
 	if (is_between(id, &srv->node.id, &succ->id) || equals(id, &succ->id))
-		send_fs_repl(srv, challenge, addr, port, &succ->id, succ->addr,
+		send_fs_repl(srv, ticket, addr, port, &succ->id, succ->addr,
 					 succ->port);
 	else {
 		np = closest_preceding_node(srv, id, FALSE);
-		send_fs_forward(srv, challenge, ttl, np->addr, np->port, id, addr,
-						port);
+		send_fs_forward(srv, ticket, ttl, np->addr, np->port, id, addr, port);
 	}
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_fs_repl(Server *srv, uchar *challenge, chordID *id, ulong addr,
+int process_fs_repl(Server *srv, uchar *ticket, chordID *id, ulong addr,
 					ushort port)
 {
 	int fnew;
 
-	if (!verify_challenge(&srv->challenge_key, challenge, "c", CHORD_FS)) {
-		fprintf(stderr, "warning: fs_repl challenge failed\n");
-		return CHORD_CHALLENGE_FAILED;
-	}
+	if (!verify_ticket(&srv->ticket_key, ticket, "c", CHORD_FS))
+		return CHORD_INVALID_TICKET;
 
 	if (srv->node.addr == addr && srv->node.port == port)
 		return 1;
@@ -152,7 +149,7 @@ int process_notify(Server *srv, chordID *id, ulong addr, ushort port)
 
 /**********************************************************************/
 
-int process_ping(Server *srv, uchar *challenge, chordID *id, ulong addr,
+int process_ping(Server *srv, uchar *ticket, chordID *id, ulong addr,
 				 ushort port, ulong time)
 {
 	int fnew;
@@ -169,25 +166,23 @@ int process_ping(Server *srv, uchar *challenge, chordID *id, ulong addr,
 				  get_current_time());
 	}
 
-	send_pong(srv, challenge, addr, port, time);
+	send_pong(srv, ticket, addr, port, time);
 
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_pong(Server *srv, uchar *challenge, chordID *id, ulong addr,
+int process_pong(Server *srv, uchar *ticket, chordID *id, ulong addr,
 				 ushort port, ulong time, host *from)
 {
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;
 	int		 fnew;
 
-	if (!verify_challenge(&srv->challenge_key, challenge, "clsl", CHORD_PING,
-						  from->addr, from->port, time)) {
-		fprintf(stderr, "warning: pong challenge failed\n");
-		return CHORD_CHALLENGE_FAILED;
-	}
+	if (!verify_ticket(&srv->ticket_key, ticket, "clsl", CHORD_PING,
+						  from->addr, from->port, time))
+		return CHORD_INVALID_TICKET;
 
 	CHORD_DEBUG(5, print_process(srv, "process_pong", id, addr, port));
 	f = insert_finger(srv, id, addr, port, &fnew);
@@ -210,11 +205,11 @@ int process_pong(Server *srv, uchar *challenge, chordID *id, ulong addr,
 
 /**********************************************************************/
 
-int process_fingers_get(Server *srv, uchar *challenge, ulong addr, ushort port,
+int process_fingers_get(Server *srv, uchar *ticket, ulong addr, ushort port,
 						chordID *key)
 {
 	CHORD_DEBUG(5, print_process(srv, "process_fingers_get", NULL, addr, port));
-	send_fingers_repl(srv, challenge, addr, port);
+	send_fingers_repl(srv, ticket, addr, port);
 
 	return 1;
 }

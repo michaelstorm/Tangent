@@ -1,2 +1,2 @@
 #!/bin/sh
-egypt --omit send_raw,succ_finger,pred_finger,closest_preceding_node,closest_preceding_finger,get_finger,set_stabilize_timer build/process.c.128r.expand build/sendpkt.c.128r.expand build/finger.c.128r.expand build/stabilize.c.128r.expand build/join.c.128r.expand | fdp -Tps -o callgraph.ps
+egypt --omit send_raw,new_finger,succ_finger,pred_finger,closest_preceding_node,closest_preceding_finger,get_finger,set_stabilize_timer build/process.c.128r.expand build/sendpkt.c.128r.expand build/finger.c.128r.expand build/stabilize.c.128r.expand build/join.c.128r.expand | ./add_packet_arrows.pl | fdp -Tps -o callgraph.ps

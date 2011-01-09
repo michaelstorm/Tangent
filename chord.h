@@ -27,7 +27,8 @@ typedef struct Server Server;
 enum {
 	NBITS        = 160,            /* # bits per ID, same as SHA-1 output */
 	ID_LEN       = NBITS/8,        /* bytes per ID */
-	CHALLENGE_LEN = 8,			   /* bytes per connection challenge */
+	TICKET_LEN = 8,			   /* bytes per connection ticket */
+	TICKET_TIMEOUT = 32,		   /* seconds for which a ticket is valid */
 	NFINGERS     = NBITS,          /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
@@ -64,7 +65,7 @@ enum {
 enum {
 	CHORD_PROTOCOL_ERROR = -1,
 	CHORD_TTL_EXPIRED = -2,
-	CHORD_CHALLENGE_FAILED = -3,
+	CHORD_INVALID_TICKET = -3,
 	CHORD_PACK_ERROR = -4,
 };
 
@@ -135,7 +136,7 @@ struct Server
 	chordID key_array[MAX_KEY_NUM];
 	int num_keys;
 
-	BF_KEY challenge_key;
+	BF_KEY ticket_key;
 };
 
 typedef struct
@@ -208,10 +209,10 @@ int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 int unpack_data(Server *srv, int n, uchar *buf, host *from);
 int pack_fs(BF_KEY *key, uchar *buf, byte ttl, chordID *id, ulong addr,
 			ushort port);
-int pack_fs_forward(uchar *buf, uchar *challenge, byte ttl, chordID *id,
+int pack_fs_forward(uchar *buf, uchar *ticket, byte ttl, chordID *id,
 					ulong addr, ushort port);
 int unpack_fs(Server *srv, int n, uchar *buf, host *from);
-int pack_fs_repl(uchar *buf, uchar *challenge, chordID *id, ulong addr,
+int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, ulong addr,
 				 ushort port);
 int unpack_fs_repl(Server *srv, int n, uchar *buf, host *from);
 int pack_stab(uchar *buf, chordID *id, ulong addr, ushort port);
@@ -220,18 +221,17 @@ int pack_stab_repl(uchar *buf, chordID *id, ulong addr, ushort port);
 int unpack_stab_repl(Server *srv, int n, uchar *buf, host *from);
 int pack_notify(uchar *buf, chordID *id, ulong addr, ushort port);
 int unpack_notify(Server *srv, int n, uchar *buf, host *from);
-int pack_ping(uchar *buf, uchar *challenge, chordID *id, ulong addr,
-			  ushort port, ulong time);
+int pack_ping(uchar *buf, uchar *ticket, chordID *id, ulong addr, ushort port,
+			  ulong time);
 int unpack_ping(Server *srv, int n, uchar *buf, host *from);
-int pack_pong(uchar *buf, uchar *challenge, chordID *id, ulong addr,
-			  ushort port, ulong time);
+int pack_pong(uchar *buf, uchar *ticket, chordID *id, ulong addr, ushort port,
+			  ulong time);
 int unpack_pong(Server *srv, int n, uchar *buf, host *from);
-int pack_fingers_get(uchar *buf, uchar *challenge, ulong addr, ushort port,
+int pack_fingers_get(uchar *buf, uchar *ticket, ulong addr, ushort port,
 					 chordID *key);
 int unpack_fingers_get(Server *srv, int n, uchar *buf, host *from);
-int pack_fingers_repl(uchar *buf, Server *srv, uchar *challenge);
+int pack_fingers_repl(uchar *buf, Server *srv, uchar *ticket);
 int unpack_fingers_repl(Server *null, int n, uchar *buf, host *from);
-
 int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
 					byte hops);
 int unpack_traceroute(Server *srv, int n, uchar *buf, host *from);
@@ -242,18 +242,18 @@ int unpack_traceroute_repl(Server *srv, int n, uchar *buf, host *from);
 /* process.c */
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 				 uchar *data);
-int process_fs(Server *srv, uchar *challenge, byte ttl, chordID *id, ulong addr,
+int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, ulong addr,
 			   ushort port);
-int process_fs_repl(Server *srv, uchar *challenge, chordID *id, ulong addr,
+int process_fs_repl(Server *srv, uchar *ticket, chordID *id, ulong addr,
 					ushort port);
 int process_stab(Server *srv, chordID *id, ulong addr, ushort port);
 int process_stab_repl(Server *srv, chordID *id, ulong addr, ushort port);
 int process_notify(Server *srv, chordID *id, ulong addr, ushort port);
-int process_ping(Server *srv, uchar *challenge, chordID *id, ulong addr,
+int process_ping(Server *srv, uchar *ticket, chordID *id, ulong addr,
 				 ushort port, ulong time);
-int process_pong(Server *srv, uchar *challenge, chordID *id, ulong addr,
+int process_pong(Server *srv, uchar *ticket, chordID *id, ulong addr,
 				 ushort port, ulong time, host *from);
-int process_fingers_get(Server *srv, uchar *challenge, ulong addr, ushort port,
+int process_fingers_get(Server *srv, uchar *ticket, ulong addr, ushort port,
 						chordID *key);
 int process_fingers_repl(Server *srv, uchar ret_code);
 int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
@@ -266,9 +266,9 @@ void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
 			   ushort n, uchar *data);
 void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port, chordID *id,
 			 ulong addr, ushort port);
-void send_fs_forward(Server *srv, uchar *challenge, byte ttl, ulong to_addr,
+void send_fs_forward(Server *srv, uchar *ticket, byte ttl, ulong to_addr,
 			 ushort to_port, chordID *id, ulong addr, ushort port);
-void send_fs_repl(Server *srv, uchar *challenge, ulong to_addr, ushort to_port,
+void send_fs_repl(Server *srv, uchar *ticket, ulong to_addr, ushort to_port,
 				  chordID *id, ulong addr, ushort port);
 void send_stab(Server *srv, ulong to_addr, ushort to_port, chordID *id,
 			   ulong addr, ushort port);
@@ -278,11 +278,11 @@ void send_notify(Server *srv, ulong to_addr, ushort to_port, chordID *id,
 				 ulong addr, ushort port);
 void send_ping(Server *srv, ulong to_addr, ushort to_port, ulong addr,
 			   ushort port, ulong time);
-void send_pong(Server *srv, uchar *challenge, ulong to_addr, ushort to_port,
+void send_pong(Server *srv, uchar *ticket, ulong to_addr, ushort to_port,
 			   ulong time);
 void send_fingers_get(Server *srv, ulong to_addr, ushort to_port, ulong addr,
 					  ushort port, chordID *key);
-void send_fingers_repl(Server *srv, uchar *challenge, ulong to_addr,
+void send_fingers_repl(Server *srv, uchar *ticket, ulong to_addr,
 					   ushort to_port);
 void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, byte ttl,
 					 byte hops);
@@ -345,8 +345,8 @@ void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
 
-int pack_challenge(BF_KEY *key, uchar *out, char *fmt, ...);
-int verify_challenge(BF_KEY *key, uchar *challenge_enc, char *fmt, ...);
+int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...);
+int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...);
 
 int encrypt(const uchar *clear, int len, uchar *encrypted, uchar *key,
 			uchar *iv);

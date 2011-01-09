@@ -63,7 +63,7 @@ int pack_hash(uchar *out, uchar *buf, int buf_len, char *fmt, va_list args)
 			C_DEBUG(printf("\n"));
 			break;
 		default:	 /* illegal type character */
-			fprintf(stderr, "bad challenge type %c", *fmt);
+			fprintf(stderr, "bad ticket type %c", *fmt);
 			return 0;
 		}
 	}
@@ -72,7 +72,7 @@ int pack_hash(uchar *out, uchar *buf, int buf_len, char *fmt, va_list args)
 	EVP_MD_CTX_cleanup(&ctx);
 }
 
-int pack_challenge(BF_KEY *key, uchar *out, char *fmt, ...)
+int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
 {
 	va_list args;
 	uchar md_value[16];
@@ -88,31 +88,33 @@ int pack_challenge(BF_KEY *key, uchar *out, char *fmt, ...)
 	printf(" %u\n", epoch_time);
 #endif
 
+	// hash the unix epoch time together with the caller's arguments
 	va_start(args, fmt);
 	pack_hash(md_value, (uchar *)&epoch_time, sizeof(epoch_time), fmt, args);
 	va_end(args);
 
-	uchar challenge_value[CHALLENGE_LEN];
-	if (pack(challenge_value, "lcccc", epoch_time, md_value[0], md_value[1],
+	// pack the 32-bit epoch time and 32-bit hash into a buffer
+	uchar ticket_value[TICKET_LEN];
+	if (pack(ticket_value, "lcccc", epoch_time, md_value[0], md_value[1],
 			 md_value[2], md_value[3]) < 0) {
-		fprintf(stderr, "error packing challenge packet\n");
+		fprintf(stderr, "error packing ticket packet\n");
 		return 0;
 	}
 
-	/*
-	 * The EVP_CIPHER_CTX* functions still generate padding, even if we turn it
-	 * off, so we'll do our single-block encryption manually.
-	 */
-	BF_ecb_encrypt(challenge_value, out, key, BF_ENCRYPT);
+	// and encrypt it using our secret function, which happens to be a single-
+	// block blowfish cipher (note that the EVP_CIPHER_CTX* functions still
+	// generate extraneous padding, even if we turn it off, so we'll call the
+	// blowfish encryption function manually)
+	BF_ecb_encrypt(ticket_value, out, key, BF_ENCRYPT);
 
 #ifdef C_DEBUG_ON
-	printf("challenge: ");
-	for (i = 0; i < CHALLENGE_LEN; i++)
-		printf("%02x", challenge_value[i]);
+	printf("ticket: ");
+	for (i = 0; i < TICKET_LEN; i++)
+		printf("%02x", ticket_value[i]);
 	printf("\n");
 
-	printf("encrypted challenge: ");
-	for (i = 0; i < CHALLENGE_LEN; i++)
+	printf("encrypted ticket: ");
+	for (i = 0; i < TICKET_LEN; i++)
 		printf("%02x", out[i]);
 	printf("\n");
 #endif
@@ -120,60 +122,63 @@ int pack_challenge(BF_KEY *key, uchar *out, char *fmt, ...)
 	return 1;
 }
 
-int verify_challenge(BF_KEY *key, uchar *challenge_enc, char *fmt, ...)
+int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 {
 	va_list args;
-	uchar challenge[CHALLENGE_LEN];
+	uchar ticket[TICKET_LEN];
 	uchar md_value[16];
-	uchar challenge_md[4];
-	uint32_t challenge_time;
+	uchar ticket_md[4];
+	uint32_t ticket_time;
 
-	BF_ecb_encrypt(challenge_enc, challenge, key, BF_DECRYPT);
+	// decrypt the ticket
+	BF_ecb_encrypt(ticket_enc, ticket, key, BF_DECRYPT);
 
 #ifdef C_DEBUG_ON
 	printf("\nverifying:\n");
 
-	printf("encrypted challenge: ");
+	printf("encrypted ticket: ");
 	int i;
-	for (i = 0; i < CHALLENGE_LEN; i++)
-		printf("%02x", challenge_enc[i]);
+	for (i = 0; i < TICKET_LEN; i++)
+		printf("%02x", ticket_enc[i]);
 	printf("\n");
 
-	printf("challenge: ");
-	for (i = 0; i < CHALLENGE_LEN; i++)
-		printf("%02x", challenge[i]);
+	printf("ticket: ");
+	for (i = 0; i < TICKET_LEN; i++)
+		printf("%02x", ticket[i]);
 	printf("\n");
 #endif
 
-	unpack(challenge, "lcccc", &challenge_time, &challenge_md[0],
-		   &challenge_md[1], &challenge_md[2], &challenge_md[3]);
+	unpack(ticket, "lcccc", &ticket_time, &ticket_md[0], &ticket_md[1],
+		   &ticket_md[2], &ticket_md[3]);
 
-	if (challenge_time < time(NULL)-64)
+	if (ticket_time < time(NULL)-32)
 		return 0;
 
+	// hash together the time provided in the ticket with the data given in the
+	// arguments (that were presumably in the packet received) to verify that
+	// the remote host didn't modify our ticket
 	va_start(args, fmt);
-	pack_hash(md_value, (uchar *)&challenge_time, sizeof(challenge_time), fmt,
-			  args);
+	pack_hash(md_value, (uchar *)&ticket_time, sizeof(ticket_time), fmt, args);
 	va_end(args);
 
 #ifdef C_DEBUG_ON
 	printf("time: ");
 	for (i = 0; i < 4; i++)
-		printf("%02x", ((uchar *)&challenge_time)[i]);
-	printf(" %u\n", challenge_time);
+		printf("%02x", ((uchar *)&ticket_time)[i]);
+	printf(" %u\n", ticket_time);
 
 	printf("md: ");
 	for (i = 0; i < 4; i++)
 		printf("%02x", md_value[i]);
 	printf("\n");
 
-	printf("challenge_md: ");
+	printf("ticket_md: ");
 	for (i = 0; i < 4; i++)
-		printf("%02x", challenge_md[i]);
+		printf("%02x", ticket_md[i]);
 	printf("\n");
 #endif
 
-	return memcmp(md_value, challenge_md, 4) == 0;
+	return memcmp(md_value, ticket_md, 4) == 0;
 }
 
 int encrypt(const uchar *clear, int len, uchar *encrypted, uchar *key,

@@ -32,7 +32,6 @@
 #include <openssl/blowfish.h>
 #include <openssl/rand.h>
 #include "chord.h"
-//#include "../../utils/gen_utils.h"
 
 #define SELECT_TIMEOUT 2
 #define CLIENT_PORT 11355
@@ -45,14 +44,13 @@ typedef struct iditem_ {
 } IDitem;
 
 static int unpack_print_getnext(char *buf, int n, ulong *succ_addr,
-				ushort *succ_port);
+								ushort *succ_port);
 static IDitem *add_chordID(IDitem *head, chordID *id);
 static int find_chordID(IDitem *head, chordID *id);
-static int recv_packet(int in_sock, fd_set fdset, int nfds,
-			   char *buf, int buf_len,
-			   ulong chordsrv_addr, ushort chordsrv_port);
+static int recv_packet(int in_sock, fd_set fdset, int nfds, char *buf,
+					   int buf_len, ulong chordsrv_addr, ushort chordsrv_port);
 
-BF_KEY challenge_key;
+BF_KEY ticket_key;
 
 int main(int argc, char *argv[])
 {
@@ -69,7 +67,7 @@ int main(int argc, char *argv[])
   int    retries = 0;
   byte buf[BUFSIZE];
   chordID id;
-  uchar challenge[CHALLENGE_LEN];
+  uchar ticket[TICKET_LEN];
   uchar key_data[16];
 
   /* check command line args */
@@ -151,17 +149,17 @@ int main(int argc, char *argv[])
   }
 
   if (!RAND_bytes(key_data, sizeof(key_data))) {
-	  fprintf(stderr, "Could not generate challenge key.\n");
+	  fprintf(stderr, "Could not generate ticket key.\n");
 	  exit(2);
   }
 
-  BF_set_key(&challenge_key, sizeof(key_data), key_data);
+  BF_set_key(&ticket_key, sizeof(key_data), key_data);
 
   for (;;) {
 	/* send CHORD_FINGERS_GET request */
-	pack_challenge(&challenge_key, challenge, "cls", CHORD_FINGERS_GET,
-				   chordsrv_addr, chordsrv_port);
-	len = pack_fingers_get(buf, challenge, client_addr, client_port, &key);
+	pack_ticket(&ticket_key, ticket, "cls", CHORD_FINGERS_GET, chordsrv_addr,
+				chordsrv_port);
+	len = pack_fingers_get(buf, ticket, client_addr, client_port, &key);
 	rc = sendto(out_sock, buf, len, 0,
 		(struct sockaddr *)&chordsrv, sizeof(chordsrv));
 	if(rc < 0) {
@@ -217,8 +215,8 @@ int main(int argc, char *argv[])
  * the functions also returns the successor address and port
  * number in succ_addr and succ_port variables
  */
-static int unpack_print_getnext(char *buf, int n,
-				ulong *succ_addr, ushort *succ_port)
+static int unpack_print_getnext(char *buf, int n, ulong *succ_addr,
+								ushort *succ_port)
 {
   chordID id;
   char    type;
@@ -227,15 +225,14 @@ static int unpack_print_getnext(char *buf, int n,
   int     len, i, ret_code;
   struct  in_addr ia;
   static IDitem *head_list = NULL;
-  uchar challenge[CHALLENGE_LEN];
+  uchar ticket[TICKET_LEN];
 
-  len = unpack(buf, "cqxls", &type, challenge, &id, (ulong*)&addr,
-			   (ushort*)&port);
+  len = unpack(buf, "cqxls", &type, ticket, &id, (ulong*)&addr, (ushort*)&port);
   assert(type == CHORD_FINGERS_REPL);
 
-  if (!verify_challenge(&challenge_key, challenge, "cls", CHORD_FINGERS_GET,
-						addr, port)) {
-	  fprintf(stderr, "warning: fingers_repl challenge failed\n");
+  if (!verify_ticket(&ticket_key, ticket, "cls", CHORD_FINGERS_GET, addr,
+					 port)) {
+	  fprintf(stderr, "warning: fingers_repl ticket is invalid\n");
 	  return FALSE;
   }
 

@@ -19,31 +19,31 @@ void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port, chordID *id,
   byte buf[BUFSIZE];
 
   CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_fs(&srv->challenge_key, buf, ttl, id,
+  send_raw(srv, to_addr, to_port, pack_fs(&srv->ticket_key, buf, ttl, id,
 										  addr, port), buf);
 }
 
 /**********************************************************************/
 
-void send_fs_forward(Server *srv, uchar *challenge, byte ttl, ulong to_addr,
+void send_fs_forward(Server *srv, uchar *ticket, byte ttl, ulong to_addr,
 					 ushort to_port, chordID *id, ulong addr, ushort port)
 {
   byte buf[BUFSIZE];
 
   CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_fs_forward(buf, challenge, ttl, id, addr,
+  send_raw(srv, to_addr, to_port, pack_fs_forward(buf, ticket, ttl, id, addr,
 												  port), buf);
 }
 
 /**********************************************************************/
 
-void send_fs_repl(Server *srv, uchar *challenge, ulong to_addr, ushort to_port,
+void send_fs_repl(Server *srv, uchar *ticket, ulong to_addr, ushort to_port,
 				  chordID *id, ulong addr, ushort port)
 {
   byte buf[BUFSIZE];
 
   CHORD_DEBUG(5, print_send(srv, "send_fs_repl", id, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_fs_repl(buf, challenge, id, addr, port),
+  send_raw(srv, to_addr, to_port, pack_fs_repl(buf, ticket, id, addr, port),
 		   buf);
 }
 
@@ -86,26 +86,26 @@ void send_ping(Server *srv, ulong to_addr, ushort to_port, ulong addr,
 			   ushort port, ulong time)
 {
   byte buf[BUFSIZE];
-  uchar challenge[CHALLENGE_LEN];
+  uchar ticket[TICKET_LEN];
 
-  pack_challenge(&srv->challenge_key, challenge, "clsl", CHORD_PING, to_addr,
+  pack_ticket(&srv->ticket_key, ticket, "clsl", CHORD_PING, to_addr,
 				 to_port, time);
 
   CHORD_DEBUG(5, print_send(srv, "send_ping", &srv->node.id, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_ping(buf, challenge, &srv->node.id, addr,
+  send_raw(srv, to_addr, to_port, pack_ping(buf, ticket, &srv->node.id, addr,
 											port, time), buf);
 }
 
 /**********************************************************************/
 
-void send_pong(Server *srv, uchar *challenge, ulong to_addr, ushort to_port,
+void send_pong(Server *srv, uchar *ticket, ulong to_addr, ushort to_port,
 			   ulong time)
 {
   byte buf[BUFSIZE];
 
   CHORD_DEBUG(5, print_send(srv, "send_pong",
 							&srv->node.id, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_pong(buf, challenge, &srv->node.id,
+  send_raw(srv, to_addr, to_port, pack_pong(buf, ticket, &srv->node.id,
 											srv->node.addr, srv->node.port,
 											time), buf);
 }
@@ -117,26 +117,26 @@ void send_fingers_get(Server *srv, ulong to_addr, ushort to_port, ulong addr,
 					  ushort port, chordID *key)
 {
   byte buf[BUFSIZE];
-  uchar challenge[CHALLENGE_LEN];
+  uchar ticket[TICKET_LEN];
 
-  pack_challenge(&srv->challenge_key, challenge, "cls", CHORD_FINGERS_GET,
-				 to_addr, to_port);
+  pack_ticket(&srv->ticket_key, ticket, "cls", CHORD_FINGERS_GET, to_addr,
+			  to_port);
 
   CHORD_DEBUG(5, print_send(srv, "send_fingers_get", NULL, to_addr, to_port));
-  send_raw(srv, to_addr, to_port, pack_fingers_get(buf, challenge, addr, port,
+  send_raw(srv, to_addr, to_port, pack_fingers_get(buf, ticket, addr, port,
 												   key), buf);
 }
 
 /**********************************************************************/
 
-void send_fingers_repl(Server *srv, uchar *challenge, ulong to_addr,
+void send_fingers_repl(Server *srv, uchar *ticket, ulong to_addr,
 					   ushort to_port)
 {
   byte buf[BUFSIZE];
 
   CHORD_DEBUG(5, print_send(srv, "send_fingers_repl", &srv->node.id, to_addr,
 							to_port));
-  send_raw(srv, to_addr, to_port, pack_fingers_repl(buf, srv, challenge), buf);
+  send_raw(srv, to_addr, to_port, pack_fingers_repl(buf, srv, ticket), buf);
 }
 
 /**********************************************************************/
