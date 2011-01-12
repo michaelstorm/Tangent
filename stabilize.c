@@ -90,7 +90,6 @@ void stabilize(Server *srv)
 	}
 }
 
-
 /**********************************************************************/
 
 void fix_fingers(Server *srv)
@@ -149,7 +148,6 @@ void fix_fingers(Server *srv)
 		}
 	}
 }
-
 
 /**********************************************************************/
 /* fix backup successors and predecessors in a round-robin fashion	  */
@@ -220,7 +218,6 @@ void fix_succs_preds(Server *srv)
 void ping(Server *srv)
 {
 	int i;
-	struct in_addr ia;
 	Finger *f, *f_next, *f_pinged = NULL;
 
 	/* ping every finger who is still waiting for reply to a previous ping,
@@ -228,13 +225,12 @@ void ping(Server *srv)
 	 */
 	for (f = srv->head_flist, i = 0; f; i++) {
 		if (f->npings >= PING_THRESH) {
-#define ADDR_STR_LEN	16
-			char srv_addr[ADDR_STR_LEN+1];
-			char dropped_addr[ADDR_STR_LEN+1];
-			ia.s_addr = htonl(srv->node.addr);
-			strncpy( srv_addr, inet_ntoa(ia), ADDR_STR_LEN );
-			ia.s_addr = htonl(f->node.addr);
-			strncpy( dropped_addr, inet_ntoa(ia), ADDR_STR_LEN );
+			char srv_addr[INET_ADDRSTRLEN];
+			char dropped_addr[INET_ADDRSTRLEN];
+			uint32_t n_addr = htonl(srv->node.addr);
+			inet_ntop(AF_INET, &n_addr, srv_addr, INET_ADDRSTRLEN);
+			n_addr = htonl(f->node.addr);
+			inet_ntop(AF_INET, &n_addr, dropped_addr, INET_ADDRSTRLEN);
 
 			weprintf("dropping finger[%d] %s:%d (at %s:%d)\n", i, dropped_addr,
 					 f->node.port, srv_addr, srv->node.port);
@@ -272,7 +268,9 @@ void clean_finger_list(Server *srv)
 	chordID id;
 
 	/* skip successor list */
-	for (f = srv->head_flist, k = 0; f && (k < NSUCCESSORS-1); f = f->next, k++);
+	for (f = srv->head_flist, k = 0;
+		 f && (k < NSUCCESSORS-1);
+		 f = f->next, k++);
 	if (f == NULL || f->next == NULL)
 		return;
 	f_lastsucc = f;

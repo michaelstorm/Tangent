@@ -12,7 +12,8 @@
 #define C_DEBUG(x)
 #endif
 
-int pack_hash(uchar *out, uchar *buf, int buf_len, char *fmt, va_list args)
+int vpack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
+			   char *fmt, va_list args)
 {
 	EVP_MD_CTX ctx;
 	char c;
@@ -21,7 +22,7 @@ int pack_hash(uchar *out, uchar *buf, int buf_len, char *fmt, va_list args)
 	chordID *id;
 
 	EVP_MD_CTX_init(&ctx);
-	EVP_DigestInit_ex(&ctx, EVP_md5(), NULL);
+	EVP_DigestInit_ex(&ctx, type, NULL);
 
 	if (buf && buf_len) {
 		EVP_DigestUpdate(&ctx, buf, buf_len);
@@ -72,17 +73,27 @@ int pack_hash(uchar *out, uchar *buf, int buf_len, char *fmt, va_list args)
 	EVP_MD_CTX_cleanup(&ctx);
 }
 
-int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
+int pack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
+			  char *fmt, ...)
 {
 	va_list args;
-	uchar md_value[16];
+	va_start(args, fmt);
+	int ret = vpack_hash(type, out, buf, buf_len, fmt, args);
+	va_end(args);
+	return ret;
+}
+
+int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
+{
+	int i;
+	va_list args;
+	uchar md_value[EVP_MAX_MD_SIZE];
 	uint32_t epoch_time = (uint32_t)time(NULL);
 
 #ifdef C_DEBUG_ON
 	printf("\ngenerating:\n");
 
 	printf("time: ");
-	int i;
 	for (i = 0; i < 4; i++)
 		printf("%02x", ((uchar *)&epoch_time)[i]);
 	printf(" %u\n", epoch_time);
@@ -90,7 +101,8 @@ int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
 
 	// hash the unix epoch time together with the caller's arguments
 	va_start(args, fmt);
-	pack_hash(md_value, (uchar *)&epoch_time, sizeof(epoch_time), fmt, args);
+	vpack_hash(EVP_sha1(), md_value, (uchar *)&epoch_time, sizeof(epoch_time),
+			   fmt, args);
 	va_end(args);
 
 	// pack the 32-bit epoch time and 32-bit hash into a buffer
@@ -126,7 +138,7 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 {
 	va_list args;
 	uchar ticket[TICKET_LEN];
-	uchar md_value[16];
+	uchar md_value[EVP_MAX_MD_SIZE];
 	uchar ticket_md[4];
 	uint32_t ticket_time;
 
@@ -158,7 +170,8 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 	// arguments (that were presumably in the packet received) to verify that
 	// the remote host didn't modify our ticket
 	va_start(args, fmt);
-	pack_hash(md_value, (uchar *)&ticket_time, sizeof(ticket_time), fmt, args);
+	vpack_hash(EVP_sha1(), md_value, (uchar *)&ticket_time, sizeof(ticket_time),
+			   fmt, args);
 	va_end(args);
 
 #ifdef C_DEBUG_ON
@@ -181,6 +194,32 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 	return memcmp(md_value, ticket_md, 4) == 0;
 }
 
+#ifdef HASH_PORT_WITH_ADDRESS
+void get_address_id(chordID *id, ulong addr, ushort port)
+{
+	pack_hash(EVP_sha1(), id->x, 0, 0, "ls", htonl(addr), htons(port));
+}
+
+int verify_address_id(chordID *id, ulong addr, ushort port)
+{
+	chordID correct_id;
+	get_address_id(&correct_id, addr, port);
+	return equals(&correct_id, id);
+}
+#else
+void get_address_id(chordID *id, ulong addr)
+{
+	pack_hash(EVP_sha1(), id->x, 0, 0, "l", htonl(addr));
+}
+
+int verify_address_id(chordID *id, ulong addr)
+{
+	chordID correct_id;
+	get_address_id(&correct_id, addr);
+	return equals(&correct_id, id);
+}
+#endif
+
 int encrypt(const uchar *clear, int len, uchar *encrypted, uchar *key,
 			uchar *iv)
 {
@@ -195,7 +234,8 @@ int encrypt(const uchar *clear, int len, uchar *encrypted, uchar *key,
 	if (!EVP_EncryptUpdate(&ctx, encrypted, &encrypted_len, clear, len))
 		return 0;
 
-	if (!EVP_EncryptFinal_ex(&ctx, encrypted + encrypted_len, &encrypted_final_len))
+	if (!EVP_EncryptFinal_ex(&ctx, encrypted + encrypted_len,
+							 &encrypted_final_len))
 		return 0;
 
 	EVP_CIPHER_CTX_cleanup(&ctx);

@@ -9,7 +9,7 @@
 #ifndef CHORD_DEBUG_H
 #define CHORD_DEBUG_H
 
-#define CHORD_DEBUG_LEVEL 3
+#define CHORD_DEBUG_LEVEL 5
 
 #define CHORD_DEBUG(level, x) if (level <= CHORD_DEBUG_LEVEL) x;
 

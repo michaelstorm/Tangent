@@ -84,17 +84,40 @@ Finger *get_finger(Server *srv, chordID *id)
 	return NULL;
 }
 
+/* find the finger that has not responded to the greatest number of pings */
+Finger *get_worst_passive_finger(Server *srv)
+{
+	Finger *f;
+	Finger *worst_finger;
+	int npings_record = -1;
+
+	for (f = srv->head_flist; f; f = f->next) {
+		if (f->status == F_PASSIVE && f->npings > npings_record) {
+			npings_record = f->npings;
+			worst_finger = f;
+
+			// stop searching if we've found the worst we can get
+			if (npings_record >= PING_THRESH-1)
+				return worst_finger;
+		}
+	}
+	return worst_finger;
+}
+
 /**********************************************************************/
 
 Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 					  int *fnew)
 {
-	Finger *f, *new_f, *pred, *pf;
+	Finger *f, *new_f, *pred;
 	Node n;
 
-	assert((srv->node.addr != addr) || (srv->node.port != port));
-	pred = PRED(srv);
+	if (srv->node.addr == addr && srv->node.port == port) {
+		weprintf("dropping finger request from ourself");
+		return NULL;
+	}
 
+	pred = PRED(srv);
 	f = get_finger(srv, id);
 
 	if (f) {
@@ -114,6 +137,16 @@ Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 		*fnew = FALSE;
 		return f;
 	}
+
+	// only hold onto a certain number of passive fingers, to avoid getting
+	// DoS'd
+	if (srv->num_passive_fingers >= MAX_PASSIVE_FINGERS) {
+		Finger *worst_finger = get_worst_passive_finger(srv);
+		assert(worst_finger);
+		remove_finger(srv, worst_finger);
+	}
+
+	srv->num_passive_fingers++;
 
 	n.id = *id; n.addr = addr; n.port = port;
 	new_f = new_finger(&n);
@@ -148,13 +181,22 @@ Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 	return new_f;
 }
 
+void activate_finger(Server *srv, Finger *f)
+{
+	srv->num_passive_fingers--;
+	f->status = F_ACTIVE;
+}
+
 /**********************************************************************/
 
 void remove_finger(Server *srv, Finger *f)
 {
 	Finger *pred, *pf;
 
-	pred = pred_finger(srv); /* remeber to check whether pred changes */
+	if (f->status == F_PASSIVE)
+		srv->num_passive_fingers--;
+
+	pred = pred_finger(srv); /* remember to check whether pred changes */
 
 	if ((srv->tail_flist != f) && (srv->head_flist != f)) {
 		f->prev->next = f->next;

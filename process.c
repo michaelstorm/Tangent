@@ -11,6 +11,12 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 
 	CHORD_DEBUG(5, print_process(srv, "process_data", id, -1, -1));
 
+	if (--ttl == 0) {
+		print_two_chordIDs("TTL expired: data packet ", id, " dropped at node ",
+						   &srv->node.id, "\n");
+		return CHORD_TTL_EXPIRED;
+	}
+
 	/* handle request locally? */
 	if (chord_is_local(id)) {
 		/* Upcall goes here... */
@@ -51,10 +57,16 @@ int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, ulong addr,
 {
 	Node *succ, *np;
 
+	CHORD_DEBUG(5, print_process(srv, "process_fs", id, addr, port));
+
+	if (--ttl == 0) {
+		print_two_chordIDs("TTL expired: fix_finger packet ", id,
+						   " dropped at node ", &srv->node.id, "\n");
+		return CHORD_TTL_EXPIRED;
+	}
+
 	if (srv->node.addr == addr && srv->node.port == port)
 		return 1;
-
-	CHORD_DEBUG(5, print_process(srv, "process_fs", id, addr, port));
 
 	if (succ_finger(srv) == NULL) {
 		send_fs_repl(srv, ticket, addr, port, &srv->node.id, srv->node.addr,
@@ -106,6 +118,8 @@ int process_stab(Server *srv, chordID *id, ulong addr, ushort port)
 	CHORD_DEBUG(5, print_process(srv, "process_stab", id, addr, port));
 
 	insert_finger(srv, id, addr, port, &fnew);
+
+	// If we have a predecessor, tell the requesting node what it is.
 	if (pred)
 		send_stab_repl(srv, addr, port, &pred->node.id, pred->node.addr,
 					   pred->node.port);
@@ -121,8 +135,13 @@ int process_stab_repl(Server *srv, chordID *id, ulong addr, ushort port)
 
 	CHORD_DEBUG(5, print_process(srv, "process_stab_repl", id, -1, -1));
 
+	// If we are our successor's predecessor, everything is fine, so do nothing.
 	if ((srv->node.addr == addr) && (srv->node.port == port))
 		return 1;
+
+	// Otherwise, there is a better successor in between us and our current
+	// successor. So we notify the in-between node that we should be its
+	// predecessor.
 	insert_finger(srv, id, addr, port, &fnew);
 	succ = succ_finger(srv);
 	send_notify(srv, succ->node.addr, succ->node.port, &srv->node.id,
@@ -140,6 +159,8 @@ int process_notify(Server *srv, chordID *id, ulong addr, ushort port)
 	int fnew;
 
 	CHORD_DEBUG(5, print_process(srv, "process_notify", id, addr, port));
+
+	// another node thinks that it should be our predecessor
 	insert_finger(srv, id, addr, port, &fnew);
 	if (fnew == TRUE)
 		send_ping(srv, addr, port, srv->node.addr, srv->node.port,
@@ -184,14 +205,26 @@ int process_pong(Server *srv, uchar *ticket, chordID *id, ulong addr,
 						  from->addr, from->port, time))
 		return CHORD_INVALID_TICKET;
 
-	CHORD_DEBUG(5, print_process(srv, "process_pong", id, addr, port));
 	f = insert_finger(srv, id, addr, port, &fnew);
+	if (!f) {
+		fprintf(stderr, "dropping pong\n");
+		return 0;
+	}
+
+#ifdef HASH_PORT_WITH_ADDRESS
+	if (!verify_address_id(&f->node.id, from->addr, from->port))
+#else
+	if (!verify_address_id(&f->node.id, from->addr))
+#endif
+		return CHORD_INVALID_ID;
+
+	CHORD_DEBUG(5, print_process(srv, "process_pong", id, addr, port));
 	f->npings = 0;
 	new_rtt = get_current_time() - time; /* takes care of overlow */
 	update_rtt(&f->rtt_avg, &f->rtt_dev, (long)new_rtt);
 
 	pred = pred_finger(srv);
-	f->status = F_ACTIVE; /* there is a two-way connectivity to this node */
+	activate_finger(srv, f); /* there is a two-way connectivity to this node */
 	newpred = pred_finger(srv); /* check whether pred has changed, i.e.,
 								 * f has became the new pred
 								 */

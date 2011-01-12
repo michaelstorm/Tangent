@@ -227,7 +227,7 @@ static int unpack_print_getnext(char *buf, int n, ulong *succ_addr,
   static IDitem *head_list = NULL;
   uchar ticket[TICKET_LEN];
 
-  len = unpack(buf, "cqxls", &type, ticket, &id, (ulong*)&addr, (ushort*)&port);
+  len = unpack(buf, "ctxls", &type, ticket, &id, (ulong*)&addr, (ushort*)&port);
   assert(type == CHORD_FINGERS_REPL);
 
   if (!verify_ticket(&ticket_key, ticket, "cls", CHORD_FINGERS_GET, addr,
@@ -321,7 +321,7 @@ static int recv_packet(int in_sock, fd_set fdset, int nfds, char *buf,
 	  /* timeout expired */
 	  struct  in_addr ia;
 	  ia.s_addr = htonl(chordsrv_addr);
-	  printf("\nCouldn't contact node (%s:%d), try again...\n",
+	  printf("Couldn't contact node (%s:%d), try again...\n",
 		 inet_ntoa(ia), chordsrv_port);
 	  return -1;
 	}

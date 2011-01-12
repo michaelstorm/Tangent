@@ -29,6 +29,7 @@ enum {
 	ID_LEN       = NBITS/8,        /* bytes per ID */
 	TICKET_LEN = 8,			   /* bytes per connection ticket */
 	TICKET_TIMEOUT = 32,		   /* seconds for which a ticket is valid */
+	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */
 	NFINGERS     = NBITS,          /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
@@ -39,6 +40,9 @@ enum {
 									*/
 	MAX_SIMJOIN = 4,               /* maximum number of servers
 									* contacted simultaneously when joining
+									*/
+	MAX_PASSIVE_FINGERS = 20,	   /* maximum number of fingers to keep that
+									* have yet to respond to ping
 									*/
 	PING_THRESH = 5,               /* this many unanswered pings are allowed */
 	DEF_TTL      = 64,             /* default TTL for multi-hop packets */
@@ -67,6 +71,7 @@ enum {
 	CHORD_TTL_EXPIRED = -2,
 	CHORD_INVALID_TICKET = -3,
 	CHORD_PACK_ERROR = -4,
+	CHORD_INVALID_ID = -5,
 };
 
 /* XXX: warning: portability bugs */
@@ -92,18 +97,14 @@ struct Node
 struct Finger
 {
 	Node node;          /* ID and address of finger */
-	int  status;        /* specifies whether this finger has been
+	int status;         /* specifies whether this finger has been
 						 * pinged; possible values: F_PASSIVE (the node
 						 * has not been pinged) and F_ACTIVE (the node
 						 * has been pinged)
 						 */
 	int npings;         /* # of unanswered pings */
-	long rtt_avg;       /* average rtt to finger (ms in simulator,
-						 * usec in the implementation)
-						 */
-	long rtt_dev;       /* rtt's mean deviation (ms in simulator,
-						 * usec in the implementation)
-						 */
+	long rtt_avg;       /* average rtt to finger (usec) */
+	long rtt_dev;       /* rtt's mean deviation (usec) */
 						/* rtt_avg, rtt_dev can be used to implement
 						 * proximity routing or set up RTO for ping
 						 */
@@ -121,6 +122,7 @@ struct Server
 	Node node;          /* addr and ID */
 	Finger *head_flist; /* head and tail of finger  */
 	Finger *tail_flist; /* table + pred + successors */
+	int num_passive_fingers;
 
 	int to_fix_finger;  /* next finger to be fixed */
 	int to_fix_backup;  /* next successor/predecessor to be fixed */
@@ -207,10 +209,8 @@ struct unpack_args {
 int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 			  uchar *data);
 int unpack_data(Server *srv, int n, uchar *buf, host *from);
-int pack_fs(BF_KEY *key, uchar *buf, byte ttl, chordID *id, ulong addr,
+int pack_fs(uchar *buf, uchar *ticket, byte ttl, chordID *id, ulong addr,
 			ushort port);
-int pack_fs_forward(uchar *buf, uchar *ticket, byte ttl, chordID *id,
-					ulong addr, ushort port);
 int unpack_fs(Server *srv, int n, uchar *buf, host *from);
 int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, ulong addr,
 				 ushort port);
@@ -347,6 +347,17 @@ int match_key(chordID *key_array, int num_keys, chordID *key);
 
 int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...);
 int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...);
+
+// undefine this when not going over loopback, since this could allow a
+// malicious peer to assign ~65000 IDs to itself
+#define HASH_PORT_WITH_ADDRESS
+#ifdef HASH_PORT_WITH_ADDRESS
+void get_address_id(chordID *id, ulong addr, ushort port);
+int verify_address_id(chordID *id, ulong addr, ushort port);
+#else
+void get_address_id(chordID *id, ulong addr);
+int verify_address_id(chordID *id, ulong addr);
+#endif
 
 int encrypt(const uchar *clear, int len, uchar *encrypted, uchar *key,
 			uchar *iv);

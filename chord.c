@@ -37,6 +37,7 @@ void chord_main(char *conf_file, int parent_sock)
 	struct timeval timeout;
 
 	srv.nknown = 0;
+	srv.num_passive_fingers = 0;
 
 	setprogname("chord");
 	srandom(getpid() ^ time(0));
@@ -70,12 +71,6 @@ void chord_main(char *conf_file, int parent_sock)
 	FD_SET(srv.in_sock, &interesting);
 	FD_SET(parent_sock, &interesting);
 	nfds = MAX(srv.in_sock, parent_sock) + 1;
-
-	srv.num_keys = read_keys(ACCLIST_FILE, srv.key_array, MAX_KEY_NUM);
-	if (srv.num_keys == -1)
-		printf("Error opening file: %s\n", ACCLIST_FILE);
-	if (srv.num_keys == 0)
-		printf("No key found in %s\n", ACCLIST_FILE);
 
 	/* Loop on input */
 	for (;;) {
@@ -142,8 +137,6 @@ void initialize(Server *srv)
 		eprintf("socket failed:");
 	else if (bind(srv->out_sock, (struct sockaddr *)&sout, sizeof(sout)) < 0)
 		eprintf("bind failed:");
-
-	OpenSSL_add_all_digests();
 
 	if (!RAND_load_file("/dev/urandom", 64)) {
 		fprintf(stderr, "Could not seed random number generator.\n");

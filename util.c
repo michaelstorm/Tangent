@@ -211,8 +211,7 @@ static int msb_tab[256] = {
 };
 
 /* msb: most significant bit */
-int
-msb(chordID *x)
+int msb(chordID *x)
 {
 	int i;
 	for (i = 0; i < ID_LEN; i++)
@@ -400,8 +399,8 @@ void print_finger(Finger *f, char *prefix, char *suffix)
 {
 	printf("%sFinger:", prefix);
 	print_node(&f->node, "<", ">");
-	printf(" (status = %d, npings = %d, rtt = %ld/%ld) %s",
-	 f->status, f->npings, f->rtt_avg, f->rtt_dev, suffix);
+	printf(" (status = %d, npings = %d, rtt = %ld/%ld) %s", f->status,
+		   f->npings, f->rtt_avg, f->rtt_dev, suffix);
 }
 
 
@@ -412,8 +411,8 @@ void print_finger_list(Finger *fhead, char *prefix, char *suffix)
 
 	printf("%s", prefix);
 	for (f = fhead, i = 0; f; f = f->next, i++) {
-	printf("	[%d] ", i);
-	print_finger(f, "", "\n");
+		printf("	[%d] ", i);
+		print_finger(f, "", "\n");
 	}
 	printf("%s", suffix);
 }
@@ -422,6 +421,7 @@ void print_server(Server *s, char *prefix, char *suffix)
 {
 	printf("---------------%s---------------\n", prefix);
 	print_node(&s->node, "[", "]\n");
+	printf("(%d passive)\n", s->num_passive_fingers);
 	print_finger_list(s->head_flist, "	Finger list:\n", "\n");
 	printf("---------------%s---------------\n", suffix);
 }
