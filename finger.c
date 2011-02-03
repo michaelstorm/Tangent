@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include "chord.h"
 
 /* new_finger: allocate and initialize finger structure */
@@ -88,7 +89,7 @@ Finger *get_finger(Server *srv, chordID *id)
 Finger *get_worst_passive_finger(Server *srv)
 {
 	Finger *f;
-	Finger *worst_finger;
+	Finger *worst_finger = NULL;
 	int npings_record = -1;
 
 	for (f = srv->head_flist; f; f = f->next) {
@@ -106,13 +107,13 @@ Finger *get_worst_passive_finger(Server *srv)
 
 /**********************************************************************/
 
-Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
+Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 					  int *fnew)
 {
 	Finger *f, *new_f, *pred;
 	Node n;
 
-	if (srv->node.addr == addr && srv->node.port == port) {
+	if (memcmp(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0 && srv->node.port == port) {
 		weprintf("dropping finger request from ourself");
 		return NULL;
 	}
@@ -121,8 +122,8 @@ Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 	f = get_finger(srv, id);
 
 	if (f) {
-		if (f->node.addr != addr) {
-			f->node.addr = addr;
+		if (memcmp(f->node.addr.s6_addr, addr->s6_addr, 16) != 0) {
+			memcpy(f->node.addr.s6_addr, addr->s6_addr, 16);
 			f->node.port = port;
 			f->rtt_avg = f->rtt_dev = 0;
 			f->npings = 0;
@@ -148,7 +149,7 @@ Finger *insert_finger(Server *srv, chordID *id, in_addr_t addr, in_port_t port,
 
 	srv->num_passive_fingers++;
 
-	n.id = *id; n.addr = addr; n.port = port;
+	n.id = *id; memcpy(n.addr.s6_addr, addr, 16); n.port = port;
 	new_f = new_finger(&n);
 
 	f = srv->head_flist;

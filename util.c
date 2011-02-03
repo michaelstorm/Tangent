@@ -391,8 +391,9 @@ void print_node(Node *node, char *prefix, char *suffix)
 
 	printf("%s", prefix);
 	print_chordID(&node->id);
-	ia.s_addr = htonl(node->addr);
-	printf(", %s, %d%s", inet_ntoa(ia), node->port, suffix);
+
+	char *addr_str = v6addr_to_str(&node->addr);
+	printf(", %s, %d%s", addr_str, node->port, suffix);
 }
 
 void print_finger(Finger *f, char *prefix, char *suffix)
@@ -427,7 +428,7 @@ void print_server(Server *s, char *prefix, char *suffix)
 }
 
 
-void print_process(Server *srv, char *process_type, chordID *id, ulong addr,
+void print_process(Server *srv, char *process_type, chordID *id, in6_addr *addr,
 				   ushort port)
 {
 #define TYPE_LEN 16
@@ -443,14 +444,14 @@ void print_process(Server *srv, char *process_type, chordID *id, ulong addr,
 		printf("null");
 	printf(") ");
 	print_node(&srv->node, " <", ">");
-	if (addr == -1)
+	if (addr == NULL)
 		printf(" <----- <,>");
 	else
-		printf(" <----- <%ld, %d>", addr, port);
+		printf(" <----- <%s, %d>", v6addr_to_str(addr), port);
 	print_current_time(" Time:", "\n");
 }
 
-void print_send(Server *srv, char *send_type, chordID *id, ulong addr,
+void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
 				ushort port)
 {
 	int i = TYPE_LEN - strlen(send_type);
@@ -465,10 +466,10 @@ void print_send(Server *srv, char *send_type, chordID *id, ulong addr,
 		printf("null");
 	printf(") ");
 	print_node(&srv->node, " <", ">");
-	if (addr == -1)
+	if (addr == NULL)
 		printf(" -----> <,>");
 	else
-		printf(" -----> <%ld, %d>", addr, port);
+		printf(" -----> <%s, %d>", v6addr_to_str(addr), port);
 	print_current_time(" Time:", "\n");
 }
 

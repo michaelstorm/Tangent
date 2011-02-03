@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/utsname.h>
@@ -126,8 +127,88 @@ static uint32_t get_local_addr()
 }
 
 /***********************************************************************/
+
 /* get_addr: get IP address of server */
 in_addr_t get_addr()
 {
 	return (in_addr_t)get_local_addr();
+}
+
+void to_v6addr(ulong v4addr, in6_addr *v6addr)
+{
+	memset(&v6addr->s6_addr[0], 0, 10);
+	memset(&v6addr->s6_addr[10], 0xFF, 2);
+	memcpy(&v6addr->s6_addr[12], &v4addr, 4);
+}
+
+ulong to_v4addr(in6_addr *v6addr)
+{
+	return *(ulong *)&v6addr->s6_addr[12];
+}
+
+char *v6addr_to_str(in6_addr *v6addr)
+{
+	static char addr_str[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, v6addr, addr_str, INET6_ADDRSTRLEN);
+	return addr_str;
+}
+
+int init_socket4(ulong addr, ushort port)
+{
+	struct sockaddr_in sin;
+	memset(&sin, 0, sizeof(sin));
+
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(port);
+	sin.sin_addr.s_addr = htonl(addr);
+
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0)
+		eprintf("socket failed:");
+
+	if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+		eprintf("bind failed:");
+
+	return sock;
+}
+
+void set_socket_nonblocking(int sock)
+{
+	int flags = fcntl(sock, F_GETFL);
+	flags |= O_NONBLOCK;
+	fcntl(sock, F_SETFL, flags);
+}
+
+int resolve_v6name(const char *name, in6_addr *v6addr)
+{
+	in_addr v4addr;
+
+	// if the name is just an address, convert it to binary
+	if (inet_pton(AF_INET6, name, v6addr))
+		return 0;
+	else if (inet_pton(AF_INET, name, &v4addr)) {
+		to_v6addr(v4addr.s_addr, v6addr);
+		return 0;
+	}
+
+	// otherwise, resolve the name
+	struct addrinfo hints;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET6; // accept v6 addrs
+
+	struct addrinfo *result;
+	if (getaddrinfo(name, NULL, NULL, &result) != 0) {
+		weprintf("getaddrinfo(%s) failed:", name);
+		return -1;
+	}
+
+	if (result->ai_family == AF_INET)
+		to_v6addr(((struct sockaddr_in *)result->ai_addr)->sin_addr.s_addr,
+				  v6addr);
+	else
+		memcpy(v6addr,
+			   ((struct sockaddr_in6 *)result->ai_addr)->sin6_addr.s6_addr, 16);
+
+	freeaddrinfo(result);
+	return 0;
 }

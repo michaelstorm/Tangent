@@ -54,13 +54,13 @@ void chord_main(char *conf_file, int parent_sock)
 	srv.node.id = atoid(id);
 
 	/* Figure out one's own address somehow */
-	srv.node.addr = ntohl(get_addr());
+	to_v6addr(get_addr(), &srv.node.addr);
 
-	ia.s_addr = htonl(srv.node.addr);
 	fprintf(stderr, "Chord started.\n");
 	fprintf(stderr, "id="); print_id(stderr, &srv.node.id);
 	fprintf(stderr, "\n");
-	fprintf(stderr, "ip=%s\n", inet_ntoa(ia));
+
+	fprintf(stderr, "ip=%s\n", v6addr_to_str(&srv.node.addr));
 	fprintf(stderr, "port=%d\n", srv.node.port);
 
 	initialize(&srv);
@@ -68,9 +68,9 @@ void chord_main(char *conf_file, int parent_sock)
 	fclose(fp);
 
 	FD_ZERO(&interesting);
-	FD_SET(srv.in_sock, &interesting);
+	FD_SET(srv.v4_sock, &interesting);
 	FD_SET(parent_sock, &interesting);
-	nfds = MAX(srv.in_sock, parent_sock) + 1;
+	nfds = MAX(srv.v4_sock, parent_sock) + 1;
 
 	/* Loop on input */
 	for (;;) {
@@ -90,8 +90,8 @@ void chord_main(char *conf_file, int parent_sock)
 			continue;
 		}
 
-		if (FD_ISSET(srv.in_sock, &readable))
-			handle_packet(srv.in_sock);
+		if (FD_ISSET(srv.v4_sock, &readable))
+			handle_packet(srv.v4_sock);
 		else if (FD_ISSET(parent_sock, &readable))
 			handle_packet(parent_sock);
 		else
@@ -101,43 +101,8 @@ void chord_main(char *conf_file, int parent_sock)
 
 /**********************************************************************/
 
-/* initialize: set up sockets and such <yawn> */
-void initialize(Server *srv)
+void init_ticket_key(Server *srv)
 {
-	int flags;
-	struct sockaddr_in sin, sout;
-
-	setservent(1);
-
-	memset(&sin, 0, sizeof(sin));
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(srv->node.port);
-	sin.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	srv->in_sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (srv->in_sock < 0)
-		eprintf("socket failed:");
-
-	if (bind(srv->in_sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-		eprintf("bind failed:");
-
-	/* non-blocking i/o */
-	flags = fcntl(srv->in_sock, F_GETFL);
-	flags |= O_NONBLOCK;
-	fcntl(srv->in_sock, F_SETFL, flags);
-
-	/* outgoing socket */
-	memset(&sout, 0, sizeof(sout));
-	sout.sin_family = AF_INET;
-	sout.sin_port = htons(0);
-	sout.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	srv->out_sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (srv->out_sock < 0)
-		eprintf("socket failed:");
-	else if (bind(srv->out_sock, (struct sockaddr *)&sout, sizeof(sout)) < 0)
-		eprintf("bind failed:");
-
 	if (!RAND_load_file("/dev/urandom", 64)) {
 		fprintf(stderr, "Could not seed random number generator.\n");
 		exit(2);
@@ -150,6 +115,19 @@ void initialize(Server *srv)
 	}
 
 	BF_set_key(&srv->ticket_key, sizeof(key_data), key_data);
+}
+
+/* initialize: set up sockets and such <yawn> */
+void initialize(Server *srv)
+{
+	setservent(1);
+
+	srv->v4_sock = init_socket4(INADDR_ANY, srv->node.port);
+	set_socket_nonblocking(srv->v4_sock);
+
+	srv->v6_sock = 0;
+
+	init_ticket_key(srv);
 }
 
 /**********************************************************************/
@@ -176,7 +154,7 @@ void handle_packet(int network)
 	}
 
 	host from;
-	from.addr = ntohl(from_sa.sin_addr.s_addr);
+	to_v6addr(from_sa.sin_addr.s_addr, &from.addr);
 	from.port = ntohs(from_sa.sin_port);
 	dispatch(&srv, packet_len, buf, &from);
 }

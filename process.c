@@ -1,15 +1,16 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
+#include <string.h>
 #include "chord.h"
 
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
-				 uchar *data)
+				 uchar *data, host *from)
 {
 	Node *np;
 	Finger *pf, *sf;
 
-	CHORD_DEBUG(5, print_process(srv, "process_data", id, -1, -1));
+	CHORD_DEBUG(5, print_process(srv, "process_data", id, NULL, -1));
 
 	if (--ttl == 0) {
 		print_two_chordIDs("TTL expired: data packet ", id, " dropped at node ",
@@ -20,7 +21,7 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 	/* handle request locally? */
 	if (chord_is_local(id)) {
 		/* Upcall goes here... */
-		chord_deliver(len, data);
+		chord_deliver(len, data, from);
 		return 1;
 	}
 
@@ -52,7 +53,7 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 
 /**********************************************************************/
 
-int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, ulong addr,
+int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
 			   ushort port)
 {
 	Node *succ, *np;
@@ -65,29 +66,29 @@ int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, ulong addr,
 		return CHORD_TTL_EXPIRED;
 	}
 
-	if (srv->node.addr == addr && srv->node.port == port)
+	if (memcpy(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0 && srv->node.port == port)
 		return 1;
 
 	if (succ_finger(srv) == NULL) {
-		send_fs_repl(srv, ticket, addr, port, &srv->node.id, srv->node.addr,
+		send_fs_repl(srv, ticket, addr, port, &srv->node.id, &srv->node.addr,
 					 srv->node.port);
 		return 1;
 	}
 	succ = &(succ_finger(srv)->node);
 
 	if (is_between(id, &srv->node.id, &succ->id) || equals(id, &succ->id))
-		send_fs_repl(srv, ticket, addr, port, &succ->id, succ->addr,
+		send_fs_repl(srv, ticket, addr, port, &succ->id, &succ->addr,
 					 succ->port);
 	else {
 		np = closest_preceding_node(srv, id, FALSE);
-		send_fs_forward(srv, ticket, ttl, np->addr, np->port, id, addr, port);
+		send_fs_forward(srv, ticket, ttl, &np->addr, np->port, id, addr, port);
 	}
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_fs_repl(Server *srv, uchar *ticket, chordID *id, ulong addr,
+int process_fs_repl(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 					ushort port)
 {
 	int fnew;
@@ -95,14 +96,14 @@ int process_fs_repl(Server *srv, uchar *ticket, chordID *id, ulong addr,
 	if (!verify_ticket(&srv->ticket_key, ticket, "c", CHORD_FS))
 		return CHORD_INVALID_TICKET;
 
-	if (srv->node.addr == addr && srv->node.port == port)
+	if (memcmp(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0 && srv->node.port == port)
 		return 1;
 
-	CHORD_DEBUG(5, print_process(srv, "process_fs_repl", id, -1, -1));
+	CHORD_DEBUG(5, print_process(srv, "process_fs_repl", id, NULL, -1));
 
 	insert_finger(srv, id, addr, port, &fnew);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, srv->node.addr, srv->node.port,
+		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
 				  get_current_time());
 
 	return 1;
@@ -110,7 +111,7 @@ int process_fs_repl(Server *srv, uchar *ticket, chordID *id, ulong addr,
 
 /**********************************************************************/
 
-int process_stab(Server *srv, chordID *id, ulong addr, ushort port)
+int process_stab(Server *srv, chordID *id, in6_addr *addr, ushort port)
 {
 	Finger *pred = pred_finger(srv);
 	int		 fnew;
@@ -121,22 +122,23 @@ int process_stab(Server *srv, chordID *id, ulong addr, ushort port)
 
 	// If we have a predecessor, tell the requesting node what it is.
 	if (pred)
-		send_stab_repl(srv, addr, port, &pred->node.id, pred->node.addr,
+		send_stab_repl(srv, addr, port, &pred->node.id, &pred->node.addr,
 					   pred->node.port);
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_stab_repl(Server *srv, chordID *id, ulong addr, ushort port)
+int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port)
 {
 	Finger *succ;
 	int fnew;
 
-	CHORD_DEBUG(5, print_process(srv, "process_stab_repl", id, -1, -1));
+	CHORD_DEBUG(5, print_process(srv, "process_stab_repl", id, NULL, -1));
 
 	// If we are our successor's predecessor, everything is fine, so do nothing.
-	if ((srv->node.addr == addr) && (srv->node.port == port))
+	if ((memcpy(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0)
+		&& (srv->node.port == port))
 		return 1;
 
 	// Otherwise, there is a better successor in between us and our current
@@ -144,17 +146,17 @@ int process_stab_repl(Server *srv, chordID *id, ulong addr, ushort port)
 	// predecessor.
 	insert_finger(srv, id, addr, port, &fnew);
 	succ = succ_finger(srv);
-	send_notify(srv, succ->node.addr, succ->node.port, &srv->node.id,
-				srv->node.addr, srv->node.port);
+	send_notify(srv, &succ->node.addr, succ->node.port, &srv->node.id,
+				&srv->node.addr, srv->node.port);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, srv->node.addr, srv->node.port,
+		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
 				  get_current_time());
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_notify(Server *srv, chordID *id, ulong addr, ushort port)
+int process_notify(Server *srv, chordID *id, in6_addr *addr, ushort port)
 {
 	int fnew;
 
@@ -163,14 +165,14 @@ int process_notify(Server *srv, chordID *id, ulong addr, ushort port)
 	// another node thinks that it should be our predecessor
 	insert_finger(srv, id, addr, port, &fnew);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, srv->node.addr, srv->node.port,
+		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
 				  get_current_time());
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_ping(Server *srv, uchar *ticket, chordID *id, ulong addr,
+int process_ping(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 				 ushort port, ulong time)
 {
 	int fnew;
@@ -183,7 +185,7 @@ int process_ping(Server *srv, uchar *ticket, chordID *id, ulong addr,
 		&& ((pred == NULL)
 			|| (pred && is_between(id, &pred->node.id,
 								   &srv->node.id)))) {
-		send_ping(srv, addr, port, srv->node.addr, srv->node.port,
+		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
 				  get_current_time());
 	}
 
@@ -194,15 +196,15 @@ int process_ping(Server *srv, uchar *ticket, chordID *id, ulong addr,
 
 /**********************************************************************/
 
-int process_pong(Server *srv, uchar *ticket, chordID *id, ulong addr,
+int process_pong(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 				 ushort port, ulong time, host *from)
 {
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;
 	int		 fnew;
 
-	if (!verify_ticket(&srv->ticket_key, ticket, "clsl", CHORD_PING,
-						  from->addr, from->port, time))
+	if (!verify_ticket(&srv->ticket_key, ticket, "c6sl", CHORD_PING,
+					   &from->addr, from->port, time))
 		return CHORD_INVALID_TICKET;
 
 	f = insert_finger(srv, id, addr, port, &fnew);
@@ -212,9 +214,9 @@ int process_pong(Server *srv, uchar *ticket, chordID *id, ulong addr,
 	}
 
 #ifdef HASH_PORT_WITH_ADDRESS
-	if (!verify_address_id(&f->node.id, from->addr, from->port))
+	if (!verify_address_id(&f->node.id, &from->addr, from->port))
 #else
-	if (!verify_address_id(&f->node.id, from->addr))
+	if (!verify_address_id(&f->node.id, &from->addr))
 #endif
 		return CHORD_INVALID_ID;
 
@@ -238,7 +240,7 @@ int process_pong(Server *srv, uchar *ticket, chordID *id, ulong addr,
 
 /**********************************************************************/
 
-int process_fingers_get(Server *srv, uchar *ticket, ulong addr, ushort port,
+int process_fingers_get(Server *srv, uchar *ticket, in6_addr *addr, ushort port,
 						chordID *key)
 {
 	CHORD_DEBUG(5, print_process(srv, "process_fingers_get", NULL, addr, port));
@@ -265,7 +267,7 @@ int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
 {
 	Finger *f;
 
-	CHORD_DEBUG(5, print_process(srv, "process_traceroute", id, -1, -1));
+	CHORD_DEBUG(5, print_process(srv, "process_traceroute", id, NULL, -1));
 
 	assert(ttl);
 	ttl--;
@@ -304,7 +306,7 @@ int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
 int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops)
 {
 	CHORD_DEBUG(5, print_process(srv, "process_traceroute_repl", &srv->node.id,
-								 -1, -1));
+								 NULL, -1));
 
 	if (hops == 0)
 		return CHORD_PROTOCOL_ERROR;

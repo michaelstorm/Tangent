@@ -6,15 +6,15 @@ void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_data", id, np->addr, np->port));
-	send_raw(srv, np->addr, np->port, pack_data(buf, type, ttl, id, n, data),
+	CHORD_DEBUG(5, print_send(srv, "send_data", id, &np->addr, np->port));
+	send_packet(srv, &np->addr, np->port, pack_data(buf, type, ttl, id, n, data),
 			 buf);
 }
 
 /**********************************************************************/
 
-void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port, chordID *id,
-			 ulong addr, ushort port)
+void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port, chordID *id,
+			 in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 	uchar ticket[TICKET_LEN];
@@ -22,125 +22,125 @@ void send_fs(Server *srv, byte ttl, ulong to_addr, ushort to_port, chordID *id,
 	pack_ticket(&srv->ticket_key, ticket, "c", CHORD_FS);
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, id, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, id, addr, port),
 			 buf);
 }
 
 /**********************************************************************/
 
-void send_fs_forward(Server *srv, uchar *ticket, byte ttl, ulong to_addr,
-					 ushort to_port, chordID *id, ulong addr, ushort port)
+void send_fs_forward(Server *srv, uchar *ticket, byte ttl, in6_addr *to_addr,
+					 ushort to_port, chordID *id, in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, id, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, id, addr, port),
 			 buf);
 }
 
 /**********************************************************************/
 
-void send_fs_repl(Server *srv, uchar *ticket, ulong to_addr, ushort to_port,
-				  chordID *id, ulong addr, ushort port)
+void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
+				  chordID *id, in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs_repl", id, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_fs_repl(buf, ticket, id, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs_repl(buf, ticket, id, addr, port),
 			 buf);
 }
 
 /**********************************************************************/
 
-void send_stab(Server *srv, ulong to_addr, ushort to_port, chordID *id,
-			   ulong addr, ushort port)
+void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
+			   in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_stab", id, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_stab(buf, id, addr, port), buf);
+	send_packet(srv, to_addr, to_port, pack_stab(buf, id, addr, port), buf);
 }
 
 /**********************************************************************/
 
-void send_stab_repl(Server *srv, ulong to_addr, ushort to_port, chordID *id,
-					ulong addr, ushort port)
+void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
+					in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_stab_repl", id, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_stab_repl(buf, id, addr, port), buf);
+	send_packet(srv, to_addr, to_port, pack_stab_repl(buf, id, addr, port), buf);
 }
 
 /**********************************************************************/
 
-void send_notify(Server *srv, ulong to_addr, ushort to_port, chordID *id,
-				 ulong addr, ushort port)
+void send_notify(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
+				 in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_notify", id, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_notify(buf, id, addr, port), buf);
+	send_packet(srv, to_addr, to_port, pack_notify(buf, id, addr, port), buf);
 }
 
 /**********************************************************************/
 
-void send_ping(Server *srv, ulong to_addr, ushort to_port, ulong addr,
+void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 			   ushort port, ulong time)
 {
 	byte buf[BUFSIZE];
 	uchar ticket[TICKET_LEN];
 
-	pack_ticket(&srv->ticket_key, ticket, "clsl", CHORD_PING, to_addr,
+	pack_ticket(&srv->ticket_key, ticket, "c6sl", CHORD_PING, to_addr,
 				 to_port, time);
 
 	CHORD_DEBUG(5, print_send(srv, "send_ping", &srv->node.id, to_addr,
 							  to_port));
-	send_raw(srv, to_addr, to_port, pack_ping(buf, ticket, &srv->node.id, addr,
+	send_packet(srv, to_addr, to_port, pack_ping(buf, ticket, &srv->node.id, addr,
 											port, time), buf);
 }
 
 /**********************************************************************/
 
-void send_pong(Server *srv, uchar *ticket, ulong to_addr, ushort to_port,
+void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 			   ulong time)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_pong", &srv->node.id, to_addr,
 							  to_port));
-	send_raw(srv, to_addr, to_port, pack_pong(buf, ticket, &srv->node.id,
-											  srv->node.addr, srv->node.port,
+	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, &srv->node.id,
+											  &srv->node.addr, srv->node.port,
 											  time), buf);
 }
 
 
 /**********************************************************************/
 
-void send_fingers_get(Server *srv, ulong to_addr, ushort to_port, ulong addr,
+void send_fingers_get(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 					  ushort port, chordID *key)
 {
 	byte buf[BUFSIZE];
 	uchar ticket[TICKET_LEN];
 
-	pack_ticket(&srv->ticket_key, ticket, "cls", CHORD_FINGERS_GET, to_addr,
+	pack_ticket(&srv->ticket_key, ticket, "c6s", CHORD_FINGERS_GET, to_addr,
 				to_port);
 
 	CHORD_DEBUG(5, print_send(srv, "send_fingers_get", NULL, to_addr, to_port));
-	send_raw(srv, to_addr, to_port, pack_fingers_get(buf, ticket, addr, port,
+	send_packet(srv, to_addr, to_port, pack_fingers_get(buf, ticket, addr, port,
 													 key), buf);
 }
 
 /**********************************************************************/
 
-void send_fingers_repl(Server *srv, uchar *ticket, ulong to_addr,
+void send_fingers_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
 					   ushort to_port)
 {
 	byte buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_fingers_repl", &srv->node.id, to_addr,
 							to_port));
-	send_raw(srv, to_addr, to_port, pack_fingers_repl(buf, srv, ticket), buf);
+	send_packet(srv, to_addr, to_port, pack_fingers_repl(buf, srv, ticket), buf);
 }
 
 /**********************************************************************/
@@ -148,9 +148,10 @@ void send_fingers_repl(Server *srv, uchar *ticket, ulong to_addr,
 void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, byte ttl,
 					 byte hops)
 {
-	CHORD_DEBUG(5, print_send(srv, "send_traceroute", &srv->node.id, -1, -1));
-	send_raw(srv, f->node.addr, f->node.port, pack_traceroute(buf, srv, f, type,
-															  ttl, hops), buf);
+	CHORD_DEBUG(5, print_send(srv, "send_traceroute", &srv->node.id, NULL, -1));
+	send_packet(srv, &f->node.addr, f->node.port, pack_traceroute(buf, srv, f,
+															   type, ttl, hops),
+			 buf);
 }
 
 /**********************************************************************/
@@ -158,29 +159,57 @@ void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, byte ttl,
 void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 						  int one_hop)
 {
-	ulong to_addr;
+	in6_addr *to_addr;
 	ushort to_port;
 
-	CHORD_DEBUG(5, print_send(srv, "send_traceroute_repl", &srv->node.id, -1,
+	CHORD_DEBUG(5, print_send(srv, "send_traceroute_repl", &srv->node.id, NULL,
 							-1));
-	send_raw(srv, to_addr, to_port, pack_traceroute_repl(buf, srv, ttl, hops,
-														 &to_addr, &to_port,
-														 one_hop), buf);
+	send_packet(srv, to_addr, to_port,
+			 pack_traceroute_repl(buf, srv, ttl, hops, to_addr, &to_port,
+								  one_hop),
+			 buf);
 }
 
 /**********************************************************************/
 
+void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n, uchar *buf)
+{
+	send_raw(srv->v6_sock, srv->v4_sock, addr, port, n, buf);
+}
+
+void send_raw(int v6_sock, int v4_sock, in6_addr *addr, in_port_t port, int n,
+			  uchar *buf)
+{
+	if (IN6_IS_ADDR_V4MAPPED(addr)) {
+		if (v4_sock)
+			send_raw_v4(v4_sock, addr, port, n, buf);
+		else if (v6_sock)
+			// maybe v4-mapped v6 addresses are routable
+			send_raw_v6(v6_sock, addr, port, n, buf);
+	}
+	else {
+		if (v6_sock)
+			send_raw_v6(v6_sock, addr, port, n, buf);
+		else
+			weprintf("trying to send packet to ipv6 host without an ipv6 "
+					 "socket");
+	}
+}
+
 /* send_raw: send datagram to remote addr:port */
-void send_raw(Server *srv, in_addr_t addr, in_port_t port, int n, uchar *buf)
+void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 {
 	struct sockaddr_in dest;
 
 	memset(&dest, 0, sizeof(dest));
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(port);
-	dest.sin_addr.s_addr = htonl(addr);
+	dest.sin_addr.s_addr = to_v4addr(addr);
 
-	if (sendto(srv->in_sock, buf, n, 0, (struct sockaddr *) &dest,
-			   sizeof(dest)) < 0)
+	if (sendto(sock, buf, n, 0, (struct sockaddr *) &dest, sizeof(dest)) < 0)
 		weprintf("sendto failed:"); /* ignore errors for now */
+}
+
+void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
+{
 }

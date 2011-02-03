@@ -43,12 +43,12 @@ typedef struct iditem_ {
   struct iditem_ *next;
 } IDitem;
 
-static int unpack_print_getnext(char *buf, int n, ulong *succ_addr,
+static int unpack_print_getnext(char *buf, int n, in6_addr *succ_addr,
 								ushort *succ_port);
 static IDitem *add_chordID(IDitem *head, chordID *id);
 static int find_chordID(IDitem *head, chordID *id);
 static int recv_packet(int in_sock, fd_set fdset, int nfds, char *buf,
-					   int buf_len, ulong chordsrv_addr, ushort chordsrv_port);
+					   int buf_len, in6_addr *chordsrv_addr, ushort chordsrv_port);
 
 BF_KEY ticket_key;
 
@@ -57,10 +57,8 @@ int main(int argc, char *argv[])
   chordID key;
   int    in_sock, out_sock, len, rc;
   int    argc_idx = 0, flag_all = FALSE;
-  ulong  chordsrv_addr, client_addr;
+  in6_addr chordsrv_addr, client_addr;
   ushort chordsrv_port, client_port;
-  struct sockaddr_in chordsrv;
-  struct sockaddr_in sin, sout;
   struct hostent *h;
   fd_set fdset;
   int    nfds;
@@ -89,38 +87,18 @@ int main(int argc, char *argv[])
 	printf("%s: unknown host '%s' \n", argv[0], argv[argc_idx+1]);
 	exit(1);
   }
-  assert(h->h_length == sizeof(long));
-  memcpy((char *) &chordsrv_addr, h->h_addr_list[0], h->h_length);
-  chordsrv_addr = ntohl(chordsrv_addr);
+  to_v6addr(((struct in_addr *)h->h_addr_list[0])->s_addr, &chordsrv_addr);
   chordsrv_port = (ushort)atoi(argv[argc_idx+2]);
 
   /* get client's address */
-  client_addr = ntohl(get_addr());
+  to_v6addr(get_addr(), &client_addr);
   client_port = CLIENT_PORT;
 
-  /* create socket to receieve packets */
-  memset(&sin, 0, sizeof(sin));
-  sin.sin_family = AF_INET;
-  sin.sin_port = htons(client_port);
-  sin.sin_addr.s_addr = htonl(INADDR_ANY);
+  /* create socket to receive packets */
+  in_sock = init_socket4(INADDR_ANY, client_port);
 
-  in_sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (in_sock < 0)
-	eprintf("incoming socket failed:");
-  if (bind(in_sock, (struct sockaddr *) &sin, sizeof(sin)) < 0)
-	eprintf("bind to incoming socket failed:");
-
-  /* create outgoing socket */  struct  in_addr ia;
-
-  memset(&sout, 0, sizeof(sout));
-  sout.sin_family = AF_INET;
-  sout.sin_port = htons(0);
-  sout.sin_addr.s_addr = htonl(INADDR_ANY);
-  out_sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (out_sock < 0)
-	eprintf("outgoing socket failed:");
-  if (bind(out_sock, (struct sockaddr *) &sout, sizeof(sout)) < 0)
-	eprintf("bind to outgoing socket failed:");
+  /* create outgoing socket */
+  out_sock = init_socket4(INADDR_ANY, 0);
 
   /* create CHORD_FINGERS_GET message */
   rc = read_keys(KEY_FILE, &key, 1);
@@ -132,10 +110,6 @@ int main(int argc, char *argv[])
 	if (rc == 0)
 	  eprintf("No key found in %s\n", KEY_FILE);
   }
-
-  chordsrv.sin_family = h->h_addrtype;
-  chordsrv.sin_addr.s_addr = htonl(chordsrv_addr);
-  chordsrv.sin_port = htons(chordsrv_port);
 
   FD_ZERO(&fdset);
   FD_SET(in_sock, &fdset);
@@ -157,17 +131,13 @@ int main(int argc, char *argv[])
 
   for (;;) {
 	/* send CHORD_FINGERS_GET request */
-	pack_ticket(&ticket_key, ticket, "cls", CHORD_FINGERS_GET, chordsrv_addr,
+	pack_ticket(&ticket_key, ticket, "c6s", CHORD_FINGERS_GET, &chordsrv_addr,
 				chordsrv_port);
-	len = pack_fingers_get(buf, ticket, client_addr, client_port, &key);
-	rc = sendto(out_sock, buf, len, 0,
-		(struct sockaddr *)&chordsrv, sizeof(chordsrv));
-	if(rc < 0) {
-	  eprintf("cannot send data, errno: %d \n", errno);
-	  break;
-	}
-	len = recv_packet(in_sock, fdset, nfds, buf, sizeof(buf),
-			  chordsrv_addr, chordsrv_port);
+	len = pack_fingers_get(buf, ticket, &client_addr, client_port, &key);
+	send_raw(0, out_sock, &chordsrv_addr, chordsrv_port, len, buf);
+
+	len = recv_packet(in_sock, fdset, nfds, buf, sizeof(buf), &chordsrv_addr,
+					  chordsrv_port);
 
 	/* len == -1 -> no answer; the chord node is either done, or
 	 * the message has been lost, or the acclist.txt is missing
@@ -190,8 +160,6 @@ int main(int argc, char *argv[])
 	  break;
 	}
 	if (unpack_print_getnext(buf, len, &chordsrv_addr, &chordsrv_port)) {
-	  chordsrv.sin_addr.s_addr = htonl(chordsrv_addr);
-	  chordsrv.sin_port = htons(chordsrv_port);
 	  retries = 0;
 	  if (flag_all == FALSE)
 	break;
@@ -215,7 +183,7 @@ int main(int argc, char *argv[])
  * the functions also returns the successor address and port
  * number in succ_addr and succ_port variables
  */
-static int unpack_print_getnext(char *buf, int n, ulong *succ_addr,
+static int unpack_print_getnext(char *buf, int n, in6_addr *succ_addr,
 								ushort *succ_port)
 {
   chordID id;
@@ -253,7 +221,7 @@ static int unpack_print_getnext(char *buf, int n, ulong *succ_addr,
 	len += unpack(buf + len, "xlslls", &id, &addr, &port,
 		  &rtt_avg, &rtt_dev, &npings);
 
-	*succ_addr = addr;
+	to_v6addr(addr, succ_addr);
 	*succ_port = port;
 
 	printf("  F[%d]: ID=(", i++); print_chordID(&id);
@@ -300,7 +268,7 @@ static int find_chordID(IDitem *head, chordID *id)
 }
 
 static int recv_packet(int in_sock, fd_set fdset, int nfds, char *buf,
-					   int buf_len, ulong chordsrv_addr, ushort chordsrv_port)
+					   int buf_len, in6_addr *chordsrv_addr, ushort chordsrv_port)
 {
   fd_set readset;
   int    nfound, from_len, len;
@@ -320,7 +288,7 @@ static int recv_packet(int in_sock, fd_set fdset, int nfds, char *buf,
 	if (nfound == 0) {
 	  /* timeout expired */
 	  struct  in_addr ia;
-	  ia.s_addr = htonl(chordsrv_addr);
+	  ia.s_addr = to_v4addr(chordsrv_addr);
 	  printf("Couldn't contact node (%s:%d), try again...\n",
 		 inet_ntoa(ia), chordsrv_port);
 	  return -1;

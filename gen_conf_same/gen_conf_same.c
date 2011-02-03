@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 {
   int i, j, k, n;
   Node *nodes;
-  in_addr_t addr;
+  in6_addr addr;
   char dirname[100];
   char filename[100];
   FILE *fp;
@@ -25,11 +25,11 @@ int main(int argc, char **argv)
   n = atoi(argv[2]);
   srandom(getpid() ^ time(0));
 
-  addr = ntohl(get_addr());
+  to_v6addr(get_addr(), &addr);
 
   nodes = (Node *)malloc(n * sizeof(Node));
   for (i = 0; i < n; i++) {
-	get_address_id(&nodes[i].id, addr, 6500+i);
+	get_address_id(&nodes[i].id, &addr, 6500+i);
 	nodes[i].addr = addr;
 	nodes[i].port = 6500 + i;
   }
@@ -65,8 +65,7 @@ int main(int argc, char **argv)
 
 	for (; j < k; j++) {
 	  if (j == i) continue;
-	  ia.s_addr = htonl(nodes[j].addr);
-	  fprintf(fp, "%s:%d\n", inet_ntoa(ia), nodes[j].port);
+	  fprintf(fp, "[%s]:%d\n", v6addr_to_str(&nodes[j].addr), nodes[j].port);
 	}
 
 	fclose(fp);

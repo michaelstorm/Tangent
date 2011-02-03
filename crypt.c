@@ -20,6 +20,7 @@ int vpack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
 	ushort s;
 	ulong l;
 	chordID *id;
+	in6_addr *v6addr;
 
 	EVP_MD_CTX_init(&ctx);
 	EVP_DigestInit_ex(&ctx, type, NULL);
@@ -62,6 +63,12 @@ int vpack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
 			C_DEBUG(printf("chordID: "));
 			C_DEBUG(print_id(stdout, id));
 			C_DEBUG(printf("\n"));
+			break;
+		case '6':
+			v6addr = va_arg(args, in6_addr *);
+			EVP_DigestUpdate(&ctx, v6addr->s6_addr, 16);
+
+			C_DEBUG(printf("addr: %s\n", v6addr_to_str(v6addr)));
 			break;
 		default:	 /* illegal type character */
 			fprintf(stderr, "bad ticket type %c", *fmt);
@@ -195,69 +202,27 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 }
 
 #ifdef HASH_PORT_WITH_ADDRESS
-void get_address_id(chordID *id, ulong addr, ushort port)
+void get_address_id(chordID *id, in6_addr *addr, ushort port)
 {
-	pack_hash(EVP_sha1(), id->x, 0, 0, "ls", htonl(addr), htons(port));
+	pack_hash(EVP_sha1(), id->x, 0, 0, "6s", addr, port);
 }
 
-int verify_address_id(chordID *id, ulong addr, ushort port)
+int verify_address_id(chordID *id, in6_addr *addr, ushort port)
 {
 	chordID correct_id;
 	get_address_id(&correct_id, addr, port);
 	return equals(&correct_id, id);
 }
 #else
-void get_address_id(chordID *id, ulong addr)
+void get_address_id(chordID *id, in6_addr *addr)
 {
-	pack_hash(EVP_sha1(), id->x, 0, 0, "l", htonl(addr));
+	pack_hash(EVP_sha1(), id->x, 0, 0, "6", addr);
 }
 
-int verify_address_id(chordID *id, ulong addr)
+int verify_address_id(chordID *id, in6_addr *addr)
 {
 	chordID correct_id;
 	get_address_id(&correct_id, addr);
 	return equals(&correct_id, id);
 }
 #endif
-
-int encrypt(const uchar *clear, int len, uchar *encrypted, uchar *key,
-			uchar *iv)
-{
-	int encrypted_len;
-	int encrypted_final_len;
-
-	EVP_CIPHER_CTX ctx;
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_CIPHER_CTX_set_padding(&ctx, EVP_CIPH_NO_PADDING);
-	EVP_EncryptInit_ex(&ctx, EVP_bf_cbc(), NULL, key, iv);
-
-	if (!EVP_EncryptUpdate(&ctx, encrypted, &encrypted_len, clear, len))
-		return 0;
-
-	if (!EVP_EncryptFinal_ex(&ctx, encrypted + encrypted_len,
-							 &encrypted_final_len))
-		return 0;
-
-	EVP_CIPHER_CTX_cleanup(&ctx);
-	return encrypted_len + encrypted_final_len;
-}
-
-int decrypt(const uchar *encrypted, int len, uchar *clear, uchar *key,
-			uchar *iv)
-{
-	int clear_len;
-	int clear_final_len;
-
-	EVP_CIPHER_CTX ctx;
-	EVP_CIPHER_CTX_init(&ctx);
-	EVP_CIPHER_CTX_set_padding(&ctx, EVP_CIPH_NO_PADDING);
-	EVP_DecryptInit_ex(&ctx, EVP_bf_cbc(), NULL, key, iv);
-
-	if (!EVP_DecryptUpdate(&ctx, clear, &clear_len, encrypted, len))
-		return 0;
-
-	if (!EVP_DecryptFinal_ex(&ctx, clear + clear_len, &clear_final_len))
-		return 0;
-
-	return clear_len + clear_final_len;
-}

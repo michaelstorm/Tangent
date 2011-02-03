@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include "chord.h"
 
-#define RUNTIME_DIR "/var/run/chord"
 #ifndef PATH_MAX
 #define PATH_MAX 256
 #endif
@@ -24,11 +23,11 @@ static int shmid;
 /* route: forward message M towards the root of key K. */
 void chord_route(chordID *k, char *data, int len)
 {
-		byte buf[BUFSIZE];
+	byte buf[BUFSIZE];
 
-		if (send(sp[0], buf, pack_data(buf, CHORD_ROUTE,
-								 DEF_TTL, k, len, data), 0) < 0)
-	weprintf("send failed:");		/* ignore errors */
+	if (send(sp[0], buf, pack_data(buf, CHORD_ROUTE, DEF_TTL, k, len, data),
+			 0) < 0)
+		weprintf("send failed:");		/* ignore errors */
 }
 
 /**********************************************************************/
@@ -46,35 +45,42 @@ int chord_init(char *conf_file)
 		eprintf("shmget failed:");
 
 #ifndef CCURED
-	shared_data = (chordID *) shmat(shmid, (void *)0, 0);
+	shared_data = (chordID *)shmat(shmid, (void *)0, 0);
 	if ((char *) shared_data == (char *) -1)
-		eprintf("shmate failed:");
+		eprintf("shmat failed:");
 #else
 	{
-		void * shared_data_ret = shmat(shmid, (void *)0, 0);
+		void *shared_data_ret = shmat(shmid, (void *)0, 0);
 		if ((ulong) shared_data_ret == (ulong) -1)
-				eprintf("shmate failed:");
+			eprintf("shmat failed:");
 		shared_data = (chordID *)__trusted_cast(__mkptr_size(shared_data_ret,
 															 1024));
 	}
 #endif
 
+	size_t size = pathconf(".", _PC_PATH_MAX);
+	char *buf;
+
+	if ((buf = (char *)malloc((size_t)size)) != NULL)
+		getcwd(buf, (size_t)size);
+
+	printf("cwd: %s (%d)\n", buf, size);
+
 	/* Write out PID, shmid for monitor */
 	memset(&stat_buf, 0, sizeof(struct stat));
-	if (stat( RUNTIME_DIR, &stat_buf ) || !S_ISDIR(stat_buf.st_mode))
-		weprintf("Could not open %s; not writing shmid\n", RUNTIME_DIR);
-	else {
-		sprintf(shmid_filename, "%s/chord.%u.shmid", RUNTIME_DIR, getpid());
-		fp = fopen( shmid_filename, "w");
-		if (fp == NULL)
-			weprintf("Could not write %s\n", shmid_filename);
-		else {
-			if ((fprintf( fp, "%d\n", shmid ) <= 0)
-				|| fflush( fp ) || fclose( fp )) {
-				eprintf("Could not write %s\n", shmid_filename);
-			}
-		}
-	}
+	sprintf(shmid_filename, "%s/chord.%u.shmid", buf, getpid());
+	printf("filename: %s\n", shmid_filename);
+	fp = fopen(shmid_filename, "w");
+	if (fp == NULL)
+		weprintf("Could not open %s\n", shmid_filename);
+
+	printf("pos: %ld\n", ftell(fp));
+	if (fprintf(fp, "%d\n", shmid) <= 0)
+		eprintf("Could not write %s\n", shmid_filename);
+	else if (fflush(fp) == EOF)
+		eprintf("Could not write %s\n", shmid_filename);
+	else if (fclose(fp) == EOF	)
+		eprintf("Could not write %s\n", shmid_filename);
 
 	/* Catch all crashes/kills and cleanup */
 	signal(SIGHUP, chord_cleanup);
@@ -109,7 +115,7 @@ void chord_cleanup(int signum)
 /**********************************************************************/
 
 /* deliver: upcall */
-void chord_deliver(int n, uchar *data)
+void chord_deliver(int n, uchar *data, host *from)
 {
 	/* Convert to I3 format... by stripping off the Chord header */
 	send(sp[1], data, n, 0);

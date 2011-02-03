@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
 #include "chord.h"
 
 /* pack: pack binary items into buf, return length */
@@ -14,6 +15,7 @@ int pack(uchar *buf, char *fmt, ...)
 	ushort s;
 	ulong l;
 	uchar *t;
+	in6_addr *v6addr;
 	int zero_len;
 
 	bp = buf;
@@ -45,6 +47,11 @@ int pack(uchar *buf, char *fmt, ...)
 			memmove(bp, t, TICKET_LEN);
 			bp += TICKET_LEN;
 			break;
+		case '6':
+			v6addr = va_arg(args, in6_addr *);
+			memmove(bp, v6addr->s6_addr, 16);
+			bp += 16;
+			break;
 		case '0':    /* zero/skip */
 		case '*':
 			switch (*(++p)) {
@@ -53,6 +60,7 @@ int pack(uchar *buf, char *fmt, ...)
 			case 'l': zero_len = sizeof(uint32_t); break;
 			case 'x': zero_len = ID_LEN; break;
 			case 't': zero_len = TICKET_LEN; break;
+			case '6': zero_len = 16; break;
 			default: va_end(args); return CHORD_PACK_ERROR;
 			}
 			if (*(p-1) == '0')
@@ -79,6 +87,7 @@ int unpack(uchar *buf, char *fmt, ...)
 	chordID *id;
 	ushort *ps;
 	ulong *pl;
+	in6_addr *v6addr;
 	int zero_len;
 
 	bp = buf;
@@ -109,6 +118,11 @@ int unpack(uchar *buf, char *fmt, ...)
 			memmove(pc, bp, TICKET_LEN);
 			bp += TICKET_LEN;
 			break;
+		case '6':
+			v6addr = va_arg(args, in6_addr *);
+			memmove(v6addr->s6_addr, bp, 16);
+			bp += 16;
+			break;
 		case '0':    /* skip */
 		case '*':
 			switch (*(++p)) {
@@ -117,6 +131,7 @@ int unpack(uchar *buf, char *fmt, ...)
 			case 'l': zero_len = sizeof(uint32_t); break;
 			case 'x': zero_len = ID_LEN; break;
 			case 't': zero_len = TICKET_LEN; break;
+			case '6': zero_len = 16; break;
 			default: va_end(args); return CHORD_PACK_ERROR;
 			}
 			bp += zero_len;
@@ -153,6 +168,9 @@ int sizeof_fmt(char *fmt)
 			break;
 		case 't':	 /* ticket */
 			len += TICKET_LEN;
+			break;
+		case '6':
+			len += 16;
 			break;
 		case '0':	 /* zero/skip */
 		case '*':
@@ -248,11 +266,9 @@ int dispatch(Server *srv, int n, uchar *buf, host *from)
 			break;
 		}
 
-		char addr_str[INET_ADDRSTRLEN];
-		ulong n_addr = htonl(from->addr);
-		inet_ntop(AF_INET, &n_addr, addr_str, INET_ADDRSTRLEN);
 		weprintf("dropping packet [type 0x%02x size %d] from %s:%hu (%s)", type,
-				 n, addr_str, from->port, err_str);
+				 n, v6addr_to_str(&from->addr), from->port, err_str);
+		abort();
 	}
 
 	return res;
@@ -289,16 +305,16 @@ int unpack_data(Server *srv, int n, uchar *buf, host *from)
 	if (len < 0 || len + pkt_len != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_ROUTE || type == CHORD_ROUTE_LAST);
-	return process_data(srv, type, ttl, &id, pkt_len, buf + len);
+	return process_data(srv, type, ttl, &id, pkt_len, buf + len, from);
 }
 
 /**********************************************************************/
 
 /* pack_fs: pack find_successor packet */
-int pack_fs(uchar *buf, uchar *ticket, byte ttl, chordID *id, ulong addr,
+int pack_fs(uchar *buf, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
 			ushort port)
 {
-	return pack(buf, "ctcxls", CHORD_FS, ticket, ttl, id, addr, port);
+	return pack(buf, "ctcx6s", CHORD_FS, ticket, ttl, id, addr, port);
 }
 
 /**********************************************************************/
@@ -309,23 +325,23 @@ int unpack_fs(Server *srv, int n, uchar *buf, host *from)
 	uchar type;
 	uchar ticket[TICKET_LEN];
 	byte ttl;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	chordID id;
 
-	if (unpack(buf, "ctcxls", &type, ticket, &ttl, &id, &addr, &port) != n)
+	if (unpack(buf, "ctcx6s", &type, ticket, &ttl, &id, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FS);
-	return process_fs(srv, ticket, ttl, &id, addr, port);
+	return process_fs(srv, ticket, ttl, &id, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_fs_repl: pack find_successor reply packet */
-int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, ulong addr,
+int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr,
 				 ushort port)
 {
-	return pack(buf, "ctxls", CHORD_FS_REPL, ticket, id, addr, port);
+	return pack(buf, "ctx6s", CHORD_FS_REPL, ticket, id, addr, port);
 }
 
 /**********************************************************************/
@@ -334,23 +350,23 @@ int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, ulong addr,
 int unpack_fs_repl(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	chordID id;
 	uchar ticket[TICKET_LEN];
 
-	if (unpack(buf, "ctxls", &type, ticket, &id, &addr, &port) != n)
+	if (unpack(buf, "ctx6s", &type, ticket, &id, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FS_REPL);
-	return process_fs_repl(srv, ticket, &id, addr, port);
+	return process_fs_repl(srv, ticket, &id, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_stab: pack stabilize packet */
-int pack_stab(uchar *buf, chordID *id, ulong addr, ushort port)
+int pack_stab(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 {
-	return pack(buf, "cxls", CHORD_STAB, id, addr, port);
+	return pack(buf, "cx6s", CHORD_STAB, id, addr, port);
 }
 
 /**********************************************************************/
@@ -359,22 +375,22 @@ int pack_stab(uchar *buf, chordID *id, ulong addr, ushort port)
 int unpack_stab(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	chordID id;
 
-	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
+	if (unpack(buf, "cx6s", &type, &id, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_STAB);
-	return process_stab(srv, &id, addr, port);
+	return process_stab(srv, &id, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_stab_repl: pack stabilize reply packet */
-int pack_stab_repl(uchar *buf, chordID *id, ulong addr, ushort port)
+int pack_stab_repl(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 {
-	return pack(buf, "cxls", CHORD_STAB_REPL, id, addr, port);
+	return pack(buf, "cx6s", CHORD_STAB_REPL, id, addr, port);
 }
 
 /**********************************************************************/
@@ -383,22 +399,22 @@ int pack_stab_repl(uchar *buf, chordID *id, ulong addr, ushort port)
 int unpack_stab_repl(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	chordID id;
 
-	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
+	if (unpack(buf, "cx6s", &type, &id, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_STAB_REPL);
-	return process_stab_repl(srv, &id, addr, port);
+	return process_stab_repl(srv, &id, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_notify: pack notify packet */
-int pack_notify(uchar *buf, chordID *id, ulong addr, ushort port)
+int pack_notify(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 {
-	return pack(buf, "cxls", CHORD_NOTIFY, id, addr, port);
+	return pack(buf, "cx6s", CHORD_NOTIFY, id, addr, port);
 }
 
 /**********************************************************************/
@@ -407,23 +423,23 @@ int pack_notify(uchar *buf, chordID *id, ulong addr, ushort port)
 int unpack_notify(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	chordID id;
 
-	if (unpack(buf, "cxls", &type, &id, &addr, &port) != n)
+	if (unpack(buf, "cx6s", &type, &id, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_NOTIFY);
-	return process_notify(srv, &id, addr, port);
+	return process_notify(srv, &id, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_ping: pack ping packet */
-int pack_ping(uchar *buf, uchar *ticket, chordID *id, ulong addr, ushort port,
+int pack_ping(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr, ushort port,
 			  ulong time)
 {
-	return pack(buf, "ctxlsl", CHORD_PING, ticket, id, addr, port, time);
+	return pack(buf, "ctx6sl", CHORD_PING, ticket, id, addr, port, time);
 }
 
 /**********************************************************************/
@@ -434,24 +450,24 @@ int unpack_ping(Server *srv, int n, uchar *buf, host *from)
 	uchar type;
 	uchar ticket[TICKET_LEN];
 	chordID id;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	ulong time;
 
-	if (unpack(buf, "ctxlsl", &type, ticket, &id, &addr, &port, &time) != n)
+	if (unpack(buf, "ctx6sl", &type, ticket, &id, &addr, &port, &time) != n)
 		return CHORD_PROTOCOL_ERROR;
 
 	assert(type == CHORD_PING);
-	return process_ping(srv, ticket, &id, addr, port, time);
+	return process_ping(srv, ticket, &id, &addr, port, time);
 }
 
 /**********************************************************************/
 
 /* pack_pong: pack pong packet */
-int pack_pong(uchar *buf, uchar *ticket, chordID *id, ulong addr, ushort port,
+int pack_pong(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr, ushort port,
 			  ulong time)
 {
-	return pack(buf, "ctxlsl", CHORD_PONG, ticket, id, addr, port, time);
+	return pack(buf, "ctx6sl", CHORD_PONG, ticket, id, addr, port, time);
 }
 
 /**********************************************************************/
@@ -461,25 +477,25 @@ int unpack_pong(Server *srv, int n, uchar *buf, host *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 	chordID id;
 	ulong time;
 
-	if (unpack(buf, "ctxlsl", &type, ticket, &id, &addr, &port, &time) != n)
+	if (unpack(buf, "ctx6sl", &type, ticket, &id, &addr, &port, &time) != n)
 		return CHORD_PROTOCOL_ERROR;
 
 	assert(type == CHORD_PONG);
-	return process_pong(srv, ticket, &id, addr, port, time, from);
+	return process_pong(srv, ticket, &id, &addr, port, time, from);
 }
 
 /**********************************************************************/
 
 /* pack_fingers_get: pack get fingers packet */
-int pack_fingers_get(uchar *buf, uchar *ticket, ulong addr, ushort port,
+int pack_fingers_get(uchar *buf, uchar *ticket, in6_addr *addr, ushort port,
 					 chordID *key)
 {
-	return pack(buf, "ctxls", CHORD_FINGERS_GET, ticket, key, addr, port);
+	return pack(buf, "ctx6s", CHORD_FINGERS_GET, ticket, key, addr, port);
 }
 
 /**********************************************************************/
@@ -490,13 +506,13 @@ int unpack_fingers_get(Server *srv, int n, uchar *buf, host *from)
 	uchar type;
 	uchar ticket[TICKET_LEN];
 	chordID	 key;
-	ulong addr;
+	in6_addr addr;
 	ushort port;
 
-	if (unpack(buf, "ctxls", &type, ticket, &key, &addr, &port) != n)
+	if (unpack(buf, "ctx6s", &type, ticket, &key, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FINGERS_GET);
-	return process_fingers_get(srv, ticket, addr, port, &key);
+	return process_fingers_get(srv, ticket, &addr, port, &key);
 }
 
 #define INCOMPLETE_FINGER_LIST -1
@@ -509,12 +525,12 @@ int pack_fingers_repl(uchar *buf, Server *srv, uchar *ticket)
 	int len, l;
 
 	assert(srv);
-	len = pack(buf, "ctxls", CHORD_FINGERS_REPL, ticket, &srv->node.id,
-			 srv->node.addr, srv->node.port);
+	len = pack(buf, "ctx6s", CHORD_FINGERS_REPL, ticket, &srv->node.id,
+			   &srv->node.addr, srv->node.port);
 
 	/* pack fingers */
 	for (f = srv->head_flist; f; f = f->next) {
-		l = pack(buf + len, "xlslls", &f->node.id, f->node.addr, f->node.port,
+		l = pack(buf + len, "x6slls", &f->node.id, &f->node.addr, f->node.port,
 				 f->rtt_avg, f->rtt_dev, (short)f->npings);
 		len += l;
 		if (len + l + 1 > BUFSIZE) {
@@ -571,17 +587,17 @@ int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
 	n += sizeof_fmt("x");
 
 	/* pack prev node (for the next node, this is the current node!) */
-	n += pack(buf+n, "xlsll", &srv->node.id, srv->node.addr, srv->node.port,
+	n += pack(buf+n, "x6sll", &srv->node.id, &srv->node.addr, srv->node.port,
 			  f->rtt_avg, f->rtt_dev);
 
 	/* pack this node field (for next node this is the node itself!) */
-	n += pack(buf+n, "xls", &f->node.id, f->node.addr, f->node.port);
+	n += pack(buf+n, "x6s", &f->node.id, &f->node.addr, f->node.port);
 
 	/* skip current list of addresses .. */
-	n += sizeof_fmt("ls")*hops;
+	n += sizeof_fmt("6s")*hops;
 
 	/* add current node to the list */
-	n += pack(buf+n, "ls", srv->node.addr, srv->node.port);
+	n += pack(buf+n, "6s", &srv->node.addr, srv->node.port);
 
 	return n;
 }
@@ -628,7 +644,7 @@ int unpack_traceroute(Server *srv, int n, uchar *buf, host *from)
  *		....
  */
 int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
-						 ulong *paddr, ushort *pport, int one_hop)
+						 in6_addr *paddr, ushort *pport, int one_hop)
 {
 	int	 n = 0;
 
@@ -640,26 +656,26 @@ int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
 
 	if (one_hop) {
 		/* one hop path */
-		n += pack(buf+n, "xls", &srv->node.id, srv->node.addr, srv->node.port);
+		n += pack(buf+n, "x6s", &srv->node.id, &srv->node.addr, srv->node.port);
 		/* skip mean rtt, and std dev rtt fields */
 		n += sizeof_fmt("ll");
 	} else {
 		/* skip next-to-last node field, and the mean and std dev. to last
 		 * node fields
 		 */
-		n += sizeof_fmt("xlsll");
+		n += sizeof_fmt("x6sll");
 	}
 
 	/* skip last node field */
-	n += sizeof_fmt("xls");
+	n += sizeof_fmt("x6s");
 
 	/* compute source list size -- this is the number of hops plus client */
-	n += sizeof_fmt("ls")*hops;
+	n += sizeof_fmt("6s")*hops;
 
 	/* get address and port number of previous node on reverse path
 	 * yes, it's ugly to unpack in a pack function, but...
 	 */
-	unpack(buf+n, "ls", paddr, pport);
+	unpack(buf+n, "6s", paddr, pport);
 
 	return n;
 }

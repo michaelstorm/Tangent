@@ -12,23 +12,25 @@
 /* join: Send join messages to hosts in file */
 void join(Server *srv, FILE *fp)
 {
-	char addr[100], *p;
-	struct hostent *hp;
+	char addr_str[INET6_ADDRSTRLEN+16], *p;
+	ushort port;
 
 	printf("joining well-known nodes:\n");
-	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, " %s\n", addr) == 1) {
-		p = strchr(addr, ':');
+	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, "[%s\n", addr_str) == 1) {
+		p = strstr(addr_str, "]:");
 		assert(p != NULL);
-		*(p++) = '\0';
-		printf("\taddr=%s:%d\n", addr, atoi(p));
+		*p = '\0';
+		p += 2;
+		port = atoi(p);
+		printf("\taddr=[%s]:%d\n", addr_str, port);
 
 		/* resolve address */
-		hp = gethostbyname(addr);
-		if (hp == NULL)
-			eprintf("gethostbyname(%s) failed:", addr);
-
-		srv->well_known[srv->nknown].addr = ntohl(*((in_addr_t *)hp->h_addr));
-		srv->well_known[srv->nknown].port = (in_port_t)atoi(p);
+		if (resolve_v6name(addr_str, &srv->well_known[srv->nknown].addr)) {
+			weprintf("could not join well-known node [%s]:%d", addr_str, port);
+			break;
+		}
+		printf("%s\n", v6addr_to_str(&srv->well_known[srv->nknown].addr));
+		srv->well_known[srv->nknown].port = (in_port_t)port;
 		srv->nknown++;
 	}
 
