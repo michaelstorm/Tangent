@@ -213,11 +213,7 @@ int process_pong(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 		return 0;
 	}
 
-#ifdef HASH_PORT_WITH_ADDRESS
 	if (!verify_address_id(&f->node.id, &from->addr, from->port))
-#else
-	if (!verify_address_id(&f->node.id, &from->addr))
-#endif
 		return CHORD_INVALID_ID;
 
 	CHORD_DEBUG(5, print_process(srv, "process_pong", id, addr, port));

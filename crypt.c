@@ -201,7 +201,6 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 	return memcmp(md_value, ticket_md, 4) == 0;
 }
 
-#ifdef HASH_PORT_WITH_ADDRESS
 void get_address_id(chordID *id, in6_addr *addr, ushort port)
 {
 	pack_hash(EVP_sha1(), id->x, 0, 0, "6s", addr, port);
@@ -213,16 +212,3 @@ int verify_address_id(chordID *id, in6_addr *addr, ushort port)
 	get_address_id(&correct_id, addr, port);
 	return equals(&correct_id, id);
 }
-#else
-void get_address_id(chordID *id, in6_addr *addr)
-{
-	pack_hash(EVP_sha1(), id->x, 0, 0, "6", addr);
-}
-
-int verify_address_id(chordID *id, in6_addr *addr)
-{
-	chordID correct_id;
-	get_address_id(&correct_id, addr);
-	return equals(&correct_id, id);
-}
-#endif

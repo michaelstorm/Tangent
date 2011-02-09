@@ -346,16 +346,8 @@ void v6_addr_copy(in6_addr *from, in6_addr *to);
 int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...);
 int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...);
 
-// undefine this when not going over loopback, since this could allow a
-// malicious peer to assign ~65000 IDs to itself
-#define HASH_PORT_WITH_ADDRESS
-#ifdef HASH_PORT_WITH_ADDRESS
 void get_address_id(chordID *id, in6_addr *addr, ushort port);
 int verify_address_id(chordID *id, in6_addr *addr, ushort port);
-#else
-void get_address_id(chordID *id, in6_addr *addr);
-int verify_address_id(chordID *id, in6_addr *addr);
-#endif
 
 #include "eprintf.h"
 
