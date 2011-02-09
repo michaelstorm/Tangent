@@ -1,3 +1,6 @@
+#ifndef CHORD_H
+#define CHORD_H
+
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <openssl/blowfish.h>
@@ -5,10 +8,8 @@
 #include <inttypes.h>  // Need uint64_t
 #endif
 #include <stdio.h>
+#include "chord_api.h"
 #include "debug.h"
-
-#ifndef CHORD_H
-#define CHORD_H
 
 typedef struct Finger Finger;
 typedef struct Node Node;
@@ -24,13 +25,13 @@ typedef struct Server Server;
 #define F_PASSIVE 0
 #define F_ACTIVE  1
 
+#define V4_MAPPED(x) IN6_IS_ADDR_V4MAPPED(x)
+
 enum {
-	NBITS        = 160,            /* # bits per ID, same as SHA-1 output */
-	ID_LEN       = NBITS/8,        /* bytes per ID */
 	TICKET_LEN = 8,				   /* bytes per connection ticket */
 	TICKET_TIMEOUT = 32,		   /* seconds for which a ticket is valid */
 	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */
-	NFINGERS     = NBITS,          /* # fingers per node */
+	NFINGERS     = CHORD_ID_BITS,  /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
 	STABILIZE_PERIOD = 1*1000000,  /* in usec */
@@ -75,7 +76,6 @@ enum {
 };
 
 /* XXX: warning: portability bugs */
-typedef uint8_t byte;
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef unsigned long ulong;
@@ -84,10 +84,6 @@ typedef struct in_addr in_addr;
 #ifdef __APPLE__
 typedef u_long ulong;
 #endif
-
-typedef struct {
-	byte x[ID_LEN];
-} chordID;
 
 struct Node
 {
@@ -131,8 +127,8 @@ struct Server
 	int to_ping;        /* next node in finger list to be refreshed */
 	uint64_t next_stabilize_us;	/* value of wall_time() at next stabilize */
 
-	int v4_sock;        /* ipv4 socket */
-	int v6_sock;        /* ipv6 socket */
+	int sock;        /* socket */
+	int is_v6;		 /* whether we're sitting on an IPv6 interface */
 
 	Node well_known[MAX_WELLKNOWN];
 	int nknown;
@@ -271,14 +267,12 @@ int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops);
 /* sendpkt.c */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,
 				 uchar *buf);
-void send_raw(int v6_sock, int v4_sock, in6_addr *addr, in_port_t port, int n,
-			  uchar *buf);
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
 			   ushort n, uchar *data);
-void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port, chordID *id,
-			 in6_addr *addr, ushort port);
+void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port,
+			 chordID *id, in6_addr *addr, ushort port);
 void send_fs_forward(Server *srv, uchar *ticket, byte ttl, in6_addr *to_addr,
 			 ushort to_port, chordID *id, in6_addr *addr, ushort port);
 void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
@@ -305,15 +299,6 @@ void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 /* stabilize.c */
 void stabilize(Server *srv);
 void set_stabilize_timer(Server *srv);
-
-/* api.c */
-int chord_init(char *conf_file);
-void chord_cleanup(int signum);
-void chord_route(chordID *k, char *data, int len);
-void chord_deliver(int n, uchar *data, host *from);
-void chord_get_range(chordID *l, chordID *r);
-void chord_update_range(chordID *l, chordID *r);
-int chord_is_local(chordID *x);
 
 /* util.c */
 double f_rand();
@@ -357,6 +342,8 @@ void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
 void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
+int v6_addr_equals(in6_addr *addr1, in6_addr *addr2);
+void v6_addr_copy(in6_addr *from, in6_addr *to);
 
 int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...);
 int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...);

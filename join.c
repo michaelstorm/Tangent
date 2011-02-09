@@ -29,7 +29,7 @@ void join(Server *srv, FILE *fp)
 			weprintf("could not join well-known node [%s]:%d", addr_str, port);
 			break;
 		}
-		printf("%s\n", v6addr_to_str(&srv->well_known[srv->nknown].addr));
+
 		srv->well_known[srv->nknown].port = (in_port_t)port;
 		srv->nknown++;
 	}

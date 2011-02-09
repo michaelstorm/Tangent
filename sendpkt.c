@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 #include "chord.h"
 
@@ -172,34 +173,19 @@ void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 
 /**********************************************************************/
 
+/* send_packet: send datagram to remote addr:port */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n, uchar *buf)
 {
-	send_raw(srv->v6_sock, srv->v4_sock, addr, port, n, buf);
+	if (srv->is_v6)
+		send_raw_v6(srv->sock, addr, port, n, buf);
+	else
+		send_raw_v4(srv->sock, addr, port, n, buf);
 }
 
-void send_raw(int v6_sock, int v4_sock, in6_addr *addr, in_port_t port, int n,
-			  uchar *buf)
-{
-	if (IN6_IS_ADDR_V4MAPPED(addr)) {
-		if (v4_sock)
-			send_raw_v4(v4_sock, addr, port, n, buf);
-		else if (v6_sock)
-			// maybe v4-mapped v6 addresses are routable
-			send_raw_v6(v6_sock, addr, port, n, buf);
-	}
-	else {
-		if (v6_sock)
-			send_raw_v6(v6_sock, addr, port, n, buf);
-		else
-			weprintf("trying to send packet to ipv6 host without an ipv6 "
-					 "socket");
-	}
-}
-
-/* send_raw: send datagram to remote addr:port */
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 {
 	struct sockaddr_in dest;
+	assert(V4_MAPPED(addr));
 
 	memset(&dest, 0, sizeof(dest));
 	dest.sin_family = AF_INET;
@@ -212,4 +198,13 @@ void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 {
+	struct sockaddr_in6 dest;
+
+	memset(&dest, 0, sizeof(dest));
+	dest.sin6_family = AF_INET6;
+	dest.sin6_port = htons(port);
+	v6_addr_copy(addr, &dest.sin6_addr);
+
+	if (sendto(sock, buf, n, 0, (struct sockaddr *)&dest, sizeof(dest)) < 0)
+			weprintf("sendto failed:");
 }

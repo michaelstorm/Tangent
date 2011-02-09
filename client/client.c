@@ -3,7 +3,8 @@
 
 int main(int argc, char **argv)
 {
-	chord_init(argv[1]);
+	int sockets[2];
+	chord_init(argv[1], sockets);
 	wait(0);
 
 	return 0;

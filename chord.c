@@ -31,7 +31,7 @@ void chord_main(char *conf_file, int parent_sock)
 	fd_set interesting, readable;
 	int nfound, nfds;
 	struct in_addr ia;
-	char id[4*ID_LEN];
+	char id[4*CHORD_ID_LEN];
 	FILE *fp;
 	int64_t stabilize_wait;
 	struct timeval timeout;
@@ -68,9 +68,9 @@ void chord_main(char *conf_file, int parent_sock)
 	fclose(fp);
 
 	FD_ZERO(&interesting);
-	FD_SET(srv.v4_sock, &interesting);
+	FD_SET(srv.sock, &interesting);
 	FD_SET(parent_sock, &interesting);
-	nfds = MAX(srv.v4_sock, parent_sock) + 1;
+	nfds = MAX(srv.sock, parent_sock) + 1;
 
 	/* Loop on input */
 	for (;;) {
@@ -90,8 +90,8 @@ void chord_main(char *conf_file, int parent_sock)
 			continue;
 		}
 
-		if (FD_ISSET(srv.v4_sock, &readable))
-			handle_packet(srv.v4_sock);
+		if (FD_ISSET(srv.sock, &readable))
+			handle_packet(srv.sock);
 		else if (FD_ISSET(parent_sock, &readable))
 			handle_packet(parent_sock);
 		else
@@ -122,10 +122,10 @@ void initialize(Server *srv)
 {
 	setservent(1);
 
-	srv->v4_sock = init_socket4(INADDR_ANY, srv->node.port);
-	set_socket_nonblocking(srv->v4_sock);
+	srv->sock = init_socket4(INADDR_ANY, srv->node.port);
+	set_socket_nonblocking(srv->sock);
 
-	srv->v6_sock = 0;
+	srv->is_v6 = 0;
 
 	init_ticket_key(srv);
 }

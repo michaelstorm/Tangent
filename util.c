@@ -93,7 +93,7 @@ chordID rand_ID(void)
 	chordID id;
 
 	int i;
-	for (i = 0; i < ID_LEN; i++)
+	for (i = 0; i < CHORD_ID_LEN; i++)
 		id.x[i] = (byte)(random() & 0xff);
 	return id;
 }
@@ -106,9 +106,9 @@ chordID successor(chordID id, int n)
 	byte old;
 	int start, i;
 
-	assert(n >= 0 && n < NBITS);
+	assert(n >= 0 && n < CHORD_ID_BITS);
 	/* Note id.x[0] is most significant bit */
-	start = ID_LEN-1 - n/8;
+	start = CHORD_ID_LEN-1 - n/8;
 	old = id.x[start];
 	id.x[start] += 1 << (n%8);
 	if (id.x[start] < old) {
@@ -129,8 +129,8 @@ chordID predecessor(chordID id, int n)
 	byte old;
 	int start, i;
 
-	assert(n >= 0 && n < NBITS);
-	start = ID_LEN-1 - n/8;
+	assert(n >= 0 && n < CHORD_ID_BITS);
+	start = CHORD_ID_LEN-1 - n/8;
 	old = id.x[start];
 	id.x[start] -= 1 << (n%8);
 	if (id.x[start] > old) {
@@ -152,7 +152,7 @@ chordID predecessor(chordID id, int n)
 void add(chordID *a, chordID *b, chordID *res)
 {
 	int i, carry = 0;
-	for (i = ID_LEN - 1; i >= 0; i--) {
+	for (i = CHORD_ID_LEN - 1; i >= 0; i--) {
 		res->x[i] = (a->x[i] + b->x[i] + carry) & 0xff;
 		carry = (a->x[i] + b->x[i] + carry) >> 8;
 	}
@@ -164,7 +164,7 @@ void add(chordID *a, chordID *b, chordID *res)
 void subtract(chordID *a, chordID *b, chordID *res)
 {
 	int i, borrow = 0;
-	for (i = ID_LEN - 1; i >= 0; i--) {
+	for (i = CHORD_ID_LEN - 1; i >= 0; i--) {
 		if (a->x[i] - borrow < b->x[i]) {
 			res->x[i] = 256 + a->x[i] - borrow - b->x[i];
 			borrow = 1;
@@ -183,7 +183,7 @@ chordID random_from(chordID *a)
 	int	m = random()%10 + 1;
 
 	int i;
-	for (i = 0; i < ID_LEN; i++)
+	for (i = 0; i < CHORD_ID_LEN; i++)
 		b.x[i] = a->x[i]*m/11;
 	return b;
 }
@@ -214,7 +214,7 @@ static int msb_tab[256] = {
 int msb(chordID *x)
 {
 	int i;
-	for (i = 0; i < ID_LEN; i++)
+	for (i = 0; i < CHORD_ID_LEN; i++)
 	if (x->x[i])
 		return 8 * i + msb_tab[x->x[i]];
 	return 0;
@@ -285,7 +285,7 @@ int copy_id( chordID *a, chordID *b)
 void print_id(FILE *f, chordID *id)
 {
 	int i;
-	for (i = 0; i < ID_LEN; i++)
+	for (i = 0; i < CHORD_ID_LEN; i++)
 		fprintf(f, "%02x", id->x[i]);
 }
 
@@ -304,8 +304,8 @@ chordID atoid(const char *str)
 	chordID id;
 	int i;
 
-	assert(strlen(str) == 2*ID_LEN);
-	for (i = 0; i < ID_LEN; i++)
+	assert(strlen(str) == 2*CHORD_ID_LEN);
+	for (i = 0; i < CHORD_ID_LEN; i++)
 		 id.x[i] = (todigit(str[2*i]) << 4) | todigit(str[2*i+1]);
 	return id;
 }
@@ -322,7 +322,7 @@ unsigned hash(chordID *id, unsigned n)
 	unsigned h = 0;
 	int i;
 
-	for (i = 0; i < ID_LEN; i++)
+	for (i = 0; i < CHORD_ID_LEN; i++)
 		h = MULTIPLIER * h + id->x[ i ];
 
 	return h % n;
@@ -332,7 +332,7 @@ int match_key(chordID *key_array, int num_keys, chordID *key)
 {
 	int i;
 	for (i = 0; i < num_keys; i++) {
-		if (memcmp((char *)&key->x[0], (char *)&key_array[i].x[0], ID_LEN) == 0)
+		if (memcmp((char *)&key->x[0], (char *)&key_array[i].x[0], CHORD_ID_LEN) == 0)
 			return 1;
 	}
 	return 0;
@@ -344,7 +344,7 @@ void print_chordID(chordID *id)
 {
 	if (id) {
 		int i;
-		for (i = 0; i < ID_LEN; i++)
+		for (i = 0; i < CHORD_ID_LEN; i++)
 			printf("%02x", id->x[i]);
 	}
 	else
@@ -490,4 +490,14 @@ ulong get_current_time()
 void print_current_time(char *prefix, char *suffix)
 {
 	printf("%s%lld%s", prefix, wall_time(), suffix);
+}
+
+int v6_addr_equals(in6_addr *addr1, in6_addr *addr2)
+{
+	   return memcmp(addr1->s6_addr, addr2->s6_addr, 16) == 0;
+}
+
+void v6_addr_copy(in6_addr *from, in6_addr *to)
+{
+	   memcpy(to->s6_addr, from->s6_addr, 16);
 }

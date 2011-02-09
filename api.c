@@ -11,21 +11,15 @@
 #include <sys/stat.h>
 #include "chord.h"
 
-#ifndef PATH_MAX
-#define PATH_MAX 256
-#endif
-static char shmid_filename[PATH_MAX];
-
-static int sp[2];		/* Socket pair for communication between the two layers */
-static chordID *shared_data;
-static int shmid;
+static int tunnel[2]; /* Socket pair for communication between the two layers */
+static int ipc[2];
 
 /* route: forward message M towards the root of key K. */
 void chord_route(chordID *k, char *data, int len)
 {
 	byte buf[BUFSIZE];
 
-	if (send(sp[0], buf, pack_data(buf, CHORD_ROUTE, DEF_TTL, k, len, data),
+	if (send(tunnel[0], buf, pack_data(buf, CHORD_ROUTE, DEF_TTL, k, len, data),
 			 0) < 0)
 		weprintf("send failed:");		/* ignore errors */
 }
@@ -33,54 +27,13 @@ void chord_route(chordID *k, char *data, int len)
 /**********************************************************************/
 
 /* init: initialize chord server, return socket descriptor */
-int chord_init(char *conf_file)
+void chord_init(char *conf_file, int *sockets)
 {
-	FILE *fp;
-	struct stat stat_buf;
-
-	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, sp) < 0)
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, tunnel) < 0)
 		eprintf("socket_pair failed:");
 
-	if ((shmid = shmget(IPC_PRIVATE, 1024, 0644 | IPC_CREAT)) == -1)
-		eprintf("shmget failed:");
-
-#ifndef CCURED
-	shared_data = (chordID *)shmat(shmid, (void *)0, 0);
-	if ((char *) shared_data == (char *) -1)
-		eprintf("shmat failed:");
-#else
-	{
-		void *shared_data_ret = shmat(shmid, (void *)0, 0);
-		if ((ulong) shared_data_ret == (ulong) -1)
-			eprintf("shmat failed:");
-		shared_data = (chordID *)__trusted_cast(__mkptr_size(shared_data_ret,
-															 1024));
-	}
-#endif
-
-	size_t size = pathconf(".", _PC_PATH_MAX);
-	char *buf;
-
-	if ((buf = (char *)malloc((size_t)size)) != NULL)
-		getcwd(buf, (size_t)size);
-
-	printf("cwd: %s (%d)\n", buf, size);
-
-	/* Write out PID, shmid for monitor */
-	memset(&stat_buf, 0, sizeof(struct stat));
-	sprintf(shmid_filename, "%s/chord.%u.shmid", buf, getpid());
-	printf("filename: %s\n", shmid_filename);
-	fp = fopen(shmid_filename, "w");
-	if (fp == NULL)
-		weprintf("Could not open %s\n", shmid_filename);
-
-	printf("pos: %ld\n", ftell(fp));
-	if (fprintf(fp, "%d\n", shmid) <= 0)
-		eprintf("Could not write %s\n", shmid_filename);
-	else if (fflush(fp) == EOF)
-		eprintf("Could not write %s\n", shmid_filename);
-	else if (fclose(fp) == EOF	)
-		eprintf("Could not write %s\n", shmid_filename);
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ipc) < 0)
+		eprintf("socket_pair failed:");
 
 	/* Catch all crashes/kills and cleanup */
 	signal(SIGHUP, chord_cleanup);
@@ -96,18 +49,16 @@ int chord_init(char *conf_file)
 	signal(SIGBUS, chord_cleanup);
 
 	if (!fork())		/* child */
-		chord_main(conf_file, sp[1]);
+		chord_main(conf_file, tunnel[1]);
 
-	return sp[0];
+	sockets[0] = tunnel[0];
+	sockets[1] = ipc[0];
 }
 
 /**********************************************************************/
 
 void chord_cleanup(int signum)
 {
-	shmdt(shared_data);
-	shmctl(shmid, IPC_RMID, NULL);
-	unlink(shmid_filename);
 	signal(SIGABRT, SIG_DFL);
 	abort();
 }
@@ -118,7 +69,7 @@ void chord_cleanup(int signum)
 void chord_deliver(int n, uchar *data, host *from)
 {
 	/* Convert to I3 format... by stripping off the Chord header */
-	send(sp[1], data, n, 0);
+	send(tunnel[1], data, n, 0);
 }
 
 /**********************************************************************/
@@ -126,8 +77,8 @@ void chord_deliver(int n, uchar *data, host *from)
 /* get_range: returns the range (l,r] that this node is responsible for */
 void chord_get_range(chordID *l, chordID *r)
 {
-	*l = shared_data[0];
-	*r = shared_data[1];
+	//*l = shared_data[0];
+	//*r = shared_data[1];
 }
 
 /**********************************************************************/
@@ -140,8 +91,8 @@ void chord_update_range(chordID *l, chordID *r)
 	print_chordID(r);
 	printf(")\n");
 
-	shared_data[0] = *l;
-	shared_data[1] = *r;
+	//shared_data[0] = *l;
+	//shared_data[1] = *r;
 }
 
 /**********************************************************************/

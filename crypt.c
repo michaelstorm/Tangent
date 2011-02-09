@@ -58,7 +58,7 @@ int vpack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
 			break;
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
-			EVP_DigestUpdate(&ctx, id->x, ID_LEN);
+			EVP_DigestUpdate(&ctx, id->x, CHORD_ID_LEN);
 
 			C_DEBUG(printf("chordID: "));
 			C_DEBUG(print_id(stdout, id));

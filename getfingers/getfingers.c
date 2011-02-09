@@ -134,7 +134,11 @@ int main(int argc, char *argv[])
 	pack_ticket(&ticket_key, ticket, "c6s", CHORD_FINGERS_GET, &chordsrv_addr,
 				chordsrv_port);
 	len = pack_fingers_get(buf, ticket, &client_addr, client_port, &key);
-	send_raw(0, out_sock, &chordsrv_addr, chordsrv_port, len, buf);
+
+	if (V4_MAPPED(&chordsrv_addr))
+		send_raw_v6(out_sock, &chordsrv_addr, chordsrv_port, len, buf);
+	else
+		send_raw_v4(out_sock, &chordsrv_addr, chordsrv_port, len, buf);
 
 	len = recv_packet(in_sock, fdset, nfds, buf, sizeof(buf), &chordsrv_addr,
 					  chordsrv_port);

@@ -39,8 +39,8 @@ int pack(uchar *buf, char *fmt, ...)
 			break;
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
-			memmove(bp, id->x, ID_LEN);
-			bp += ID_LEN;
+			memmove(bp, id->x, CHORD_ID_LEN);
+			bp += CHORD_ID_LEN;
 			break;
 		case 't':	 /* ticket */
 			t = va_arg(args, uchar *);
@@ -58,7 +58,7 @@ int pack(uchar *buf, char *fmt, ...)
 			case 'c': zero_len = sizeof(uint8_t); break;
 			case 's': zero_len = sizeof(uint16_t); break;
 			case 'l': zero_len = sizeof(uint32_t); break;
-			case 'x': zero_len = ID_LEN; break;
+			case 'x': zero_len = CHORD_ID_LEN; break;
 			case 't': zero_len = TICKET_LEN; break;
 			case '6': zero_len = 16; break;
 			default: va_end(args); return CHORD_PACK_ERROR;
@@ -110,8 +110,8 @@ int unpack(uchar *buf, char *fmt, ...)
 			break;
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
-			memmove(id->x, bp, ID_LEN);
-			bp += ID_LEN;
+			memmove(id->x, bp, CHORD_ID_LEN);
+			bp += CHORD_ID_LEN;
 			break;
 		case 't':	 /* ticket */
 			pc = va_arg(args, uchar *);
@@ -129,7 +129,7 @@ int unpack(uchar *buf, char *fmt, ...)
 			case 'c': zero_len = sizeof(uint8_t); break;
 			case 's': zero_len = sizeof(uint16_t); break;
 			case 'l': zero_len = sizeof(uint32_t); break;
-			case 'x': zero_len = ID_LEN; break;
+			case 'x': zero_len = CHORD_ID_LEN; break;
 			case 't': zero_len = TICKET_LEN; break;
 			case '6': zero_len = 16; break;
 			default: va_end(args); return CHORD_PACK_ERROR;
@@ -164,7 +164,7 @@ int sizeof_fmt(char *fmt)
 			len += sizeof(ulong);
 			break;
 		case 'x':	 /* id */
-			len += ID_LEN;
+			len += CHORD_ID_LEN;
 			break;
 		case 't':	 /* ticket */
 			len += TICKET_LEN;
@@ -178,7 +178,7 @@ int sizeof_fmt(char *fmt)
 			case 'c': len = sizeof(uint8_t); break;
 			case 's': len = sizeof(uint16_t); break;
 			case 'l': len = sizeof(uint32_t); break;
-			case 'x': len += ID_LEN; break;
+			case 'x': len += CHORD_ID_LEN; break;
 			case 't': len += TICKET_LEN; break;
 			default:
 				eprintf("fmt_len: illegal type character.\n");
