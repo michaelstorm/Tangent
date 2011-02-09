@@ -219,9 +219,9 @@ void remove_finger(Server *srv, Finger *f)
 	pf = pred_finger(srv);
 	if (pred != pf) {
 		if (pf == NULL)
-			chord_update_range(&srv->node.id, &srv->node.id);
+			chord_update_range(srv, &srv->node.id, &srv->node.id);
 		else
-			chord_update_range(&pf->node.id, &srv->node.id);
+			chord_update_range(srv, &pf->node.id, &srv->node.id);
 	}
 
 	CHORD_DEBUG(5, print_server(srv, "[remove_finger]", ""));

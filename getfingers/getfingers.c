@@ -156,11 +156,6 @@ int main(int argc, char *argv[])
 	   * after MAX_RETRIES retries
 	   */
 	  printf("... giving up...\n");
-	  printf("\nAlso, check whether file %s exists at the chord node,\n",
-		 ACCLIST_FILE);
-	  printf("and if does, check whether it contains the key in %s\n",
-		 KEY_FILE);
-	  printf("(see README for details).\n");
 	  break;
 	}
 	if (unpack_print_getnext(buf, len, &chordsrv_addr, &chordsrv_port)) {

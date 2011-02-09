@@ -19,7 +19,7 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 	}
 
 	/* handle request locally? */
-	if (chord_is_local(id)) {
+	if (chord_is_local(srv, id)) {
 		/* Upcall goes here... */
 		chord_deliver(len, data, from);
 		return 1;
@@ -233,7 +233,7 @@ int process_pong(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 	assert(newpred || (pred == newpred));
 
 	if (pred != newpred)
-		chord_update_range(&newpred->node.id, &srv->node.id);
+		chord_update_range(srv, &newpred->node.id, &srv->node.id);
 
 	return 1;
 }
@@ -273,7 +273,7 @@ int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
 	ttl--;
 
 	/* handle request locally? */
-	if (chord_is_local(id) || (ttl == 0)) {
+	if (chord_is_local(srv, id) || (ttl == 0)) {
 		send_traceroute_repl(srv, buf, ttl, hops, (hops ? FALSE : TRUE));
 		return 1;
 	}

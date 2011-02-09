@@ -37,7 +37,7 @@ void join(Server *srv, FILE *fp)
 	if (srv->nknown == 0)
 		printf("Didn't find any known hosts.");
 
-	chord_update_range(&srv->node.id, &srv->node.id);
+	chord_update_range(srv, &srv->node.id, &srv->node.id);
 	set_stabilize_timer(srv);
 	stabilize(srv);
 }

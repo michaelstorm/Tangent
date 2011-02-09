@@ -118,6 +118,7 @@ struct Finger
 struct Server
 {
 	Node node;          /* addr and ID */
+	chordID pred_bound; /* left bound on ID range; right bound is node.id */
 	Finger *head_flist; /* head and tail of finger  */
 	Finger *tail_flist; /* table + pred + successors */
 	int num_passive_fingers;
@@ -127,8 +128,12 @@ struct Server
 	int to_ping;        /* next node in finger list to be refreshed */
 	uint64_t next_stabilize_us;	/* value of wall_time() at next stabilize */
 
-	int sock;        /* socket */
+	int sock;        /* incoming/outgoing socket */
 	int is_v6;		 /* whether we're sitting on an IPv6 interface */
+
+	int tunnel_sock;
+	int nfds;
+	fd_set interesting;
 
 	Node well_known[MAX_WELLKNOWN];
 	int nknown;
@@ -148,22 +153,15 @@ typedef struct
 #define PRED(srv) (srv->tail_flist)
 #define SUCC(srv) (srv->head_flist)
 
-/* the keys in key_array are read from file acclist.txt,
- * and are used to authenticate users sending control
- * messages such as CHORD_FINGERS_GET.
- * This mechanism is intended to prevent trivial DDoS attacks.
- *
- * (For now the keyes are sent and stored in clear so
- *  the security provided by this mechanism is quite weak)
- */
-#define ACCLIST_FILE "acclist.txt"
-
 /* chord.c */
-void chord_main(char *conf_file, int parent_sock);
+void chord_main(char *conf_file, int tunnel_sock);
 void set_socket_nonblocking(int sock);
 void initialize(Server *srv);
-void handle_packet(int network);
+void handle_packet(Server *srv, int sock);
 int read_keys(char *file, chordID *keyarray, int max_num_keys);
+void chord_update_range(Server *srv, chordID *l, chordID *r);
+void chord_get_range(Server *srv, chordID *l, chordID *r);
+int chord_is_local(Server *srv, chordID *x);
 
 /* finger.c */
 Finger *new_finger(Node *node);
