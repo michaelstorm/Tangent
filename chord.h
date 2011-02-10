@@ -216,7 +216,7 @@ int pack_stab(uchar *buf, chordID *id, in6_addr *addr, ushort port);
 int unpack_stab(Server *srv, int n, uchar *buf, Node *from);
 int pack_stab_repl(uchar *buf, chordID *id, in6_addr *addr, ushort port);
 int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from);
-int pack_notify(uchar *buf, chordID *id, in6_addr *addr, ushort port);
+int pack_notify(uchar *buf);
 int unpack_notify(Server *srv, int n, uchar *buf, Node *from);
 int pack_ping(uchar *buf, uchar *ticket, ulong time);
 int unpack_ping(Server *srv, int n, uchar *buf, Node *from);
@@ -243,7 +243,7 @@ int process_fs_repl(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 					ushort port);
 int process_stab(Server *srv, chordID *id, in6_addr *addr, ushort port);
 int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port);
-int process_notify(Server *srv, chordID *id, in6_addr *addr, ushort port);
+int process_notify(Server *srv, Node *from);
 int process_ping(Server *srv, uchar *ticket, ulong time, Node *from);
 int process_pong(Server *srv, uchar *ticket, ulong time, Node *from);
 int process_fingers_get(Server *srv, uchar *ticket, in6_addr *addr, ushort port,
@@ -270,8 +270,7 @@ void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
 			   in6_addr *addr, ushort port);
 void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
 					in6_addr *addr, ushort port);
-void send_notify(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
-				 in6_addr *addr, ushort port);
+void send_notify(Server *srv, in6_addr *to_addr, ushort to_port);
 void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time);
 void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 			   ulong time);

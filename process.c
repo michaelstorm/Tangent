@@ -145,8 +145,7 @@ int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port)
 	// predecessor.
 	insert_finger(srv, id, addr, port, &fnew);
 	succ = succ_finger(srv);
-	send_notify(srv, &succ->node.addr, succ->node.port, &srv->node.id,
-				&srv->node.addr, srv->node.port);
+	send_notify(srv, &succ->node.addr, succ->node.port);
 	if (fnew == TRUE)
 		send_ping(srv, addr, port, get_current_time());
 	return 1;
@@ -154,16 +153,17 @@ int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port)
 
 /**********************************************************************/
 
-int process_notify(Server *srv, chordID *id, in6_addr *addr, ushort port)
+int process_notify(Server *srv, Node *from)
 {
 	int fnew;
 
-	CHORD_DEBUG(5, print_process(srv, "process_notify", id, addr, port));
+	CHORD_DEBUG(5, print_process(srv, "process_notify", &from->id, &from->addr,
+								 from->port));
 
 	// another node thinks that it should be our predecessor
-	insert_finger(srv, id, addr, port, &fnew);
+	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, get_current_time());
+		send_ping(srv, &from->addr, from->port, get_current_time());
 	return 1;
 }
 

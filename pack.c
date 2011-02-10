@@ -395,9 +395,9 @@ int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from)
 /**********************************************************************/
 
 /* pack_notify: pack notify packet */
-int pack_notify(uchar *buf, chordID *id, in6_addr *addr, ushort port)
+int pack_notify(uchar *buf)
 {
-	return pack(buf, "cx6s", CHORD_NOTIFY, id, addr, port);
+	return pack(buf, "c", CHORD_NOTIFY);
 }
 
 /**********************************************************************/
@@ -406,14 +406,11 @@ int pack_notify(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 int unpack_notify(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
-	in6_addr addr;
-	ushort port;
-	chordID id;
 
-	if (unpack(buf, "cx6s", &type, &id, &addr, &port) != n)
+	if (unpack(buf, "c", &type) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_NOTIFY);
-	return process_notify(srv, &id, &addr, port);
+	return process_notify(srv, from);
 }
 
 /**********************************************************************/

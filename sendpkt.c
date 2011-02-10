@@ -75,13 +75,12 @@ void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
 
 /**********************************************************************/
 
-void send_notify(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
-				 in6_addr *addr, ushort port)
+void send_notify(Server *srv, in6_addr *to_addr, ushort to_port)
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_notify", id, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_notify(buf, id, addr, port), buf);
+	CHORD_DEBUG(5, print_send(srv, "send_notify", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_notify(buf), buf);
 }
 
 /**********************************************************************/
