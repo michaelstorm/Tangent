@@ -294,10 +294,9 @@ int unpack_data(Server *srv, int n, uchar *buf, Node *from)
 /**********************************************************************/
 
 /* pack_fs: pack find_successor packet */
-int pack_fs(uchar *buf, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
-			ushort port)
+int pack_fs(uchar *buf, uchar *ticket, byte ttl, in6_addr *addr, ushort port)
 {
-	return pack(buf, "ctcx6s", CHORD_FS, ticket, ttl, id, addr, port);
+	return pack(buf, "ctc6s", CHORD_FS, ticket, ttl, addr, port);
 }
 
 /**********************************************************************/
@@ -310,21 +309,20 @@ int unpack_fs(Server *srv, int n, uchar *buf, Node *from)
 	byte ttl;
 	in6_addr addr;
 	ushort port;
-	chordID id;
 
-	if (unpack(buf, "ctcx6s", &type, ticket, &ttl, &id, &addr, &port) != n)
+	if (unpack(buf, "ctc6s", &type, ticket, &ttl, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FS);
-	return process_fs(srv, ticket, ttl, &id, &addr, port);
+	return process_fs(srv, ticket, ttl, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_fs_repl: pack find_successor reply packet */
-int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr,
+int pack_fs_repl(uchar *buf, uchar *ticket, in6_addr *addr,
 				 ushort port)
 {
-	return pack(buf, "ctx6s", CHORD_FS_REPL, ticket, id, addr, port);
+	return pack(buf, "ct6s", CHORD_FS_REPL, ticket, addr, port);
 }
 
 /**********************************************************************/
@@ -335,21 +333,20 @@ int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from)
 	uchar type;
 	in6_addr addr;
 	ushort port;
-	chordID id;
 	uchar ticket[TICKET_LEN];
 
-	if (unpack(buf, "ctx6s", &type, ticket, &id, &addr, &port) != n)
+	if (unpack(buf, "ct6s", &type, ticket, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_FS_REPL);
-	return process_fs_repl(srv, ticket, &id, &addr, port);
+	return process_fs_repl(srv, ticket, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_stab: pack stabilize packet */
-int pack_stab(uchar *buf, chordID *id, in6_addr *addr, ushort port)
+int pack_stab(uchar *buf, in6_addr *addr, ushort port)
 {
-	return pack(buf, "cx6s", CHORD_STAB, id, addr, port);
+	return pack(buf, "c6s", CHORD_STAB, addr, port);
 }
 
 /**********************************************************************/
@@ -360,20 +357,19 @@ int unpack_stab(Server *srv, int n, uchar *buf, Node *from)
 	uchar type;
 	in6_addr addr;
 	ushort port;
-	chordID id;
 
-	if (unpack(buf, "cx6s", &type, &id, &addr, &port) != n)
+	if (unpack(buf, "c6s", &type, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_STAB);
-	return process_stab(srv, &id, &addr, port);
+	return process_stab(srv, &addr, port);
 }
 
 /**********************************************************************/
 
 /* pack_stab_repl: pack stabilize reply packet */
-int pack_stab_repl(uchar *buf, chordID *id, in6_addr *addr, ushort port)
+int pack_stab_repl(uchar *buf, in6_addr *addr, ushort port)
 {
-	return pack(buf, "cx6s", CHORD_STAB_REPL, id, addr, port);
+	return pack(buf, "c6s", CHORD_STAB_REPL, addr, port);
 }
 
 /**********************************************************************/
@@ -384,12 +380,11 @@ int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from)
 	uchar type;
 	in6_addr addr;
 	ushort port;
-	chordID id;
 
-	if (unpack(buf, "cx6s", &type, &id, &addr, &port) != n)
+	if (unpack(buf, "c6s", &type, &addr, &port) != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_STAB_REPL);
-	return process_stab_repl(srv, &id, &addr, port);
+	return process_stab_repl(srv, &addr, port);
 }
 
 /**********************************************************************/
@@ -477,7 +472,7 @@ int unpack_fingers_get(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
-	chordID	 key;
+	chordID key;
 	in6_addr addr;
 	ushort port;
 

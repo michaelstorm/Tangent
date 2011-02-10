@@ -41,8 +41,7 @@ void stabilize(Server *srv)
 	if (srv->head_flist == NULL) {
 		for (i = 0; ((i < srv->nknown) && (i < MAX_SIMJOIN)); i++) {
 			send_fs(srv, DEF_TTL, &srv->well_known[i].addr,
-					srv->well_known[i].port, &srv->node.id, &srv->node.addr,
-					srv->node.port);
+					srv->well_known[i].port, &srv->node.addr, srv->node.port);
 			send_ping(srv, &srv->well_known[i].addr, srv->well_known[i].port,
 					  get_current_time());
 		}
@@ -58,8 +57,8 @@ void stabilize(Server *srv)
 	/* stabilize successor */
 	if ((succ = succ_finger(srv)) == NULL)
 		return;
-	send_stab(srv, &succ->node.addr, succ->node.port, &srv->node.id,
-			  &srv->node.addr, srv->node.port);
+	send_stab(srv, &succ->node.addr, succ->node.port, &srv->node.addr,
+			  srv->node.port);
 
 	/* ping predecessor. Normally we should hear from our
 	 * predecessor via the stabilize message. However, if we
@@ -117,7 +116,7 @@ void fix_fingers(Server *srv)
 		random_between(&srv->node.id, &succ->node.id, &id);
 		Node *n = &srv->well_known[random() % srv->nknown];
 		if (srv->nknown)
-			send_fs(srv, DEF_TTL, &n->addr, n->port, &id, &srv->node.addr,
+			send_fs(srv, DEF_TTL, &n->addr, n->port, &srv->node.addr,
 					srv->node.port);
 		srv->to_fix_finger = NFINGERS-1;
 	}
@@ -134,14 +133,14 @@ void fix_fingers(Server *srv)
 	}
 
 	if (f) {
-		send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &id, &srv->node.addr,
+		send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &srv->node.addr,
 				srv->node.port);
 
 		/* once in a while try to get a better predecessor, as well */
 		if (srv->to_fix_finger == NFINGERS-1) {
 			if (PRED(srv)) {
 				random_between(&(PRED(srv)->node.id), &srv->node.id, &id);
-				send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &id,
+				send_fs(srv, DEF_TTL, &f->node.addr, f->node.port,
 						&srv->node.addr, srv->node.port);
 			}
 		}
@@ -176,7 +175,7 @@ void fix_succs_preds(Server *srv)
 
 	/* find f's successor */
 	id = successor(f->node.id, 0);
-	send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &id, &srv->node.addr,
+	send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &srv->node.addr,
 			srv->node.port);
 	succ = f;
 
@@ -201,8 +200,8 @@ void fix_succs_preds(Server *srv)
 		if (k == srv->to_fix_backup) {
 			/* fix predecessor */
 			random_between(&f->node.id, &f->next->node.id, &id);
-			send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &id,
-					&srv->node.addr, srv->node.port);
+			send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &srv->node.addr,
+					srv->node.port);
 			break;
 		}
 	}

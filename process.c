@@ -53,55 +53,64 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 
 /**********************************************************************/
 
-int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
-			   ushort port)
+int process_fs(Server *srv, uchar *ticket, byte ttl, in6_addr *reply_addr,
+			   ushort reply_port)
 {
 	Node *succ, *np;
+	chordID reply_id;
 
-	CHORD_DEBUG(5, print_process(srv, "process_fs", id, addr, port));
+	get_address_id(&reply_id, reply_addr, reply_port);
+
+	CHORD_DEBUG(5, print_process(srv, "process_fs", &reply_id, reply_addr,
+								 reply_port));
 
 	if (--ttl == 0) {
-		print_two_chordIDs("TTL expired: fix_finger packet ", id,
+		print_two_chordIDs("TTL expired: fix_finger packet ", &reply_id,
 						   " dropped at node ", &srv->node.id, "\n");
 		return CHORD_TTL_EXPIRED;
 	}
 
-	if (memcpy(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0 && srv->node.port == port)
+	if (v6_addr_equals(&srv->node.addr, reply_addr)
+		&& srv->node.port == reply_port)
 		return 1;
 
 	if (succ_finger(srv) == NULL) {
-		send_fs_repl(srv, ticket, addr, port, &srv->node.id, &srv->node.addr,
+		send_fs_repl(srv, ticket, reply_addr, reply_port, &srv->node.addr,
 					 srv->node.port);
 		return 1;
 	}
 	succ = &(succ_finger(srv)->node);
 
-	if (is_between(id, &srv->node.id, &succ->id) || equals(id, &succ->id))
-		send_fs_repl(srv, ticket, addr, port, &succ->id, &succ->addr,
+	if (is_between(&reply_id, &srv->node.id, &succ->id) || equals(&reply_id,
+																  &succ->id))
+		send_fs_repl(srv, ticket, reply_addr, reply_port, &succ->addr,
 					 succ->port);
 	else {
-		np = closest_preceding_node(srv, id, FALSE);
-		send_fs_forward(srv, ticket, ttl, &np->addr, np->port, id, addr, port);
+		np = closest_preceding_node(srv, &reply_id, FALSE);
+		send_fs_forward(srv, ticket, ttl, &np->addr, np->port, reply_addr,
+						reply_port);
 	}
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_fs_repl(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
-					ushort port)
+int process_fs_repl(Server *srv, uchar *ticket, in6_addr *addr, ushort port)
 {
 	int fnew;
+	chordID id;
+
+	get_address_id(&id, addr, port);
 
 	if (!verify_ticket(&srv->ticket_key, ticket, "c", CHORD_FS))
 		return CHORD_INVALID_TICKET;
 
-	if (memcmp(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0 && srv->node.port == port)
+	if (v6_addr_equals(&srv->node.addr, addr) && srv->node.port == port)
 		return 1;
 
-	CHORD_DEBUG(5, print_process(srv, "process_fs_repl", id, NULL, -1));
+	CHORD_DEBUG(5, print_process(srv, "process_fs_repl", &id, NULL, -1));
 
-	insert_finger(srv, id, addr, port, &fnew);
+	insert_finger(srv, &id, addr, port, &fnew);
 	if (fnew == TRUE)
 		send_ping(srv, addr, port, get_current_time());
 
@@ -110,40 +119,44 @@ int process_fs_repl(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 
 /**********************************************************************/
 
-int process_stab(Server *srv, chordID *id, in6_addr *addr, ushort port)
+int process_stab(Server *srv, in6_addr *addr, ushort port)
 {
 	Finger *pred = pred_finger(srv);
 	int		 fnew;
+	chordID id;
 
-	CHORD_DEBUG(5, print_process(srv, "process_stab", id, addr, port));
+	get_address_id(&id, addr, port);
 
-	insert_finger(srv, id, addr, port, &fnew);
+	CHORD_DEBUG(5, print_process(srv, "process_stab", &id, addr, port));
+
+	insert_finger(srv, &id, addr, port, &fnew);
 
 	// If we have a predecessor, tell the requesting node what it is.
 	if (pred)
-		send_stab_repl(srv, addr, port, &pred->node.id, &pred->node.addr,
-					   pred->node.port);
+		send_stab_repl(srv, addr, port, &pred->node.addr, pred->node.port);
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port)
+int process_stab_repl(Server *srv, in6_addr *addr, ushort port)
 {
 	Finger *succ;
 	int fnew;
+	chordID id;
 
-	CHORD_DEBUG(5, print_process(srv, "process_stab_repl", id, NULL, -1));
+	get_address_id(&id, addr, port);
+
+	CHORD_DEBUG(5, print_process(srv, "process_stab_repl", &id, NULL, -1));
 
 	// If we are our successor's predecessor, everything is fine, so do nothing.
-	if ((memcpy(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0)
-		&& (srv->node.port == port))
+	if (v6_addr_equals(&srv->node.addr, addr) && srv->node.port == port)
 		return 1;
 
 	// Otherwise, there is a better successor in between us and our current
 	// successor. So we notify the in-between node that we should be its
 	// predecessor.
-	insert_finger(srv, id, addr, port, &fnew);
+	insert_finger(srv, &id, addr, port, &fnew);
 	succ = succ_finger(srv);
 	send_notify(srv, &succ->node.addr, succ->node.port);
 	if (fnew == TRUE)

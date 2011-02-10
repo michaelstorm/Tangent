@@ -14,7 +14,7 @@ void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
 
 /**********************************************************************/
 
-void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port, chordID *id,
+void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
@@ -22,55 +22,55 @@ void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port, chordID *
 
 	pack_ticket(&srv->ticket_key, ticket, "c", CHORD_FS);
 
-	CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, id, addr, port),
-			 buf);
+	CHORD_DEBUG(5, print_send(srv, "send_fs", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, addr, port),
+				buf);
 }
 
 /**********************************************************************/
 
 void send_fs_forward(Server *srv, uchar *ticket, byte ttl, in6_addr *to_addr,
-					 ushort to_port, chordID *id, in6_addr *addr, ushort port)
+					 ushort to_port, in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_fs", id, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, id, addr, port),
-			 buf);
+	CHORD_DEBUG(5, print_send(srv, "send_fs", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, addr, port),
+				buf);
 }
 
 /**********************************************************************/
 
 void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
-				  chordID *id, in6_addr *addr, ushort port)
+				  in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_fs_repl", id, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs_repl(buf, ticket, id, addr, port),
-			 buf);
+	CHORD_DEBUG(5, print_send(srv, "send_fs_repl", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_fs_repl(buf, ticket, addr, port),
+				buf);
 }
 
 /**********************************************************************/
 
-void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
-			   in6_addr *addr, ushort port)
+void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
+			   ushort port)
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_stab", id, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_stab(buf, id, addr, port), buf);
+	CHORD_DEBUG(5, print_send(srv, "send_stab", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_stab(buf, addr, port), buf);
 }
 
 /**********************************************************************/
 
-void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
+void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port,
 					in6_addr *addr, ushort port)
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_stab_repl", id, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_stab_repl(buf, id, addr, port), buf);
+	CHORD_DEBUG(5, print_send(srv, "send_stab_repl", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_stab_repl(buf, addr, port), buf);
 }
 
 /**********************************************************************/

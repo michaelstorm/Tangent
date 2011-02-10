@@ -206,15 +206,13 @@ struct unpack_args {
 int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 			  uchar *data);
 int unpack_data(Server *srv, int n, uchar *buf, Node *from);
-int pack_fs(uchar *buf, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
-			ushort port);
+int pack_fs(uchar *buf, uchar *ticket, byte ttl, in6_addr *addr, ushort port);
 int unpack_fs(Server *srv, int n, uchar *buf, Node *from);
-int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr,
-				 ushort port);
+int pack_fs_repl(uchar *buf, uchar *ticket, in6_addr *addr, ushort port);
 int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from);
-int pack_stab(uchar *buf, chordID *id, in6_addr *addr, ushort port);
+int pack_stab(uchar *buf, in6_addr *addr, ushort port);
 int unpack_stab(Server *srv, int n, uchar *buf, Node *from);
-int pack_stab_repl(uchar *buf, chordID *id, in6_addr *addr, ushort port);
+int pack_stab_repl(uchar *buf, in6_addr *addr, ushort port);
 int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from);
 int pack_notify(uchar *buf);
 int unpack_notify(Server *srv, int n, uchar *buf, Node *from);
@@ -237,12 +235,11 @@ int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from);
 /* process.c */
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 				 uchar *data, Node *from);
-int process_fs(Server *srv, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
+int process_fs(Server *srv, uchar *ticket, byte ttl, in6_addr *addr,
 			   ushort port);
-int process_fs_repl(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
-					ushort port);
-int process_stab(Server *srv, chordID *id, in6_addr *addr, ushort port);
-int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port);
+int process_fs_repl(Server *srv, uchar *ticket, in6_addr *addr, ushort port);
+int process_stab(Server *srv, in6_addr *addr, ushort port);
+int process_stab_repl(Server *srv, in6_addr *addr, ushort port);
 int process_notify(Server *srv, Node *from);
 int process_ping(Server *srv, uchar *ticket, ulong time, Node *from);
 int process_pong(Server *srv, uchar *ticket, ulong time, Node *from);
@@ -261,14 +258,14 @@ void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
 			   ushort n, uchar *data);
 void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port,
-			 chordID *id, in6_addr *addr, ushort port);
+			 in6_addr *addr, ushort port);
 void send_fs_forward(Server *srv, uchar *ticket, byte ttl, in6_addr *to_addr,
-			 ushort to_port, chordID *id, in6_addr *addr, ushort port);
+					 ushort to_port, in6_addr *addr, ushort port);
 void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
-				  chordID *id, in6_addr *addr, ushort port);
-void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
-			   in6_addr *addr, ushort port);
-void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
+				  in6_addr *addr, ushort port);
+void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
+			   ushort port);
+void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port,
 					in6_addr *addr, ushort port);
 void send_notify(Server *srv, in6_addr *to_addr, ushort to_port);
 void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time);
