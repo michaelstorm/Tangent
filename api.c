@@ -59,7 +59,7 @@ void chord_cleanup(int signum)
 /**********************************************************************/
 
 /* deliver: upcall */
-void chord_deliver(int n, uchar *data, host *from)
+void chord_deliver(int n, uchar *data, Node *from)
 {
 	/* Convert to I3 format... by stripping off the Chord header */
 	send(tunnel[1], data, n, 0);

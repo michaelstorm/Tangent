@@ -5,7 +5,7 @@
 #include "chord.h"
 
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
-				 uchar *data, host *from)
+				 uchar *data, Node *from)
 {
 	Node *np;
 	Finger *pf, *sf;
@@ -103,8 +103,7 @@ int process_fs_repl(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 
 	insert_finger(srv, id, addr, port, &fnew);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
-				  get_current_time());
+		send_ping(srv, addr, port, get_current_time());
 
 	return 1;
 }
@@ -149,8 +148,7 @@ int process_stab_repl(Server *srv, chordID *id, in6_addr *addr, ushort port)
 	send_notify(srv, &succ->node.addr, succ->node.port, &srv->node.id,
 				&srv->node.addr, srv->node.port);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
-				  get_current_time());
+		send_ping(srv, addr, port, get_current_time());
 	return 1;
 }
 
@@ -165,39 +163,36 @@ int process_notify(Server *srv, chordID *id, in6_addr *addr, ushort port)
 	// another node thinks that it should be our predecessor
 	insert_finger(srv, id, addr, port, &fnew);
 	if (fnew == TRUE)
-		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
-				  get_current_time());
+		send_ping(srv, addr, port, get_current_time());
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_ping(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
-				 ushort port, ulong time)
+int process_ping(Server *srv, uchar *ticket, ulong time, Node *from)
 {
 	int fnew;
 	Finger *pred;
 
-	CHORD_DEBUG(5, print_process(srv, "process_ping", id, addr, port));
-	insert_finger(srv, id, addr, port, &fnew);
+	CHORD_DEBUG(5, print_process(srv, "process_ping", &from->id, &from->addr,
+								 from->port));
+	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
 	pred = pred_finger(srv);
 	if (fnew == TRUE
 		&& ((pred == NULL)
-			|| (pred && is_between(id, &pred->node.id,
+			|| (pred && is_between(&from->id, &pred->node.id,
 								   &srv->node.id)))) {
-		send_ping(srv, addr, port, &srv->node.addr, srv->node.port,
-				  get_current_time());
+		send_ping(srv, &from->addr, from->port, get_current_time());
 	}
 
-	send_pong(srv, ticket, addr, port, time);
+	send_pong(srv, ticket, &from->addr, from->port, time);
 
 	return 1;
 }
 
 /**********************************************************************/
 
-int process_pong(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
-				 ushort port, ulong time, host *from)
+int process_pong(Server *srv, uchar *ticket, ulong time, Node *from)
 {
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;
@@ -207,16 +202,14 @@ int process_pong(Server *srv, uchar *ticket, chordID *id, in6_addr *addr,
 					   &from->addr, from->port, time))
 		return CHORD_INVALID_TICKET;
 
-	f = insert_finger(srv, id, addr, port, &fnew);
+	f = insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
 	if (!f) {
 		fprintf(stderr, "dropping pong\n");
 		return 0;
 	}
 
-	if (!verify_address_id(&f->node.id, &from->addr, from->port))
-		return CHORD_INVALID_ID;
-
-	CHORD_DEBUG(5, print_process(srv, "process_pong", id, addr, port));
+	CHORD_DEBUG(5, print_process(srv, "process_pong", &from->id, &from->addr,
+								 from->port));
 	f->npings = 0;
 	new_rtt = get_current_time() - time; /* takes care of overlow */
 	update_rtt(&f->rtt_avg, &f->rtt_dev, (long)new_rtt);

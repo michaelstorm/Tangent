@@ -203,7 +203,7 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 
 void get_address_id(chordID *id, in6_addr *addr, ushort port)
 {
-	pack_hash(EVP_sha1(), id->x, 0, 0, "6s", addr, port);
+	pack_hash(EVP_sha1(), id->x, 0, 0, "6s", addr, htons(port));
 }
 
 int verify_address_id(chordID *id, in6_addr *addr, ushort port)

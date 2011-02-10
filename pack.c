@@ -194,7 +194,7 @@ int sizeof_fmt(char *fmt)
 
 /**********************************************************************/
 
-static int (*unpackfn[])(Server *, int, uchar *, host *) = {
+static int (*unpackfn[])(Server *, int, uchar *, Node *) = {
 	unpack_data,
 	unpack_data,
 	unpack_fs,
@@ -212,7 +212,7 @@ static int (*unpackfn[])(Server *, int, uchar *, host *) = {
 };
 
 /* dispatch: unpack and process packet */
-int dispatch(Server *srv, int n, uchar *buf, host *from)
+int dispatch(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	int res;
@@ -276,7 +276,7 @@ int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 /**********************************************************************/
 
 /* unpack_data: unpack and process data packet */
-int unpack_data(Server *srv, int n, uchar *buf, host *from)
+int unpack_data(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	byte ttl;
@@ -303,7 +303,7 @@ int pack_fs(uchar *buf, uchar *ticket, byte ttl, chordID *id, in6_addr *addr,
 /**********************************************************************/
 
 /* unpack_fs: unpack and process find_successor packet */
-int unpack_fs(Server *srv, int n, uchar *buf, host *from)
+int unpack_fs(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
@@ -330,7 +330,7 @@ int pack_fs_repl(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr,
 /**********************************************************************/
 
 /* unpack_fs_repl: unpack and process find_successor reply packet */
-int unpack_fs_repl(Server *srv, int n, uchar *buf, host *from)
+int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	in6_addr addr;
@@ -355,7 +355,7 @@ int pack_stab(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 /**********************************************************************/
 
 /* unpack_stab: unpack and process stabilize packet */
-int unpack_stab(Server *srv, int n, uchar *buf, host *from)
+int unpack_stab(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	in6_addr addr;
@@ -379,7 +379,7 @@ int pack_stab_repl(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 /**********************************************************************/
 
 /* unpack_stab_repl: unpack and process stabilize reply packet */
-int unpack_stab_repl(Server *srv, int n, uchar *buf, host *from)
+int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	in6_addr addr;
@@ -403,7 +403,7 @@ int pack_notify(uchar *buf, chordID *id, in6_addr *addr, ushort port)
 /**********************************************************************/
 
 /* unpack_notify: unpack notify packet */
-int unpack_notify(Server *srv, int n, uchar *buf, host *from)
+int unpack_notify(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	in6_addr addr;
@@ -419,57 +419,49 @@ int unpack_notify(Server *srv, int n, uchar *buf, host *from)
 /**********************************************************************/
 
 /* pack_ping: pack ping packet */
-int pack_ping(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr, ushort port,
-			  ulong time)
+int pack_ping(uchar *buf, uchar *ticket, ulong time)
 {
-	return pack(buf, "ctx6sl", CHORD_PING, ticket, id, addr, port, time);
+	return pack(buf, "ctl", CHORD_PING, ticket, time);
 }
 
 /**********************************************************************/
 
 /* unpack_ping: unpack and process ping packet */
-int unpack_ping(Server *srv, int n, uchar *buf, host *from)
+int unpack_ping(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
-	chordID id;
-	in6_addr addr;
-	ushort port;
 	ulong time;
 
-	if (unpack(buf, "ctx6sl", &type, ticket, &id, &addr, &port, &time) != n)
+	if (unpack(buf, "ctl", &type, ticket, &time) != n)
 		return CHORD_PROTOCOL_ERROR;
 
 	assert(type == CHORD_PING);
-	return process_ping(srv, ticket, &id, &addr, port, time);
+	return process_ping(srv, ticket, time, from);
 }
 
 /**********************************************************************/
 
 /* pack_pong: pack pong packet */
-int pack_pong(uchar *buf, uchar *ticket, chordID *id, in6_addr *addr, ushort port,
-			  ulong time)
+int pack_pong(uchar *buf, uchar *ticket, ulong time)
 {
-	return pack(buf, "ctx6sl", CHORD_PONG, ticket, id, addr, port, time);
+	return pack(buf, "ctl", CHORD_PONG, ticket, time);
 }
 
 /**********************************************************************/
 
 /* unpack_pong: unpack pong packet */
-int unpack_pong(Server *srv, int n, uchar *buf, host *from)
+int unpack_pong(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
-	in6_addr addr;
-	ushort port;
-	chordID id;
 	ulong time;
 
-	if (unpack(buf, "ctx6sl", &type, ticket, &id, &addr, &port, &time) != n)
+	if (unpack(buf, "ctl", &type, ticket, &time) != n)
 		return CHORD_PROTOCOL_ERROR;
 
 	assert(type == CHORD_PONG);
-	return process_pong(srv, ticket, &id, &addr, port, time, from);
+	return process_pong(srv, ticket, time, from);
 }
 
 /**********************************************************************/
@@ -484,7 +476,7 @@ int pack_fingers_get(uchar *buf, uchar *ticket, in6_addr *addr, ushort port,
 /**********************************************************************/
 
 /* unpack_fingers_get: unpack and process fingers_get packet */
-int unpack_fingers_get(Server *srv, int n, uchar *buf, host *from)
+int unpack_fingers_get(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
@@ -527,7 +519,7 @@ int pack_fingers_repl(uchar *buf, Server *srv, uchar *ticket)
 
 
 /* unpack_fingers_repl: unpack and process fingers_repl packet */
-int unpack_fingers_repl(Server *srv, int n, uchar *buf, host *from)
+int unpack_fingers_repl(Server *srv, int n, uchar *buf, Node *from)
 {
 	/* this message is received by a client;
 	 * it shouldn't be received by an i3 server
@@ -590,7 +582,7 @@ int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
 /* unpack_traceroute: unpack and process trace_route packet
  * (see pack_traceroute for packet format)
  */
-int unpack_traceroute(Server *srv, int n, uchar *buf, host *from)
+int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from)
 {
 	chordID id;
 	byte		type;
@@ -668,7 +660,7 @@ int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
 /*	unpack_traceroute: unpack and process trace_route packet
  * (see pack_traceroute for packet format)
  */
-int unpack_traceroute_repl(Server *srv, int n, uchar *buf, host *from)
+int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from)
 {
 	byte type;
 	byte ttl;

@@ -44,7 +44,7 @@ void stabilize(Server *srv)
 					srv->well_known[i].port, &srv->node.id, &srv->node.addr,
 					srv->node.port);
 			send_ping(srv, &srv->well_known[i].addr, srv->well_known[i].port,
-					  &srv->node.addr, srv->node.port, get_current_time());
+					  get_current_time());
 		}
 		return;
 	}
@@ -69,8 +69,7 @@ void stabilize(Server *srv)
 	if (idx % PERIOD_PING_PRED == 0) {
 		pred = pred_finger(srv);
 		assert(pred);
-		send_ping(srv, &pred->node.addr, pred->node.port, &srv->node.addr,
-				  srv->node.port, get_current_time());
+		send_ping(srv, &pred->node.addr, pred->node.port, get_current_time());
 	}
 
 	/* fix one backup successor and predessors in a round-robin fashion */
@@ -239,8 +238,7 @@ void ping(Server *srv)
 		else {
 			if (f->npings || (srv->to_ping == i)) {
 				f->npings++;
-				send_ping(srv, &f->node.addr, f->node.port, &srv->node.addr,
-						  srv->node.port, get_current_time());
+				send_ping(srv, &f->node.addr, f->node.port, get_current_time());
 				if (srv->to_ping == i)
 					f_pinged = f;
 			}

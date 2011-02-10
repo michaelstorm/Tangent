@@ -159,9 +159,11 @@ void handle_packet(Server *srv, int sock)
 		return; /* pick up this packet later */
 	}
 
-	host from;
+	Node from;
 	to_v6addr(from_sa.sin_addr.s_addr, &from.addr);
 	from.port = ntohs(from_sa.sin_port);
+	get_address_id(&from.id, &from.addr, from.port);
+
 	dispatch(srv, packet_len, buf, &from);
 }
 

@@ -86,8 +86,7 @@ void send_notify(Server *srv, in6_addr *to_addr, ushort to_port, chordID *id,
 
 /**********************************************************************/
 
-void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
-			   ushort port, ulong time)
+void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time)
 {
 	byte buf[BUFSIZE];
 	uchar ticket[TICKET_LEN];
@@ -97,8 +96,7 @@ void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 
 	CHORD_DEBUG(5, print_send(srv, "send_ping", &srv->node.id, to_addr,
 							  to_port));
-	send_packet(srv, to_addr, to_port, pack_ping(buf, ticket, &srv->node.id, addr,
-											port, time), buf);
+	send_packet(srv, to_addr, to_port, pack_ping(buf, ticket, time), buf);
 }
 
 /**********************************************************************/
@@ -110,9 +108,7 @@ void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 
 	CHORD_DEBUG(5, print_send(srv, "send_pong", &srv->node.id, to_addr,
 							  to_port));
-	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, &srv->node.id,
-											  &srv->node.addr, srv->node.port,
-											  time), buf);
+	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, time), buf);
 }
 
 
