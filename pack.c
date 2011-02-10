@@ -194,23 +194,6 @@ int sizeof_fmt(char *fmt)
 
 /**********************************************************************/
 
-static char *unpack_names[] = {
-	"unpack_data",
-	"unpack_data",
-	"unpack_fs",
-	"unpack_fs_repl",
-	"unpack_stab",
-	"unpack_stab_repl",
-	"unpack_notify",
-	"unpack_ping",
-	"unpack_pong",
-	"unpack_fingers_get",
-	"unpack_fingers_repl",
-	"unpack_traceroute",
-	"unpack_traceroute",
-	"unpack_traceroute_repl",
-};
-
 static int (*unpackfn[])(Server *, int, uchar *, host *) = {
 	unpack_data,
 	unpack_data,
@@ -697,4 +680,9 @@ int unpack_traceroute_repl(Server *srv, int n, uchar *buf, host *from)
 	assert(type == CHORD_TRACEROUTE_REPL);
 
 	return process_traceroute_repl(srv, buf, ttl, hops);
+}
+
+int pack_addr_discover(uchar *buf, uchar *ticket)
+{
+	return pack(buf, "ct", CHORD_ADDR_DISCOVER, ticket);
 }

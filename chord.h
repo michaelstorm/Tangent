@@ -65,6 +65,7 @@ enum {
 	CHORD_TRACEROUTE,  /* traceroute */
 	CHORD_TRACEROUTE_LAST,
 	CHORD_TRACEROUTE_REPL,/* traceroute repl */
+	CHORD_ADDR_DISCOVER,
 };
 
 enum {
