@@ -161,9 +161,33 @@ void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 	CHORD_DEBUG(5, print_send(srv, "send_traceroute_repl", &srv->node.id, NULL,
 							-1));
 	send_packet(srv, to_addr, to_port,
-			 pack_traceroute_repl(buf, srv, ttl, hops, to_addr, &to_port,
-								  one_hop),
-			 buf);
+				pack_traceroute_repl(buf, srv, ttl, hops, to_addr, &to_port,
+									 one_hop),
+				buf);
+}
+
+void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port)
+{
+	byte buf[BUFSIZE];
+	uchar ticket[TICKET_LEN];
+
+	pack_ticket(&srv->ticket_key, ticket, "c6s", CHORD_ADDR_DISCOVER, to_addr,
+				to_port);
+
+	CHORD_DEBUG(5, print_send(srv, "send_addr_discover", 0, to_addr, to_port));
+	send_packet(srv, to_addr, to_port, pack_addr_discover(buf, ticket), buf);
+}
+
+void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
+							 ushort to_port)
+{
+	byte buf[BUFSIZE];
+
+	CHORD_DEBUG(5, print_send(srv, "send_addr_discover_repl", 0, to_addr,
+							  to_port));
+	send_packet(srv, to_addr, to_port, pack_addr_discover_repl(buf, ticket,
+															   to_addr),
+				buf);
 }
 
 /**********************************************************************/
@@ -198,7 +222,7 @@ void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 	memset(&dest, 0, sizeof(dest));
 	dest.sin6_family = AF_INET6;
 	dest.sin6_port = htons(port);
-	v6_addr_copy(addr, &dest.sin6_addr);
+	v6_addr_copy(&dest.sin6_addr, addr);
 
 	if (sendto(sock, buf, n, 0, (struct sockaddr *)&dest, sizeof(dest)) < 0)
 			weprintf("sendto failed:");

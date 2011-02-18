@@ -113,7 +113,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	Finger *f, *new_f, *pred;
 	Node n;
 
-	if (memcmp(srv->node.addr.s6_addr, addr->s6_addr, 16) == 0 && srv->node.port == port) {
+	if (v6_addr_equals(&srv->node.addr, addr) && srv->node.port == port) {
 		weprintf("dropping finger request from ourself");
 		return NULL;
 	}
@@ -122,8 +122,8 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	f = get_finger(srv, id);
 
 	if (f) {
-		if (memcmp(f->node.addr.s6_addr, addr->s6_addr, 16) != 0) {
-			memcpy(f->node.addr.s6_addr, addr->s6_addr, 16);
+		if (!v6_addr_equals(&f->node.addr, addr)) {
+			v6_addr_copy(&f->node.addr, addr);
 			f->node.port = port;
 			f->rtt_avg = f->rtt_dev = 0;
 			f->npings = 0;
@@ -149,7 +149,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 
 	srv->num_passive_fingers++;
 
-	n.id = *id; memcpy(n.addr.s6_addr, addr, 16); n.port = port;
+	n.id = *id; v6_addr_equals(&n.addr, addr); n.port = port;
 	new_f = new_finger(&n);
 
 	f = srv->head_flist;

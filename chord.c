@@ -19,31 +19,29 @@
 #include "chord.h"
 #include "gen_utils.h"
 
-Server *new_server(char *conf_file, int tunnel_sock)
+Server *new_server(EventQueue *event_queue, char *conf_file, int tunnel_sock)
 {
 	char id[4*CHORD_ID_LEN];
+	int ip_ver;
 	FILE *fp;
 
-	Server *srv = malloc(sizeof(Server));
+	Server *srv = calloc(1, sizeof(Server));
+
+	srv->event_queue = event_queue;
+
 	srv->tunnel_sock = tunnel_sock;
-
-	srv->nknown = 0;
-	srv->num_passive_fingers = 0;
-
-	memset(srv, 0, sizeof(Server));
 	srv->to_fix_finger = NFINGERS-1;
 
 	fp = fopen(conf_file, "r");
 	if (fp == NULL)
 		eprintf("fopen(%s,\"r\") failed:", conf_file);
+	if (fscanf(fp, "%d\n", &ip_ver) != 1)
+		eprintf("Didn't find ip version in \"%s\"", conf_file);
 	if (fscanf(fp, "%hd", (short *)&srv->node.port) != 1)
 		eprintf("Didn't find port in \"%s\"", conf_file);
 	if (fscanf(fp, " %s\n", id) != 1)
 		eprintf("Didn't find id in \"%s\"", conf_file);
-	srv->node.id = atoid(id);
-
-	/* Figure out one's own address somehow */
-	to_v6addr(get_addr(), &srv->node.addr);
+//	srv->node.id = atoid(id);
 
 	fprintf(stderr, "Chord started.\n");
 	fprintf(stderr, "id="); print_id(stderr, &srv->node.id);
@@ -52,57 +50,32 @@ Server *new_server(char *conf_file, int tunnel_sock)
 	fprintf(stderr, "ip=%s\n", v6addr_to_str(&srv->node.addr));
 	fprintf(stderr, "port=%d\n", srv->node.port);
 
-	initialize(srv);
+	initialize(srv, ip_ver == 6);
 	join(srv, fp);
 	fclose(fp);
 
-	FD_ZERO(&srv->interesting);
-	FD_SET(srv->sock, &srv->interesting);
-	FD_SET(srv->tunnel_sock, &srv->interesting);
-	srv->nfds = MAX(srv->sock, tunnel_sock) + 1;
+	eventqueue_listen_socket(srv->event_queue, srv->sock, srv,
+							 (socket_func)handle_packet);
+	discover_addr(srv->event_queue, srv);
+
+	return srv;
 }
 
-int chord_process_events(Server *srv)
+void chord_main(char **conf_files, int nservers, int tunnel_sock)
 {
-	struct timeval timeout;
-	fd_set readable = srv->interesting;
-	int64_t stabilize_wait = (int64_t)(srv->next_stabilize_us - wall_time());
-	stabilize_wait = MAX(stabilize_wait, 0);
-	timeout.tv_sec = stabilize_wait / 1000000UL;
-	timeout.tv_usec = stabilize_wait % 1000000UL;
-
-	int nfound = select(srv->nfds, &readable, NULL, NULL, &timeout);
-	if (nfound < 0 && errno == EINTR)
-		return 0;
-	else if (nfound == 0) {
-		stabilize_wait = (int64_t)(srv->next_stabilize_us - wall_time());
-		if (stabilize_wait <= 0)
-			stabilize(srv);
-		return 0;
-	}
-
-	if (FD_ISSET(srv->sock, &readable))
-		handle_packet(srv, srv->sock);
-	if (FD_ISSET(srv->tunnel_sock, &readable))
-		handle_packet(srv, srv->tunnel_sock);
-
-	return 1;
-}
-
-void chord_main(char *conf_file, int tunnel_sock)
-{
-	int nfound;
-	int64_t stabilize_wait;
-	struct timeval timeout;
-
 	setprogname("chord");
 	srandom(getpid() ^ time(0));
 
-	Server *srv = new_server(conf_file, tunnel_sock);
+	EventQueue *queue = new_eventqueue();
 
-	/* Loop on input */
-	for (;;)
-		chord_process_events(srv);
+	Server *servers[nservers];
+	int i;
+	for (i = 0; i < nservers; i++) {
+		Server *srv = new_server(queue, conf_files[i], tunnel_sock);
+		servers[i] = srv;
+	}
+
+	eventqueue_loop(queue);
 }
 
 /**********************************************************************/
@@ -124,14 +97,17 @@ void init_ticket_key(Server *srv)
 }
 
 /* initialize: set up sockets and such <yawn> */
-void initialize(Server *srv)
+void initialize(Server *srv, int is_v6)
 {
 	setservent(1);
 
-	srv->sock = init_socket4(INADDR_ANY, srv->node.port);
+	if (is_v6)
+		srv->sock = init_socket6(&in6addr_any, srv->node.port);
+	else
+		srv->sock = init_socket4(INADDR_ANY, srv->node.port);
 	set_socket_nonblocking(srv->sock);
 
-	srv->is_v6 = 0;
+	srv->is_v6 = is_v6;
 
 	init_ticket_key(srv);
 }
@@ -139,16 +115,30 @@ void initialize(Server *srv)
 /**********************************************************************/
 
 /* handle_packet: snarf packet from network and dispatch */
-void handle_packet(Server *srv, int sock)
+int handle_packet(EventQueue *queue, Server *srv, int sock)
 {
 	ssize_t packet_len;
 	socklen_t from_len;
-	struct sockaddr_in from_sa;
+	Node from;
 	byte buf[BUFSIZE];
 
-	from_len = sizeof(from_sa);
-	packet_len = recvfrom(sock, buf, sizeof(buf), 0,
-						  (struct sockaddr *)&from_sa, &from_len);
+	if (srv->is_v6) {
+		struct sockaddr_in6 from_sa;
+		from_len = sizeof(from_sa);
+		packet_len = recvfrom(sock, buf, sizeof(buf), 0,
+							  (struct sockaddr *)&from_sa, &from_len);
+		v6_addr_copy(&from.addr, &from_sa.sin6_addr);
+		from.port = ntohs(from_sa.sin6_port);
+	}
+	else {
+		struct sockaddr_in from_sa;
+		from_len = sizeof(from_sa);
+		packet_len = recvfrom(sock, buf, sizeof(buf), 0,
+							  (struct sockaddr *)&from_sa, &from_len);
+		to_v6addr(from_sa.sin_addr.s_addr, &from.addr);
+		from.port = ntohs(from_sa.sin_port);
+	}
+
 	if (packet_len < 0) {
 		if (errno != EAGAIN) {
 			weprintf("recvfrom failed:"); /* ignore errors for now */
@@ -159,11 +149,7 @@ void handle_packet(Server *srv, int sock)
 		return; /* pick up this packet later */
 	}
 
-	Node from;
-	to_v6addr(from_sa.sin_addr.s_addr, &from.addr);
-	from.port = ntohs(from_sa.sin_port);
 	get_address_id(&from.id, &from.addr, from.port);
-
 	dispatch(srv, packet_len, buf, &from);
 }
 
@@ -208,4 +194,9 @@ int chord_is_local(Server *srv, chordID *x)
 {
 	return equals(x, &srv->node.id) || is_between(x, &srv->pred_bound,
 												  &srv->node.id);
+}
+
+void chord_set_packet_handler(Server *srv, int event, chord_packet_handler handler)
+{
+	srv->packet_handlers[event] = handler;
 }

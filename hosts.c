@@ -149,7 +149,12 @@ ulong to_v4addr(in6_addr *v6addr)
 char *v6addr_to_str(in6_addr *v6addr)
 {
 	static char addr_str[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET6, v6addr, addr_str, INET6_ADDRSTRLEN);
+	if (!V4_MAPPED(v6addr))
+		inet_ntop(AF_INET6, v6addr, addr_str, INET6_ADDRSTRLEN);
+	else {
+		ulong v4addr = to_v4addr(v6addr);
+		inet_ntop(AF_INET, &v4addr, addr_str, INET6_ADDRSTRLEN);
+	}
 	return addr_str;
 }
 
@@ -163,6 +168,25 @@ int init_socket4(ulong addr, ushort port)
 	sin.sin_addr.s_addr = htonl(addr);
 
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0)
+		eprintf("socket failed:");
+
+	if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+		eprintf("bind failed:");
+
+	return sock;
+}
+
+int init_socket6(in6_addr *addr, ushort port)
+{
+	struct sockaddr_in6 sin;
+	memset(&sin, 0, sizeof(sin));
+
+	sin.sin6_family = AF_INET;
+	sin.sin6_port = htons(port);
+	v6_addr_copy(&sin.sin6_addr, addr);
+
+	int sock = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (sock < 0)
 		eprintf("socket failed:");
 
@@ -206,8 +230,8 @@ int resolve_v6name(const char *name, in6_addr *v6addr)
 		to_v6addr(((struct sockaddr_in *)result->ai_addr)->sin_addr.s_addr,
 				  v6addr);
 	else
-		memcpy(v6addr,
-			   ((struct sockaddr_in6 *)result->ai_addr)->sin6_addr.s6_addr, 16);
+		v6_addr_copy(v6addr,
+					 &((struct sockaddr_in6 *)result->ai_addr)->sin6_addr);
 
 	freeaddrinfo(result);
 	return 0;

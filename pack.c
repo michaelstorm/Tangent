@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <netinet/in.h>
 #include "chord.h"
 
 /* pack: pack binary items into buf, return length */
@@ -195,6 +196,8 @@ int sizeof_fmt(char *fmt)
 /**********************************************************************/
 
 static int (*unpackfn[])(Server *, int, uchar *, Node *) = {
+	unpack_addr_discover,
+	unpack_addr_discover_repl,
 	unpack_data,
 	unpack_data,
 	unpack_fs,
@@ -219,8 +222,17 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 
 	type = buf[0];
 
-	if (type < NELEMS(unpackfn))
-		res = (*unpackfn[type])(srv, n, buf, from);
+	if (type < NELEMS(unpackfn)) {
+		if (srv->packet_handlers[type]
+			&& (res = srv->packet_handlers[type](srv, n, buf, from)))
+			return res;
+
+		if (type > CHORD_ADDR_DISCOVER_REPL
+			&& IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+			res = CHORD_ADDR_UNDISCOVERED;
+		else
+			res = (*unpackfn[type])(srv, n, buf, from);
+	}
 	else {
 		weprintf("bad packet type 0x%02x", type);
 		res = CHORD_PROTOCOL_ERROR;
@@ -241,8 +253,8 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 		case CHORD_PACK_ERROR:
 			err_str = "internal packing error";
 			break;
-		case CHORD_INVALID_ID:
-			err_str = "invalid id";
+		case CHORD_ADDR_UNDISCOVERED:
+			err_str = "received routing packet before address discovery";
 			break;
 		default:
 			err_str = "unknown error";
@@ -251,10 +263,44 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 
 		weprintf("dropping packet [type 0x%02x size %d] from %s:%hu (%s)", type,
 				 n, v6addr_to_str(&from->addr), from->port, err_str);
-		abort();
 	}
 
 	return res;
+}
+
+int pack_addr_discover(uchar *buf, uchar *ticket)
+{
+	return pack(buf, "ct", CHORD_ADDR_DISCOVER, ticket);
+}
+
+int unpack_addr_discover(Server *srv, int n, uchar *buf, Node *from)
+{
+	byte type;
+	uchar ticket[TICKET_LEN];
+
+	if (unpack(buf, "ct", &type, ticket) != n)
+		return CHORD_PROTOCOL_ERROR;
+
+	assert(type == CHORD_ADDR_DISCOVER);
+	return process_addr_discover(srv, ticket, from);
+}
+
+int pack_addr_discover_repl(uchar *buf, uchar *ticket, in6_addr *addr)
+{
+	return pack(buf, "ct6", CHORD_ADDR_DISCOVER_REPL, ticket, addr);
+}
+
+int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from)
+{
+	byte type;
+	uchar ticket[TICKET_LEN];
+	in6_addr addr;
+
+	if (unpack(buf, "ct6", &type, ticket, &addr) != n)
+		return CHORD_PROTOCOL_ERROR;
+
+	assert(type == CHORD_ADDR_DISCOVER_REPL);
+	return process_addr_discover_repl(srv, ticket, &addr, from);
 }
 
 /**********************************************************************/
@@ -664,9 +710,4 @@ int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from)
 	assert(type == CHORD_TRACEROUTE_REPL);
 
 	return process_traceroute_repl(srv, buf, ttl, hops);
-}
-
-int pack_addr_discover(uchar *buf, uchar *ticket)
-{
-	return pack(buf, "ct", CHORD_ADDR_DISCOVER, ticket);
 }

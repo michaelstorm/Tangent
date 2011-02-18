@@ -3,7 +3,8 @@
 
 typedef struct
 {
-	int x;
+	char *files_path;
+	int sock;
 } DHash;
 
 DHash *new_dhash(const char *files_path, const char *conf_path);

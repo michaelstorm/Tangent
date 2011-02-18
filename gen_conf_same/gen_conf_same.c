@@ -30,8 +30,8 @@ int main(int argc, char **argv)
 
   nodes = (Node *)malloc(n * sizeof(Node));
   for (i = 0; i < n; i++) {
-	get_address_id(&nodes[i].id, &v6addr, 6500+i);
-	nodes[i].port = 6500 + i;
+	get_address_id(&nodes[i].id, &v6addr, 6500+i*2);
+	nodes[i].port = 6500 + i*2;
   }
 
   struct stat st;
@@ -45,6 +45,7 @@ int main(int argc, char **argv)
 
 	sprintf(filename, "%s/6.conf", dirname);
 	fp = fopen(filename, "w");
+	fprintf(fp, "%d\n", 6);
 	fprintf(fp, "%d ", nodes[i].port);
 	print_id(fp, &nodes[i].id);
 	fprintf(fp, "\n");
@@ -66,8 +67,8 @@ int main(int argc, char **argv)
   }
 
   for (i = 0; i < n; i++) {
-	get_address_id(&nodes[i].id, &v4addr, 6500+i);
-	nodes[i].port = 6500 + i;
+	get_address_id(&nodes[i].id, &v4addr, 6500+i*2+1);
+	nodes[i].port = 6500 + i*2 + 1;
   }
 
   for (i = 0; i < n; i++) {
@@ -77,6 +78,7 @@ int main(int argc, char **argv)
 
 	sprintf(filename, "%s/4.conf", dirname);
 	fp = fopen(filename, "w");
+	fprintf(fp, "%d\n", 4);
 	fprintf(fp, "%d ", nodes[i].port);
 	print_id(fp, &nodes[i].id);
 	fprintf(fp, "\n");

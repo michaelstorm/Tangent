@@ -344,8 +344,13 @@ void print_chordID(chordID *id)
 {
 	if (id) {
 		int i;
+#ifdef CHORD_PRINT_LONG_IDS
 		for (i = 0; i < CHORD_ID_LEN; i++)
 			printf("%02x", id->x[i]);
+#else
+		for (i = 0; i < 4; i++)
+			printf("%02x", id->x[i]);
+#endif
 	}
 	else
 		printf("<null>");
@@ -489,15 +494,19 @@ ulong get_current_time()
 
 void print_current_time(char *prefix, char *suffix)
 {
+#ifdef CHORD_PRINT_LONG_TIME
 	printf("%s%lld%s", prefix, wall_time(), suffix);
+#else
+	printf("%s%lld%s", prefix, (wall_time() << 32) >> 32, suffix);
+#endif
 }
 
 int v6_addr_equals(in6_addr *addr1, in6_addr *addr2)
 {
-	   return memcmp(addr1->s6_addr, addr2->s6_addr, 16) == 0;
+	return memcmp(addr1->s6_addr, addr2->s6_addr, 16) == 0;
 }
 
-void v6_addr_copy(in6_addr *from, in6_addr *to)
+void v6_addr_copy(in6_addr *dest, in6_addr *src)
 {
-	   memcpy(to->s6_addr, from->s6_addr, 16);
+	memcpy(dest->s6_addr, src->s6_addr, 16);
 }

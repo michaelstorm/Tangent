@@ -2,7 +2,36 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <netinet/in.h>
 #include "chord.h"
+
+int process_addr_discover(Server *srv, uchar *ticket, Node *from)
+{
+	CHORD_DEBUG(5, print_process(srv, "process_addr_discover", &from->id,
+								 &from->addr, from->port));
+
+	send_addr_discover_repl(srv, ticket, &from->addr, from->port);
+	return 1;
+}
+
+int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
+							   Node *from)
+{
+	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
+								 &from->addr, from->port));
+
+	verify_ticket(&srv->ticket_key, ticket, "c6s", CHORD_ADDR_DISCOVER,
+				  &from->addr, from->port);
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr)) {
+		v6_addr_copy(&srv->node.addr, addr);
+		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
+		chord_update_range(srv, &srv->node.id, &srv->node.id);
+
+		stabilize(srv->event_queue, srv);
+	}
+	return 1;
+}
 
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 				 uchar *data, Node *from)

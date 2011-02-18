@@ -170,7 +170,7 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 	unpack(ticket, "lcccc", &ticket_time, &ticket_md[0], &ticket_md[1],
 		   &ticket_md[2], &ticket_md[3]);
 
-	if (ticket_time < time(NULL)-8)
+	if (ticket_time < time(NULL)-TICKET_TIMEOUT)
 		return 0;
 
 	// hash together the time provided in the ticket with the data given in the

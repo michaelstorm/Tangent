@@ -11,6 +11,9 @@
 
 #define CHORD_DEBUG_LEVEL 5
 
+#undef CHORD_PRINT_LONG_IDS
+#undef CHORD_PRINT_LONG_TIME
+
 #define CHORD_DEBUG(level, x) if (level <= CHORD_DEBUG_LEVEL) x;
 
 #endif

@@ -24,7 +24,7 @@ void chord_route(chordID *k, char *data, int len)
 /**********************************************************************/
 
 /* init: initialize chord server, return socket descriptor */
-int chord_init(char *conf_file)
+int chord_init(char **conf_files, int nservers)
 {
 	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, tunnel) < 0)
 		eprintf("socket_pair failed:");
@@ -42,8 +42,8 @@ int chord_init(char *conf_file)
 	signal(SIGCHLD, chord_cleanup); /* If Chord process dies, exit */
 	signal(SIGBUS, chord_cleanup);
 
-	if (!fork())		/* child */
-		chord_main(conf_file, tunnel[1]);
+	//if (!fork())		/* child */
+		chord_main(conf_files, nservers, tunnel[1]);
 
 	return tunnel[0];
 }

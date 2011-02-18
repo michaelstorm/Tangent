@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include "chord_api.h"
 #include "debug.h"
+#include "eventloop.h"
 
 typedef struct Finger Finger;
 typedef struct Node Node;
@@ -29,12 +30,13 @@ typedef struct Server Server;
 
 enum {
 	TICKET_LEN = 8,				   /* bytes per connection ticket */
-	TICKET_TIMEOUT = 32,		   /* seconds for which a ticket is valid */
+	TICKET_TIMEOUT = 8,		   /* seconds for which a ticket is valid */
 	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */
 	NFINGERS     = CHORD_ID_BITS,  /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
-	STABILIZE_PERIOD = 1*1000000,  /* in usec */
+	ADDR_DISCOVER_INTERVAL = 1*1000000,
+	STABILIZE_PERIOD = 5*1000000,  /* in usec */
 	BUFSIZE      = 65535,          /* buffer for packets */
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
 									*  (read from configuration file)
@@ -51,7 +53,9 @@ enum {
 
 /* packet types */
 enum {
-	CHORD_ROUTE = 0,   /* data packet */
+	CHORD_ADDR_DISCOVER = 0,
+	CHORD_ADDR_DISCOVER_REPL,
+	CHORD_ROUTE,   /* data packet */
 	CHORD_ROUTE_LAST,
 	CHORD_FS,          /* find_successor */
 	CHORD_FS_REPL,     /* find_successor reply */
@@ -65,7 +69,6 @@ enum {
 	CHORD_TRACEROUTE,  /* traceroute */
 	CHORD_TRACEROUTE_LAST,
 	CHORD_TRACEROUTE_REPL,/* traceroute repl */
-	CHORD_ADDR_DISCOVER,
 };
 
 enum {
@@ -73,7 +76,11 @@ enum {
 	CHORD_TTL_EXPIRED = -2,
 	CHORD_INVALID_TICKET = -3,
 	CHORD_PACK_ERROR = -4,
-	CHORD_INVALID_ID = -5,
+	CHORD_ADDR_UNDISCOVERED = -5,
+};
+
+enum {
+	CHORD_EVENT_UPDATE_RANGE = 0,
 };
 
 /* XXX: warning: portability bugs */
@@ -85,6 +92,8 @@ typedef struct in_addr in_addr;
 #ifdef __APPLE__
 typedef u_long ulong;
 #endif
+
+typedef int (*chord_packet_handler)(Server *srv, int n, uchar *buf, Node *from);
 
 struct Node
 {
@@ -116,6 +125,12 @@ struct Finger
 
 #define MAX_KEY_NUM 20
 
+struct WellKnown
+{
+	Node node;
+	in6_addr reflect_addr;
+};
+
 struct Server
 {
 	Node node;          /* addr and ID */
@@ -124,10 +139,11 @@ struct Server
 	Finger *tail_flist; /* table + pred + successors */
 	int num_passive_fingers;
 
+	EventQueue *event_queue;
+
 	int to_fix_finger;  /* next finger to be fixed */
 	int to_fix_backup;  /* next successor/predecessor to be fixed */
 	int to_ping;        /* next node in finger list to be refreshed */
-	uint64_t next_stabilize_us;	/* value of wall_time() at next stabilize */
 
 	int sock;        /* incoming/outgoing socket */
 	int is_v6;		 /* whether we're sitting on an IPv6 interface */
@@ -136,27 +152,31 @@ struct Server
 	int nfds;
 	fd_set interesting;
 
-	Node well_known[MAX_WELLKNOWN];
+	struct WellKnown well_known[MAX_WELLKNOWN];
 	int nknown;
 
 	chordID key_array[MAX_KEY_NUM];
 	int num_keys;
 
 	BF_KEY ticket_key;
+
+	chord_packet_handler packet_handlers[CHORD_TRACEROUTE_REPL];
 };
 
 #define PRED(srv) (srv->tail_flist)
 #define SUCC(srv) (srv->head_flist)
 
 /* chord.c */
-void chord_main(char *conf_file, int tunnel_sock);
+void chord_main(char **conf_files, int nservers, int tunnel_sock);
 void set_socket_nonblocking(int sock);
-void initialize(Server *srv);
-void handle_packet(Server *srv, int sock);
+void initialize(Server *srv, int is_v6);
+int handle_packet(EventQueue *queue, Server *srv, int sock);
 int read_keys(char *file, chordID *keyarray, int max_num_keys);
 void chord_update_range(Server *srv, chordID *l, chordID *r);
 void chord_get_range(Server *srv, chordID *l, chordID *r);
 int chord_is_local(Server *srv, chordID *x);
+void chord_set_packet_handler(Server *srv, int event,
+							  chord_packet_handler handler);
 
 /* finger.c */
 Finger *new_finger(Node *node);
@@ -179,6 +199,7 @@ int init_socket4(ulong addr, ushort port);
 int resolve_v6name(const char *name, in6_addr *v6addr);
 
 /* join.c */
+int discover_addr(EventQueue *queue, Server *srv);
 void join(Server *srv, FILE *fp);
 
 /* pack.c */
@@ -231,6 +252,10 @@ int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from);
 int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
 						 in6_addr *paddr, ushort *pport, int one_hop);
 int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from);
+int pack_addr_discover(uchar *buf, uchar *ticket);
+int unpack_addr_discover(Server *srv, int n, uchar *buf, Node *from);
+int pack_addr_discover_repl(uchar *buf, uchar *ticket, in6_addr *addr);
+int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from);
 
 /* process.c */
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
@@ -249,6 +274,9 @@ int process_fingers_repl(Server *srv, uchar ret_code);
 int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
 					   byte ttl, byte hops);
 int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops);
+int process_addr_discover(Server *srv, uchar *ticket, Node *from);
+int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
+							   Node *from);
 
 /* sendpkt.c */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,
@@ -279,10 +307,12 @@ void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, byte ttl,
 					 byte hops);
 void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 						  int one_hop);
+void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port);
+void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
+							 ushort to_port);
 
 /* stabilize.c */
-void stabilize(Server *srv);
-void set_stabilize_timer(Server *srv);
+int stabilize(EventQueue *queue, Server *srv);
 
 /* util.c */
 double f_rand();
@@ -327,7 +357,7 @@ void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(in6_addr *addr1, in6_addr *addr2);
-void v6_addr_copy(in6_addr *from, in6_addr *to);
+void v6_addr_copy(in6_addr *dest, in6_addr *src);
 
 int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...);
 int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...);

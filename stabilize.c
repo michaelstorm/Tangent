@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 
 #include "chord.h"
+#include "eventloop.h"
 
 /* local functions */
 static void fix_fingers(Server *srv);
@@ -27,23 +28,22 @@ static void clean_finger_list(Server *srv);
 #define CHORD_CLEAN_PERIOD 60
 #define PERIOD_PING_PRED 5
 
-void stabilize(Server *srv)
+int stabilize(EventQueue *queue, Server *srv)
 {
 	static int idx = 0, i;
 	Finger *succ, *pred;
 
 	/* Set next stabilize time */
-	do {
-		srv->next_stabilize_us += STABILIZE_PERIOD;
-	} while(srv->next_stabilize_us <= wall_time());
+	eventqueue_push(queue, wall_time() + STABILIZE_PERIOD, srv,
+					(event_func)stabilize);
 
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {
 		for (i = 0; ((i < srv->nknown) && (i < MAX_SIMJOIN)); i++) {
-			send_fs(srv, DEF_TTL, &srv->well_known[i].addr,
-					srv->well_known[i].port, &srv->node.addr, srv->node.port);
-			send_ping(srv, &srv->well_known[i].addr, srv->well_known[i].port,
-					  get_current_time());
+			send_fs(srv, DEF_TTL, &srv->well_known[i].node.addr,
+					srv->well_known[i].node.port, &srv->node.addr, srv->node.port);
+			send_ping(srv, &srv->well_known[i].node.addr,
+					  srv->well_known[i].node.port, get_current_time());
 		}
 		return;
 	}
@@ -86,6 +86,8 @@ void stabilize(Server *srv)
 		 */
 		clean_finger_list(srv);
 	}
+
+	return 0;
 }
 
 /**********************************************************************/
@@ -114,7 +116,7 @@ void fix_fingers(Server *srv)
 		 * a query to a random id between us and our successor.
 		 */
 		random_between(&srv->node.id, &succ->node.id, &id);
-		Node *n = &srv->well_known[random() % srv->nknown];
+		Node *n = &srv->well_known[random() % srv->nknown].node;
 		if (srv->nknown)
 			send_fs(srv, DEF_TTL, &n->addr, n->port, &srv->node.addr,
 					srv->node.port);
@@ -326,16 +328,4 @@ void clean_finger_list(Server *srv)
 			}
 		}
 	}
-}
-
-/**********************************************************************/
-/* set_stabilize_timer: Set first stabilize time (to now).            */
-/**********************************************************************/
-
-void set_stabilize_timer(Server *srv)
-{
-	/* do not use get_current_time(), because we need the
-	 * resolution of uint64_t
-	 */
-	srv->next_stabilize_us = wall_time();
 }

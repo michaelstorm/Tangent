@@ -8,6 +8,23 @@
 #include <arpa/inet.h>
 #include <sys/utsname.h>
 #include "chord.h"
+#include "eventloop.h"
+
+int discover_addr(EventQueue *queue, Server *srv)
+{
+	if (!IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return 0;
+
+	int i;
+	for (i = 0; i < srv->nknown; i++) {
+		send_addr_discover(srv, &srv->well_known[i].node.addr,
+						   srv->well_known[i].node.port);
+	}
+
+	eventqueue_push(queue, wall_time() + ADDR_DISCOVER_INTERVAL, srv,
+					(event_func)discover_addr);
+	return 0;
+}
 
 /* join: Send join messages to hosts in file */
 void join(Server *srv, FILE *fp)
@@ -25,19 +42,15 @@ void join(Server *srv, FILE *fp)
 		printf("\taddr=[%s]:%d\n", addr_str, port);
 
 		/* resolve address */
-		if (resolve_v6name(addr_str, &srv->well_known[srv->nknown].addr)) {
+		if (resolve_v6name(addr_str, &srv->well_known[srv->nknown].node.addr)) {
 			weprintf("could not join well-known node [%s]:%d", addr_str, port);
 			break;
 		}
 
-		srv->well_known[srv->nknown].port = (in_port_t)port;
+		srv->well_known[srv->nknown].node.port = (in_port_t)port;
 		srv->nknown++;
 	}
 
 	if (srv->nknown == 0)
 		printf("Didn't find any known hosts.");
-
-	chord_update_range(srv, &srv->node.id, &srv->node.id);
-	set_stabilize_timer(srv);
-	stabilize(srv);
 }

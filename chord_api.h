@@ -13,7 +13,7 @@ typedef struct {
 } chordID;
 
 /* init: initialize chord server, provide configuration file */
-int chord_init(char *conf_file);
+int chord_init(char **conf_file, int nservers);
 
 /* route: forward message M towards the root of key K. */
 void chord_route(chordID *k, char *data, int len);
