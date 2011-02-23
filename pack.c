@@ -7,10 +7,10 @@
 
 /* pack: pack binary items into buf, return length */
 
-int pack(uchar *buf, char *fmt, ...)
+int pack(uchar *buf, const char *fmt, ...)
 {
 	va_list args;
-	char *p;
+	const char *p;
 	uchar *bp;
 	chordID *id;
 	ushort s;
@@ -80,10 +80,10 @@ int pack(uchar *buf, char *fmt, ...)
 /**********************************************************************/
 
 /* unpack: unpack binary items from buf, return length */
-int unpack(uchar *buf, char *fmt, ...)
+int unpack(uchar *buf, const char *fmt, ...)
 {
 	va_list args;
-	char *p;
+	const char *p;
 	uchar *bp, *pc;
 	chordID *id;
 	ushort *ps;
@@ -148,7 +148,7 @@ int unpack(uchar *buf, char *fmt, ...)
 
 /**********************************************************************/
 
-int sizeof_fmt(char *fmt)
+int sizeof_fmt(const char *fmt)
 {
 	int len = 0;
 	int i;
@@ -222,16 +222,17 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 
 	type = buf[0];
 
-	if (type < NELEMS(unpackfn)) {
-		if (srv->packet_handlers[type]
-			&& (res = srv->packet_handlers[type](srv, n, buf, from)))
+	if ((type & 0x0F) < NELEMS(unpackfn)) {
+		if (srv->packet_handlers[type & 0x0F]
+			&& (res = srv->packet_handlers[type & 0x0F](srv->packet_handler_ctx,
+														srv, n, buf, from)))
 			return res;
 
 		if (type > CHORD_ADDR_DISCOVER_REPL
 			&& IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 			res = CHORD_ADDR_UNDISCOVERED;
 		else
-			res = (*unpackfn[type])(srv, n, buf, from);
+			res = (*unpackfn[type & 0x0F])(srv, n, buf, from);
 	}
 	else {
 		weprintf("bad packet type 0x%02x", type);
@@ -330,7 +331,7 @@ int unpack_data(Server *srv, int n, uchar *buf, Node *from)
 	chordID id;
 	ushort pkt_len;
 
-	len = unpack(buf, "ccxs", &type, &ttl, id.x, &pkt_len);
+	len = unpack(buf, "ccxs", &type, &ttl, &id, &pkt_len);
 	if (len < 0 || len + pkt_len != n)
 		return CHORD_PROTOCOL_ERROR;
 	assert(type == CHORD_ROUTE || type == CHORD_ROUTE_LAST);

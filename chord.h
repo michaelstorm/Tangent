@@ -10,7 +10,12 @@
 #include <stdio.h>
 #include "chord_api.h"
 #include "debug.h"
+#include "eprintf.h"
 #include "eventloop.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct Finger Finger;
 typedef struct Node Node;
@@ -36,7 +41,7 @@ enum {
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
 	ADDR_DISCOVER_INTERVAL = 1*1000000,
-	STABILIZE_PERIOD = 5*1000000,  /* in usec */
+	STABILIZE_PERIOD = 100*1000000,  /* in usec */
 	BUFSIZE      = 65535,          /* buffer for packets */
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
 									*  (read from configuration file)
@@ -53,7 +58,7 @@ enum {
 
 /* packet types */
 enum {
-	CHORD_ADDR_DISCOVER = 0,
+	CHORD_ADDR_DISCOVER = 0xF0,
 	CHORD_ADDR_DISCOVER_REPL,
 	CHORD_ROUTE,   /* data packet */
 	CHORD_ROUTE_LAST,
@@ -93,7 +98,8 @@ typedef struct in_addr in_addr;
 typedef u_long ulong;
 #endif
 
-typedef int (*chord_packet_handler)(Server *srv, int n, uchar *buf, Node *from);
+typedef int (*chord_packet_handler)(void *ctx, Server *srv, int n, uchar *buf,
+									Node *from);
 
 struct Node
 {
@@ -139,8 +145,6 @@ struct Server
 	Finger *tail_flist; /* table + pred + successors */
 	int num_passive_fingers;
 
-	EventQueue *event_queue;
-
 	int to_fix_finger;  /* next finger to be fixed */
 	int to_fix_backup;  /* next successor/predecessor to be fixed */
 	int to_ping;        /* next node in finger list to be refreshed */
@@ -149,8 +153,6 @@ struct Server
 	int is_v6;		 /* whether we're sitting on an IPv6 interface */
 
 	int tunnel_sock;
-	int nfds;
-	fd_set interesting;
 
 	struct WellKnown well_known[MAX_WELLKNOWN];
 	int nknown;
@@ -161,22 +163,25 @@ struct Server
 	BF_KEY ticket_key;
 
 	chord_packet_handler packet_handlers[CHORD_TRACEROUTE_REPL];
+	void *packet_handler_ctx;
 };
 
 #define PRED(srv) (srv->tail_flist)
 #define SUCC(srv) (srv->head_flist)
 
 /* chord.c */
+Server *new_server(char *conf_file, int tunnel_sock);
 void chord_main(char **conf_files, int nservers, int tunnel_sock);
 void set_socket_nonblocking(int sock);
 void initialize(Server *srv, int is_v6);
-int handle_packet(EventQueue *queue, Server *srv, int sock);
+int handle_packet(Server *srv, int sock);
 int read_keys(char *file, chordID *keyarray, int max_num_keys);
 void chord_update_range(Server *srv, chordID *l, chordID *r);
 void chord_get_range(Server *srv, chordID *l, chordID *r);
 int chord_is_local(Server *srv, chordID *x);
 void chord_set_packet_handler(Server *srv, int event,
 							  chord_packet_handler handler);
+void chord_set_packet_handler_ctx(Server *srv, void *ctx);
 
 /* finger.c */
 Finger *new_finger(Node *node);
@@ -199,14 +204,14 @@ int init_socket4(ulong addr, ushort port);
 int resolve_v6name(const char *name, in6_addr *v6addr);
 
 /* join.c */
-int discover_addr(EventQueue *queue, Server *srv);
+int discover_addr(Server *srv);
 void join(Server *srv, FILE *fp);
 
 /* pack.c */
 int dispatch(Server *srv, int n, uchar *buf, Node *from);
-int pack(uchar *buf, char *fmt, ...);
-int unpack(uchar *buf, char *fmt, ...);
-int sizeof_fmt(char *fmt);
+int pack(uchar *buf, const char *fmt, ...);
+int unpack(uchar *buf, const char *fmt, ...);
+int sizeof_fmt(const char *fmt);
 
 #ifdef CCURED
 // These are the kinds of arguments that we pass to pack
@@ -258,6 +263,8 @@ int pack_addr_discover_repl(uchar *buf, uchar *ticket, in6_addr *addr);
 int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from);
 
 /* process.c */
+Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
+					  uchar *route_type);
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 				 uchar *data, Node *from);
 int process_fs(Server *srv, uchar *ticket, byte ttl, in6_addr *addr,
@@ -312,7 +319,7 @@ void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
 							 ushort to_port);
 
 /* stabilize.c */
-int stabilize(EventQueue *queue, Server *srv);
+int stabilize(Server *srv);
 
 /* util.c */
 double f_rand();
@@ -359,12 +366,15 @@ int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(in6_addr *addr1, in6_addr *addr2);
 void v6_addr_copy(in6_addr *dest, in6_addr *src);
 
-int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...);
-int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...);
+int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...);
+int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...);
 
+void get_data_id(chordID *id, const uchar *buf, int n);
 void get_address_id(chordID *id, in6_addr *addr, ushort port);
 int verify_address_id(chordID *id, in6_addr *addr, ushort port);
 
-#include "eprintf.h"
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* INCL_CHORD_H */

@@ -19,15 +19,13 @@
 #include "chord.h"
 #include "gen_utils.h"
 
-Server *new_server(EventQueue *event_queue, char *conf_file, int tunnel_sock)
+Server *new_server(char *conf_file, int tunnel_sock)
 {
 	char id[4*CHORD_ID_LEN];
 	int ip_ver;
 	FILE *fp;
 
 	Server *srv = calloc(1, sizeof(Server));
-
-	srv->event_queue = event_queue;
 
 	srv->tunnel_sock = tunnel_sock;
 	srv->to_fix_finger = NFINGERS-1;
@@ -54,9 +52,9 @@ Server *new_server(EventQueue *event_queue, char *conf_file, int tunnel_sock)
 	join(srv, fp);
 	fclose(fp);
 
-	eventqueue_listen_socket(srv->event_queue, srv->sock, srv,
-							 (socket_func)handle_packet);
-	discover_addr(srv->event_queue, srv);
+	eventqueue_listen_socket(srv->sock, srv, (socket_func)handle_packet);
+	//eventqueue_listen_socket(srv->tunnel_sock, srv, (socket_func)handle_packet);
+	discover_addr(srv);
 
 	return srv;
 }
@@ -66,16 +64,14 @@ void chord_main(char **conf_files, int nservers, int tunnel_sock)
 	setprogname("chord");
 	srandom(getpid() ^ time(0));
 
-	EventQueue *queue = new_eventqueue();
+	init_global_eventqueue();
 
 	Server *servers[nservers];
 	int i;
-	for (i = 0; i < nservers; i++) {
-		Server *srv = new_server(queue, conf_files[i], tunnel_sock);
-		servers[i] = srv;
-	}
+	for (i = 0; i < nservers; i++)
+		servers[i] = new_server(conf_files[i], tunnel_sock);
 
-	eventqueue_loop(queue);
+	eventqueue_loop();
 }
 
 /**********************************************************************/
@@ -115,12 +111,18 @@ void initialize(Server *srv, int is_v6)
 /**********************************************************************/
 
 /* handle_packet: snarf packet from network and dispatch */
-int handle_packet(EventQueue *queue, Server *srv, int sock)
+int handle_packet(Server *srv, int sock)
 {
 	ssize_t packet_len;
 	socklen_t from_len;
 	Node from;
 	byte buf[BUFSIZE];
+
+	/* if this is a chord packet, the first 4 bytes should be 1111; otherwise
+	   it's a UDT packet and we hand it back to be processed in this rather
+	   inelegant fashion */
+	if (recv(sock, buf, 1, MSG_PEEK) == 1 && (buf[0] >> 4) != 0x0F)
+		return 0;
 
 	if (srv->is_v6) {
 		struct sockaddr_in6 from_sa;
@@ -142,11 +144,11 @@ int handle_packet(EventQueue *queue, Server *srv, int sock)
 	if (packet_len < 0) {
 		if (errno != EAGAIN) {
 			weprintf("recvfrom failed:"); /* ignore errors for now */
-			return;
+			return 0;
 		}
 
 		weprintf("handle_packet: EAGAIN");
-		return; /* pick up this packet later */
+		return 0; /* pick up this packet later */
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);
@@ -196,7 +198,13 @@ int chord_is_local(Server *srv, chordID *x)
 												  &srv->node.id);
 }
 
-void chord_set_packet_handler(Server *srv, int event, chord_packet_handler handler)
+void chord_set_packet_handler(Server *srv, int event,
+							  chord_packet_handler handler)
 {
-	srv->packet_handlers[event] = handler;
+	srv->packet_handlers[event & 0x0F] = handler;
+}
+
+void chord_set_packet_handler_ctx(Server *srv, void *ctx)
+{
+	srv->packet_handler_ctx = ctx;
 }

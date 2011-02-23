@@ -28,20 +28,20 @@ static void clean_finger_list(Server *srv);
 #define CHORD_CLEAN_PERIOD 60
 #define PERIOD_PING_PRED 5
 
-int stabilize(EventQueue *queue, Server *srv)
+int stabilize(Server *srv)
 {
 	static int idx = 0, i;
 	Finger *succ, *pred;
 
 	/* Set next stabilize time */
-	eventqueue_push(queue, wall_time() + STABILIZE_PERIOD, srv,
-					(event_func)stabilize);
+	eventqueue_push(STABILIZE_PERIOD, srv, (event_func)stabilize);
 
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {
 		for (i = 0; ((i < srv->nknown) && (i < MAX_SIMJOIN)); i++) {
 			send_fs(srv, DEF_TTL, &srv->well_known[i].node.addr,
-					srv->well_known[i].node.port, &srv->node.addr, srv->node.port);
+					srv->well_known[i].node.port, &srv->node.addr,
+					srv->node.port);
 			send_ping(srv, &srv->well_known[i].node.addr,
 					  srv->well_known[i].node.port, get_current_time());
 		}

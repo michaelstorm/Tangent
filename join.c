@@ -10,7 +10,7 @@
 #include "chord.h"
 #include "eventloop.h"
 
-int discover_addr(EventQueue *queue, Server *srv)
+int discover_addr(Server *srv)
 {
 	if (!IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return 0;
@@ -21,8 +21,7 @@ int discover_addr(EventQueue *queue, Server *srv)
 						   srv->well_known[i].node.port);
 	}
 
-	eventqueue_push(queue, wall_time() + ADDR_DISCOVER_INTERVAL, srv,
-					(event_func)discover_addr);
+	eventqueue_push(ADDR_DISCOVER_INTERVAL, srv, (event_func)discover_addr);
 	return 0;
 }
 
@@ -39,13 +38,15 @@ void join(Server *srv, FILE *fp)
 		*p = '\0';
 		p += 2;
 		port = atoi(p);
-		printf("\taddr=[%s]:%d\n", addr_str, port);
 
 		/* resolve address */
 		if (resolve_v6name(addr_str, &srv->well_known[srv->nknown].node.addr)) {
 			weprintf("could not join well-known node [%s]:%d", addr_str, port);
 			break;
 		}
+
+		printf("\taddr=[%s]:%d\n",
+			   v6addr_to_str(&srv->well_known[srv->nknown].node.addr), port);
 
 		srv->well_known[srv->nknown].node.port = (in_port_t)port;
 		srv->nknown++;

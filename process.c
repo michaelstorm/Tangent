@@ -28,18 +28,46 @@ int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
-		stabilize(srv->event_queue, srv);
+		stabilize(srv);
 	}
 	return 1;
+}
+
+Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
+					  uchar *route_type)
+{
+	Finger *pf, *sf;
+
+	if ((pkt_type == CHORD_ROUTE_LAST) && ((pf = pred_finger(srv)) != NULL)) {
+		/* the previous hop N believes we are responsible for id,
+		 * but we aren't. This means that our predecessor is
+		 * a better successor for N. Just pass the packet to our
+		 * predecessor. Note that ttl takes care of loops!
+		 */
+		*route_type = CHORD_ROUTE_LAST;
+		return &pf->node;
+	}
+
+	if ((sf = succ_finger(srv)) != NULL) {
+		if (is_between(id, &srv->node.id, &sf->node.id)
+			|| equals(id, &sf->node.id)) {
+			/* according to our info the successor should be responsible
+				 * for id; send the packet to the successor.
+			 */
+			*route_type = CHORD_ROUTE_LAST;
+			return &sf->node;
+		}
+	}
+
+	/* send packet to the closest active predecessor (that we know about) */
+	*route_type = CHORD_ROUTE;
+	return closest_preceding_node(srv, id, FALSE);
 }
 
 int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 				 uchar *data, Node *from)
 {
-	Node *np;
-	Finger *pf, *sf;
-
-	CHORD_DEBUG(5, print_process(srv, "process_data", id, NULL, -1));
+	CHORD_DEBUG(3, print_process(srv, "process_data", id, NULL, -1));
 
 	if (--ttl == 0) {
 		print_two_chordIDs("TTL expired: data packet ", id, " dropped at node ",
@@ -50,33 +78,14 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 	/* handle request locally? */
 	if (chord_is_local(srv, id)) {
 		/* Upcall goes here... */
-		chord_deliver(len, data, from);
-		return 1;
+		printf("id is local\n");
+		//chord_deliver(len, data, from);
 	}
-
-	if ((type == CHORD_ROUTE_LAST) && ((pf = pred_finger(srv)) != NULL)) {
-		/* the previous hop N believes we are responsible for id,
-		 * but we aren't. This means that our predecessor is
-		 * a better successor for N. Just pass the packet to our
-		 * predecessor. Note that ttl takes care of loops!
-		 */
-		send_data(srv, CHORD_ROUTE_LAST, ttl, &pf->node, id, len, data);
-		return 1;
+	else {
+		uchar route_type;
+		Node *np = next_route_node(srv, id, type, &route_type);
+		send_data(srv, route_type, ttl, np, id, len, data);
 	}
-
-	if ((sf = succ_finger(srv)) != NULL) {
-		if (is_between(id, &srv->node.id, &sf->node.id)
-			|| equals(id, &sf->node.id)) {
-			/* according to our info the successor should be responsible
-				 * for id; send the packet to the successor.
-			 */
-			send_data(srv, CHORD_ROUTE_LAST, ttl, &sf->node, id, len, data);
-			return 1;
-		}
-	}
-	/* send packet to the closest active predecessor (that we know about) */
-	np = closest_preceding_node(srv, id, FALSE);
-	send_data(srv, CHORD_ROUTE, ttl, np, id, len, data);
 	return 1;
 }
 

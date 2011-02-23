@@ -1,6 +1,10 @@
 #ifndef CHORD_API_H
 #define CHORD_API_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef unsigned char byte;
 
 enum {
@@ -15,9 +19,10 @@ typedef struct {
 /* init: initialize chord server, provide configuration file */
 int chord_init(char **conf_file, int nservers);
 
-/* route: forward message M towards the root of key K. */
-void chord_route(chordID *k, char *data, int len);
-
 void chord_cleanup(int signum);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -10,7 +10,7 @@
 #include "eprintf.h"
 
 /* eprintf: print error message and exit */
-void eprintf(char *fmt, ...)
+void eprintf(const char *fmt, ...)
 {
 	va_list args;
 
@@ -29,7 +29,7 @@ void eprintf(char *fmt, ...)
 }
 
 /* weprintf: print warning message */
-void weprintf(char *fmt, ...)
+void weprintf(const char *fmt, ...)
 {
 	va_list args;
 

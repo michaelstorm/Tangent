@@ -12,8 +12,8 @@
 #define C_DEBUG(x)
 #endif
 
-int vpack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
-			   char *fmt, va_list args)
+int vpack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
+			   int buf_len, const char *fmt, va_list args)
 {
 	EVP_MD_CTX ctx;
 	char c;
@@ -76,12 +76,12 @@ int vpack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
 		}
 	}
 
-	EVP_DigestFinal_ex(&ctx, out, NULL);
+	EVP_DigestFinal_ex(&ctx, (uchar *)out, NULL);
 	EVP_MD_CTX_cleanup(&ctx);
 }
 
-int pack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
-			  char *fmt, ...)
+int pack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
+			  int buf_len, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
@@ -90,7 +90,7 @@ int pack_hash(const EVP_MD *type, uchar *out, uchar *buf, int buf_len,
 	return ret;
 }
 
-int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
+int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...)
 {
 	int i;
 	va_list args;
@@ -124,7 +124,7 @@ int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
 	// block blowfish cipher (note that the EVP_CIPHER_CTX* functions still
 	// generate extraneous padding, even if we turn it off, so we'll call the
 	// blowfish encryption function manually)
-	BF_ecb_encrypt(ticket_value, out, key, BF_ENCRYPT);
+	BF_ecb_encrypt(ticket_value, (uchar *)out, key, BF_ENCRYPT);
 
 #ifdef C_DEBUG_ON
 	printf("ticket: ");
@@ -141,7 +141,7 @@ int pack_ticket(BF_KEY *key, uchar *out, char *fmt, ...)
 	return 1;
 }
 
-int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
+int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...)
 {
 	va_list args;
 	uchar ticket[TICKET_LEN];
@@ -199,6 +199,11 @@ int verify_ticket(BF_KEY *key, uchar *ticket_enc, char *fmt, ...)
 #endif
 
 	return memcmp(md_value, ticket_md, 4) == 0;
+}
+
+void get_data_id(chordID *id, const uchar *buf, int n)
+{
+	pack_hash(EVP_sha1(), id->x, buf, n, "");
 }
 
 void get_address_id(chordID *id, in6_addr *addr, ushort port)

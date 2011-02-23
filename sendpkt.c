@@ -7,9 +7,9 @@ void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
 {
 	byte buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_data", id, &np->addr, np->port));
-	send_packet(srv, &np->addr, np->port, pack_data(buf, type, ttl, id, n, data),
-			 buf);
+	CHORD_DEBUG(3, print_send(srv, "send_data", id, &np->addr, np->port));
+	send_packet(srv, &np->addr, np->port, pack_data(buf, type, ttl, id, n,
+													data), buf);
 }
 
 /**********************************************************************/
@@ -195,6 +195,7 @@ void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
 /* send_packet: send datagram to remote addr:port */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n, uchar *buf)
 {
+	//printf("writing to socket %d\n", srv->sock);
 	if (srv->is_v6)
 		send_raw_v6(srv->sock, addr, port, n, buf);
 	else
