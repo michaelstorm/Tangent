@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 
 	if (argc > 2) {
 		eventqueue_wait(5*1000000);
-		dhash_client_request_file(sock, "west");
+		dhash_client_request_file(sock, "east");
 	}
 
 	eventqueue_loop();

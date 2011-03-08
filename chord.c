@@ -174,8 +174,7 @@ int handle_packet(Server *srv, int sock)
 			return 0;
 		}
 
-		weprintf("handle_packet: EAGAIN");
-		return 0; /* pick up this packet later */
+		return 0;
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);

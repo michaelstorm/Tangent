@@ -10,15 +10,17 @@
 #include "chord.h"
 #include "dhash.h"
 
-Transfer *new_transfer(char *file, int chord_sock, int down,
-					   const in6_addr *addr, ushort port)
+Transfer *new_transfer(char *file, int chord_sock, const in6_addr *addr,
+					   ushort port)
 {
 	Transfer *trans = (Transfer *)malloc(sizeof(Transfer));
-	trans->down = down;
 	trans->chord_sock = chord_sock;
 	trans->next = NULL;
 	trans->file = (char *)malloc(strlen(file)+1);
 	strcpy(trans->file, file);
+
+	trans->received = 0;
+	trans->size = 0;
 
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
@@ -63,15 +65,40 @@ Transfer *new_transfer(char *file, int chord_sock, int down,
 	return trans;
 }
 
+int transfer_read(Transfer *trans, int sock)
+{
+	uchar buf[1024];
+	int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf), 0);
+
+	printf("received %ld/%ld of \"%s\"\n", trans->received, trans->size,
+		   trans->file);
+
+	if (fwrite(buf, 1, len, trans->fp) < len) {
+		weprintf("writing to \"%\":", trans->file);
+		return 1;
+	}
+
+	trans->received += len;
+	if (trans->received == trans->size) {
+		printf("done receiving \"%s\"\n", trans->file);
+		fclose(trans->fp);
+		return 1;
+	}
+	else if (trans->received >= trans->size) {
+		printf("received size %ld greater than expected size %ld for \"%s\"\n",
+			   trans->received, trans->size, trans->file);
+		fclose(trans->fp);
+		return 1;
+	}
+
+	return 0;
+}
+
 int transfer_write(Transfer *trans, int sock)
 {
-	uchar buf[4];
+	uchar buf[1024];
 	int n = fread(buf, 1, sizeof(buf), trans->fp);
-	printf("read %d bytes from %s: ", n, trans->file);
-	int i;
-	for (i = 0; i < n; i++)
-		printf("%02x ", buf[i]);
-	printf("\n");
+	printf("read %d bytes from %s\n", n, trans->file);
 
 	if (n < 0) {
 		weprintf("reading from \"%s\":", trans->file);
@@ -79,6 +106,7 @@ int transfer_write(Transfer *trans, int sock)
 		return 1;
 	}
 	else if (n == 0) {
+		printf("done reading from \"%s\"\n", trans->file);
 		fclose(trans->fp);
 		return 1;
 	}
@@ -87,28 +115,42 @@ int transfer_write(Transfer *trans, int sock)
 		fprintf(stderr, "send: %s\n", UDT::getlasterror().getErrorMessage());
 		return 1;
 	}
+
+	return 0;
 }
 
-void transfer_start(Transfer *trans, const char *path)
+void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 {
-	if (trans->down) {
-		if (NULL == (trans->fp = fopen(path, "wb"))) {
-			weprintf("could not open \"%s\" for reading:", path);
-			return;
-		}
+	char path[1024];
+	strcpy(path, dir);
+	strcat(path, "/");
+	strcat(path, trans->file);
 
-		printf("started downloading %s\n", path);
-	}
-	else {
-		if (NULL == (trans->fp = fopen(path, "rb"))) {
-			weprintf("could not open \"%s\" for reading:", path);
-			return;
-		}
+	trans->size = size;
 
-		printf("started sending %s\n", path);
-		eventqueue_listen_socket(trans->chord_sock, trans,
-								 (socket_func)transfer_write, SOCKET_WRITE);
+	if (NULL == (trans->fp = fopen(path, "wb"))) {
+		weprintf("could not open \"%s\" for reading:", path);
+		return;
 	}
+
+	printf("started receiving %s\n", path);
+}
+
+void transfer_start_sending(Transfer *trans, const char *dir)
+{
+	char path[1024];
+	strcpy(path, dir);
+	strcat(path, "/");
+	strcat(path, trans->file);
+
+	if (NULL == (trans->fp = fopen(path, "rb"))) {
+		weprintf("could not open \"%s\" for reading:", path);
+		return;
+	}
+
+	printf("started sending %s\n", path);
+	eventqueue_listen_socket(trans->chord_sock, trans,
+							 (socket_func)transfer_write, SOCKET_WRITE);
 }
 
 void dhash_add_transfer(DHash *dhash, Transfer *trans)
@@ -124,14 +166,10 @@ int dhash_handle_udt_packet(DHash *dhash, int sock)
 	if (recv(sock, &type, 2, MSG_PEEK) == 2 && type == 0xFFFF)
 		return 0;
 
-	uchar buf[1024];
 	Transfer *trans;
 	for (trans = dhash->trans_head; trans != NULL; trans = trans->next) {
-		if (trans->chord_sock == sock) {
-			int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf)-1, 0);
-			buf[len] = '\0';
-			printf("received data: %s\n", buf);
-		}
+		if (trans->size > 0 && trans->chord_sock == sock)
+			transfer_read(trans, sock);
 	}
 }
 
@@ -147,19 +185,28 @@ DHash *new_dhash(const char *files_path)
 	return dhash;
 }
 
-int dhash_local_file_exists(DHash *dhash, const char *file)
+int dhash_stat_local_file(DHash *dhash, const char *file, struct stat *stat_buf)
 {
-	struct stat stat_buf;
 	char abs_file_path[strlen(dhash->files_path) + strlen(file) + 1];
 
 	strcpy(abs_file_path, dhash->files_path);
 	strcpy(abs_file_path + strlen(dhash->files_path), "/");
 	strcpy(abs_file_path + strlen(dhash->files_path)+1, file);
 
-	if (stat(abs_file_path, &stat_buf) == 0)
-		return 1;
-	else
-		return 0;
+	return stat(abs_file_path, stat_buf);
+}
+
+int dhash_local_file_exists(DHash *dhash, const char *file)
+{
+	struct stat stat_buf;
+	return dhash_stat_local_file(dhash, file, &stat_buf) == 0;
+}
+
+int dhash_local_file_size(DHash *dhash, const char *file)
+{
+	struct stat stat_buf;
+	assert(dhash_stat_local_file(dhash, file, &stat_buf) == 0);
+	return stat_buf.st_size;
 }
 
 void dhash_send_control_packet(DHash *dhash, int code, const char *file)
@@ -204,17 +251,19 @@ void dhash_send_file_query(DHash *dhash, const char *file)
 	}
 }
 
-void dhash_send_file_query_reply(Server *srv, in6_addr *addr, ushort port,
-								 int code, const char *file)
+void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
+									ushort port, const char *file)
 {
-	printf("sending file query reply type %d for %s to [%s]:%d\n", code, file,
+	printf("sending query reply SUCCESS for %s to [%s]:%d\n", file,
 		   v6addr_to_str(addr), port);
 
 	uchar buf[1024];
 
-	ushort size = strlen(file);
-	int data_len = pack(buf, "cs", code, size);
-	memcpy(buf + data_len, file, size);
+	ushort name_len = strlen(file);
+	int file_size = dhash_local_file_size(dhash, file);
+	int data_len = pack(buf, "cls", DHASH_QUERY_REPLY_SUCCESS, file_size,
+						name_len);
+	memcpy(buf + data_len, file, name_len);
 
 	chordID id;
 	get_address_id(&id, addr, port);
@@ -222,7 +271,28 @@ void dhash_send_file_query_reply(Server *srv, in6_addr *addr, ushort port,
 	Node node;
 	v6_addr_copy(&node.addr, addr);
 	node.port = port;
-	send_data(srv, CHORD_ROUTE, 10, &node, &id, data_len + size, buf);
+	send_data(srv, CHORD_ROUTE, 10, &node, &id, data_len + name_len, buf);
+}
+
+void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
+									ushort port, const char *file)
+{
+	printf("sending query reply SUCCESS for %s to [%s]:%d\n", file,
+		   v6addr_to_str(addr), port);
+
+	uchar buf[1024];
+
+	ushort name_len = strlen(file);
+	int data_len = pack(buf, "cs", DHASH_QUERY_REPLY_FAILURE, name_len);
+	memcpy(buf + data_len, file, name_len);
+
+	chordID id;
+	get_address_id(&id, addr, port);
+
+	Node node;
+	v6_addr_copy(&node.addr, addr);
+	node.port = port;
+	send_data(srv, CHORD_ROUTE, 10, &node, &id, data_len + name_len, buf);
 }
 
 int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
@@ -231,20 +301,22 @@ int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 	printf("dhash_process_query_reply_success\n");
 
 	uchar code;
-	ushort size;
+	ushort name_len;
+	int file_size;
 
-	int data_len = unpack(data, "cs", &code, &size);
+	int data_len = unpack(data, "cls", &code, &file_size, &name_len);
 	assert(code == DHASH_QUERY_REPLY_SUCCESS);
 
-	char file[size+1];
-	memcpy(file, data + data_len, size);
-	file[size] = '\0';
+	char file[name_len+1];
+	memcpy(file, data + data_len, name_len);
+	file[name_len] = '\0';
 
-	printf("receiving transfer of \"%s\" from [%s]:%d\n", file,
-		   v6addr_to_str(&from->addr), from->port);
+	printf("receiving transfer of \"%s\" of size %d from [%s]:%d\n", file,
+		   file_size, v6addr_to_str(&from->addr), from->port);
 
-	Transfer *trans = new_transfer(file, srv->sock, 1, &from->addr, from->port);
+	Transfer *trans = new_transfer(file, srv->sock, &from->addr, from->port);
 	dhash_add_transfer(dhash, trans);
+	transfer_start_receiving(trans, dhash->files_path, file_size);
 }
 
 int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
@@ -262,14 +334,6 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 	if (data_len + file_len != n)
 		weprintf("bad packet length");
 
-	/* if the query comes from one of our servers, which can happen when we
-	   write over the tunnel socket, forward it along */
-	/*int i;
-	for (i = 0; i < dhash->nservers; i++) {
-		if (v6_addr_equals(&reply_addr, &dhash->servers[i]->node.addr))
-			return 0;
-	}*/
-
 	char file[file_len+1];
 	memcpy(file, data+data_len, file_len);
 	file[file_len] = '\0';
@@ -280,19 +344,15 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 	/* if we have the file, notify the requesting node */
 	if (dhash_local_file_exists(dhash, file)) {
 		printf("we have %s\n", file);
-		dhash_send_file_query_reply(srv, &reply_addr, reply_port,
-									DHASH_QUERY_REPLY_SUCCESS, file);
+		dhash_send_query_reply_success(dhash, srv, &reply_addr, reply_port,
+									   file);
 
-		Transfer *trans = new_transfer(file, srv->sock, 0, &reply_addr,
+		Transfer *trans = new_transfer(file, srv->sock, &reply_addr,
 									   reply_port);
 
 		dhash_add_transfer(dhash, trans);
 
-		char path[1024];
-		strcpy(path, dhash->files_path);
-		strcat(path, "/");
-		strcat(path, file);
-		transfer_start(trans, path);
+		transfer_start_sending(trans, dhash->files_path);
 	}
 	else {
 		printf("we don't have %s\n", file);
@@ -303,8 +363,8 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 		   the requesting node */
 		if (chord_is_local(srv, &id)) {
 			printf("but we should, so we're replying\n", file);
-			dhash_send_file_query_reply(srv, &reply_addr, reply_port,
-										DHASH_QUERY_REPLY_FAILURE, file);
+			dhash_send_query_reply_failure(dhash, srv, &reply_addr, reply_port,
+										   file);
 			printf("and listening on port %d\n", srv->node.port);
 		}
 		/* otherwise, forward the request to the closest finger */
@@ -443,7 +503,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		//						 (socket_func)dhash_handle_chord_packet);
 	}
 
-	eventqueue_listen_socket(dhash_tunnel[1], dhash,
+	eventqueue_listen_socket(dhash->control_sock, dhash,
 							 (socket_func)dhash_handle_control_packet,
 							 SOCKET_READ);
 
@@ -467,7 +527,7 @@ void dhash_client_process_request_reply(int sock, void *ctx,
 										dhash_request_reply_handler handler)
 {
 	uchar buf[1024];
-	char *file;
+	char file[128];
 	char code;
 	short size;
 	int n;
@@ -480,6 +540,7 @@ void dhash_client_process_request_reply(int sock, void *ctx,
 		fprintf(stderr, "process_request_reply: packet size error\n");
 		return;
 	}
+
 	memcpy(file, buf + len, size);
 	file[size] = '\0';
 

@@ -15,9 +15,11 @@ struct Transfer
 	char *file;
 	FILE *fp;
 
-	int down;
 	int chord_sock;
 	int udt_sock;
+
+	long received;
+	long size;
 
 	in6_addr remote_addr;
 	unsigned short remote_port;
