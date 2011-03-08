@@ -47,7 +47,7 @@ Transfer *new_transfer(char *file, int chord_sock, int down,
 	}
 	else {
 		sockaddr_in6 serv_addr;
-		serv_addr.sin6_family = AF_INET;
+		serv_addr.sin6_family = AF_INET6;
 		serv_addr.sin6_port = htons(port);
 		v6_addr_copy(&serv_addr.sin6_addr, addr);
 
