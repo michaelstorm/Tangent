@@ -63,8 +63,6 @@ Transfer *new_transfer(char *file, int chord_sock, int down,
 	return trans;
 }
 
-static Server *global_srv;
-
 int transfer_write(Transfer *trans, int sock)
 {
 	uchar buf[4];
@@ -122,8 +120,8 @@ void dhash_add_transfer(DHash *dhash, Transfer *trans)
 
 int dhash_handle_udt_packet(DHash *dhash, int sock)
 {
-	uchar type;
-	if (recv(sock, &type, 1, MSG_PEEK) == 1 && (type >> 4) == 0x0F)
+	ushort type;
+	if (recv(sock, &type, 2, MSG_PEEK) == 2 && type == 0xFFFF)
 		return 0;
 
 	uchar buf[1024];
@@ -440,8 +438,6 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		chord_set_packet_handler_ctx(srv, dhash);
 
 		server_start(srv);
-
-		global_srv = srv;
 
 		//eventqueue_listen_socket(chord_tunnel[0], dhash,
 		//						 (socket_func)dhash_handle_chord_packet);
