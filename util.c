@@ -501,12 +501,12 @@ void print_current_time(char *prefix, char *suffix)
 #endif
 }
 
-int v6_addr_equals(in6_addr *addr1, in6_addr *addr2)
+int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2)
 {
 	return memcmp(addr1->s6_addr, addr2->s6_addr, 16) == 0;
 }
 
-void v6_addr_copy(in6_addr *dest, in6_addr *src)
+void v6_addr_copy(in6_addr *dest, const in6_addr *src)
 {
 	memcpy(dest->s6_addr, src->s6_addr, 16);
 }

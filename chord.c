@@ -19,18 +19,27 @@
 #include "chord.h"
 #include "gen_utils.h"
 
-Server *new_server(char *conf_file, int tunnel_sock)
+static void init_ticket_key(Server *srv);
+
+Server *new_server(int tunnel_sock)
+{
+	Server *srv = calloc(1, sizeof(Server));
+	srv->to_fix_finger = NFINGERS-1;
+
+	srv->tunnel_sock = tunnel_sock;
+	//eventqueue_listen_socket(srv->tunnel_sock, srv, (socket_func)handle_packet);
+
+	init_ticket_key(srv);
+
+	return srv;
+}
+
+void server_initialize_from_file(Server *srv, char *conf_file)
 {
 	char id[4*CHORD_ID_LEN];
 	int ip_ver;
-	FILE *fp;
 
-	Server *srv = calloc(1, sizeof(Server));
-
-	srv->tunnel_sock = tunnel_sock;
-	srv->to_fix_finger = NFINGERS-1;
-
-	fp = fopen(conf_file, "r");
+	FILE *fp = fopen(conf_file, "r");
 	if (fp == NULL)
 		eprintf("fopen(%s,\"r\") failed:", conf_file);
 	if (fscanf(fp, "%d\n", &ip_ver) != 1)
@@ -41,22 +50,52 @@ Server *new_server(char *conf_file, int tunnel_sock)
 		eprintf("Didn't find id in \"%s\"", conf_file);
 //	srv->node.id = atoid(id);
 
-	fprintf(stderr, "Chord started.\n");
-	fprintf(stderr, "id="); print_id(stderr, &srv->node.id);
-	fprintf(stderr, "\n");
+	srv->is_v6 = ip_ver == 6;
 
-	fprintf(stderr, "ip=%s\n", v6addr_to_str(&srv->node.addr));
-	fprintf(stderr, "port=%d\n", srv->node.port);
+	char addr_str[INET6_ADDRSTRLEN+16];
+	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, "[%s\n", addr_str) == 1) {
+		char *p = strstr(addr_str, "]:");
+		assert(p != NULL);
+		*p = '\0';
+		p += 2;
+		ushort port = atoi(p);
 
-	initialize(srv, ip_ver == 6);
-	join(srv, fp);
-	fclose(fp);
+		/* resolve address */
+		if (resolve_v6name(addr_str, &srv->well_known[srv->nknown].node.addr)) {
+			weprintf("could not join well-known node [%s]:%d", addr_str, port);
+			break;
+		}
 
-	eventqueue_listen_socket(srv->sock, srv, (socket_func)handle_packet);
-	//eventqueue_listen_socket(srv->tunnel_sock, srv, (socket_func)handle_packet);
+		srv->well_known[srv->nknown].node.port = (in_port_t)port;
+		srv->nknown++;
+	}
+
+	if (srv->nknown == 0)
+		printf("Didn't find any known hosts.");
+}
+
+void server_start(Server *srv)
+{
 	discover_addr(srv);
+}
 
-	return srv;
+void server_listen_socket(Server *srv, int sock)
+{
+	srv->sock = sock;
+	eventqueue_listen_socket(srv->sock, srv, (socket_func)handle_packet,
+							 SOCKET_READ);
+}
+
+void server_initialize_socket(Server *srv)
+{
+	int sock = socket(srv->is_v6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
+	if (srv->is_v6)
+		chord_bind_v6socket(sock, &in6addr_any, srv->node.port);
+	else
+		chord_bind_v4socket(sock, INADDR_ANY, srv->node.port);
+	set_socket_nonblocking(sock);
+
+	server_listen_socket(srv, sock);
 }
 
 void chord_main(char **conf_files, int nservers, int tunnel_sock)
@@ -68,15 +107,19 @@ void chord_main(char **conf_files, int nservers, int tunnel_sock)
 
 	Server *servers[nservers];
 	int i;
-	for (i = 0; i < nservers; i++)
-		servers[i] = new_server(conf_files[i], tunnel_sock);
+	for (i = 0; i < nservers; i++) {
+		servers[i] = new_server(tunnel_sock);
+		server_initialize_from_file(servers[i], conf_files[i]);
+		server_initialize_socket(servers[i]);
+		server_start(servers[i]);
+	}
 
 	eventqueue_loop();
 }
 
 /**********************************************************************/
 
-void init_ticket_key(Server *srv)
+static void init_ticket_key(Server *srv)
 {
 	if (!RAND_load_file("/dev/urandom", 64)) {
 		fprintf(stderr, "Could not seed random number generator.\n");
@@ -92,22 +135,6 @@ void init_ticket_key(Server *srv)
 	BF_set_key(&srv->ticket_key, sizeof(key_data), key_data);
 }
 
-/* initialize: set up sockets and such <yawn> */
-void initialize(Server *srv, int is_v6)
-{
-	setservent(1);
-
-	if (is_v6)
-		srv->sock = init_socket6(&in6addr_any, srv->node.port);
-	else
-		srv->sock = init_socket4(INADDR_ANY, srv->node.port);
-	set_socket_nonblocking(srv->sock);
-
-	srv->is_v6 = is_v6;
-
-	init_ticket_key(srv);
-}
-
 /**********************************************************************/
 
 /* handle_packet: snarf packet from network and dispatch */
@@ -121,7 +148,7 @@ int handle_packet(Server *srv, int sock)
 	/* if this is a chord packet, the first 4 bytes should be 1111; otherwise
 	   it's a UDT packet and we hand it back to be processed in this rather
 	   inelegant fashion */
-	if (recv(sock, buf, 1, MSG_PEEK) == 1 && (buf[0] >> 4) != 0x0F)
+	if (recv(sock, buf, 2, MSG_PEEK) == 2 && *(unsigned short *)buf != 0xFFFF)
 		return 0;
 
 	if (srv->is_v6) {
@@ -152,7 +179,8 @@ int handle_packet(Server *srv, int sock)
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);
-	dispatch(srv, packet_len, buf, &from);
+	dispatch(srv, packet_len-2, buf+2, &from);
+	return 0;
 }
 
 /**********************************************************************/
@@ -201,7 +229,7 @@ int chord_is_local(Server *srv, chordID *x)
 void chord_set_packet_handler(Server *srv, int event,
 							  chord_packet_handler handler)
 {
-	srv->packet_handlers[event & 0x0F] = handler;
+	srv->packet_handlers[event] = handler;
 }
 
 void chord_set_packet_handler_ctx(Server *srv, void *ctx)

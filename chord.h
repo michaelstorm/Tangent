@@ -58,7 +58,7 @@ enum {
 
 /* packet types */
 enum {
-	CHORD_ADDR_DISCOVER = 0xF0,
+	CHORD_ADDR_DISCOVER = 0,
 	CHORD_ADDR_DISCOVER_REPL,
 	CHORD_ROUTE,   /* data packet */
 	CHORD_ROUTE_LAST,
@@ -170,15 +170,22 @@ struct Server
 #define SUCC(srv) (srv->head_flist)
 
 /* chord.c */
-Server *new_server(char *conf_file, int tunnel_sock);
-void chord_main(char **conf_files, int nservers, int tunnel_sock);
+Server *new_server(int tunnel_sock);
+void server_initialize_from_file(Server *srv, char *conf_file);
+void server_start(Server *srv);
+void server_listen_socket(Server *srv, int sock);
+void server_initialize_socket(Server *srv);
 void set_socket_nonblocking(int sock);
+
+void chord_main(char **conf_files, int nservers, int tunnel_sock);
 void initialize(Server *srv, int is_v6);
 int handle_packet(Server *srv, int sock);
 int read_keys(char *file, chordID *keyarray, int max_num_keys);
+
 void chord_update_range(Server *srv, chordID *l, chordID *r);
 void chord_get_range(Server *srv, chordID *l, chordID *r);
 int chord_is_local(Server *srv, chordID *x);
+
 void chord_set_packet_handler(Server *srv, int event,
 							  chord_packet_handler handler);
 void chord_set_packet_handler_ctx(Server *srv, void *ctx);
@@ -198,10 +205,11 @@ void free_finger_list(Finger *flist);
 /* hosts.c */
 in_addr_t get_addr();
 void to_v6addr(ulong v4addr, in6_addr *v6addr);
-ulong to_v4addr(in6_addr *v6addr);
-char *v6addr_to_str(in6_addr *v6addr);
-int init_socket4(ulong addr, ushort port);
+ulong to_v4addr(const in6_addr *v6addr);
+char *v6addr_to_str(const in6_addr *v6addr);
 int resolve_v6name(const char *name, in6_addr *v6addr);
+void chord_bind_v6socket(int sock, const in6_addr *addr, ushort port);
+void chord_bind_v4socket(int sock, ulong addr, ushort port);
 
 /* join.c */
 int discover_addr(Server *srv);
@@ -363,8 +371,8 @@ void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
 void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
-int v6_addr_equals(in6_addr *addr1, in6_addr *addr2);
-void v6_addr_copy(in6_addr *dest, in6_addr *src);
+int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2);
+void v6_addr_copy(in6_addr *dest, const in6_addr *src);
 
 int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...);
 int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...);

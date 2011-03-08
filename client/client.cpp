@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 	int sock = dhash_start(dhash, argv+1, 1 /*argc-1 */);
 
 	init_global_eventqueue();
-	eventqueue_listen_socket(sock, 0, handle_reply);
+	eventqueue_listen_socket(sock, 0, handle_reply, SOCKET_READ);
 
 	if (argc > 2) {
 		eventqueue_wait(5*1000000);

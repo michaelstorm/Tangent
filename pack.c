@@ -222,9 +222,9 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 
 	type = buf[0];
 
-	if ((type & 0x0F) < NELEMS(unpackfn)) {
-		if (srv->packet_handlers[type & 0x0F]
-			&& (res = srv->packet_handlers[type & 0x0F](srv->packet_handler_ctx,
+	if (type < NELEMS(unpackfn)) {
+		if (srv->packet_handlers[type]
+			&& (res = srv->packet_handlers[type](srv->packet_handler_ctx,
 														srv, n, buf, from)))
 			return res;
 
@@ -232,7 +232,7 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 			&& IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 			res = CHORD_ADDR_UNDISCOVERED;
 		else
-			res = (*unpackfn[type & 0x0F])(srv, n, buf, from);
+			res = (*unpackfn[type])(srv, n, buf, from);
 	}
 	else {
 		weprintf("bad packet type 0x%02x", type);
@@ -279,8 +279,10 @@ int unpack_addr_discover(Server *srv, int n, uchar *buf, Node *from)
 	byte type;
 	uchar ticket[TICKET_LEN];
 
-	if (unpack(buf, "ct", &type, ticket) != n)
+	if (unpack(buf, "ct", &type, ticket) != n) {
+		fprintf(stderr, "expected %d but got %d\n", n, unpack(buf, "ct", &type, ticket));
 		return CHORD_PROTOCOL_ERROR;
+	}
 
 	assert(type == CHORD_ADDR_DISCOVER);
 	return process_addr_discover(srv, ticket, from);

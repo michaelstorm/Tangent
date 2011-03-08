@@ -141,12 +141,12 @@ void to_v6addr(ulong v4addr, in6_addr *v6addr)
 	memcpy(&v6addr->s6_addr[12], &v4addr, 4);
 }
 
-ulong to_v4addr(in6_addr *v6addr)
+ulong to_v4addr(const in6_addr *v6addr)
 {
 	return *(ulong *)&v6addr->s6_addr[12];
 }
 
-char *v6addr_to_str(in6_addr *v6addr)
+char *v6addr_to_str(const in6_addr *v6addr)
 {
 	static char addr_str[INET6_ADDRSTRLEN];
 	if (!V4_MAPPED(v6addr))
@@ -156,44 +156,6 @@ char *v6addr_to_str(in6_addr *v6addr)
 		inet_ntop(AF_INET, &v4addr, addr_str, INET6_ADDRSTRLEN);
 	}
 	return addr_str;
-}
-
-int init_socket4(ulong addr, ushort port)
-{
-	struct sockaddr_in sin;
-	memset(&sin, 0, sizeof(sin));
-
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(port);
-	sin.sin_addr.s_addr = htonl(addr);
-
-	int sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock < 0)
-		eprintf("socket failed:");
-
-	if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-		eprintf("bind failed:");
-
-	return sock;
-}
-
-int init_socket6(in6_addr *addr, ushort port)
-{
-	struct sockaddr_in6 sin;
-	memset(&sin, 0, sizeof(sin));
-
-	sin.sin6_family = AF_INET;
-	sin.sin6_port = htons(port);
-	v6_addr_copy(&sin.sin6_addr, addr);
-
-	int sock = socket(AF_INET6, SOCK_DGRAM, 0);
-	if (sock < 0)
-		eprintf("socket failed:");
-
-	if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-		eprintf("bind failed:");
-
-	return sock;
 }
 
 void set_socket_nonblocking(int sock)
@@ -235,4 +197,36 @@ int resolve_v6name(const char *name, in6_addr *v6addr)
 
 	freeaddrinfo(result);
 	return 0;
+}
+
+void chord_bind_v6socket(int sock, const in6_addr *addr, ushort port)
+{
+	int reuse = 1;
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+	struct sockaddr_in6 sin;
+	memset(&sin, 0, sizeof(sin));
+
+	sin.sin6_family = AF_INET;
+	sin.sin6_port = htons(port);
+	v6_addr_copy(&sin.sin6_addr, addr);
+
+	if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+		eprintf("bind failed:");
+}
+
+void chord_bind_v4socket(int sock, ulong addr, ushort port)
+{
+	int reuse = 1;
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+	struct sockaddr_in sin;
+	memset(&sin, 0, sizeof(sin));
+
+	sin.sin_family = AF_INET;
+	sin.sin_port = htons(port);
+	sin.sin_addr.s_addr = htonl(addr);
+
+	if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+		eprintf("bind failed:");
 }
