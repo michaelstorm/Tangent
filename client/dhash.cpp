@@ -10,9 +10,6 @@
 #include "chord.h"
 #include "dhash.h"
 
-void dhash_transfer_complete(DHash *dhash, Transfer *trans);
-void dhash_remove_transfer(DHash *dhash, Transfer *trans);
-
 Transfer *new_transfer(char *file, int chord_sock, int down,
 					   const in6_addr *addr, ushort port)
 {
@@ -28,9 +25,8 @@ Transfer *new_transfer(char *file, int chord_sock, int down,
 
 	int yes = true;
 	UDT::setsockopt(trans->udt_sock, 0, UDT_RENDEZVOUS, &yes, sizeof(yes));
-	//UDT::setsockopt(trans->udt_sock, 0, UDT_LINGER, &yes, sizeof(yes));
-	//UDT::setsockopt(trans->udt_sock, 0, UDT_SNDSYN, &yes, sizeof(yes));
-	//UDT::setsockopt(trans->udt_sock, 0, UDT_RCVSYN, &yes, sizeof(yes));
+	UDT::setsockopt(trans->udt_sock, 0, UDT_SNDSYN, &yes, sizeof(yes));
+	UDT::setsockopt(trans->udt_sock, 0, UDT_RCVSYN, &yes, sizeof(yes));
 
 	if (UDT::ERROR == UDT::bind(trans->udt_sock, chord_sock)) {
 		fprintf(stderr, "bind error: %s\n",
@@ -51,7 +47,7 @@ Transfer *new_transfer(char *file, int chord_sock, int down,
 	}
 	else {
 		sockaddr_in6 serv_addr;
-		serv_addr.sin6_family = AF_INET6;
+		serv_addr.sin6_family = AF_INET;
 		serv_addr.sin6_port = htons(port);
 		v6_addr_copy(&serv_addr.sin6_addr, addr);
 
@@ -64,75 +60,28 @@ Transfer *new_transfer(char *file, int chord_sock, int down,
 		return NULL;
 	}
 
-	printf("connected!\n");
-
-	//eventqueue_wait(5*1000000);
-
 	return trans;
 }
 
-void free_transfer(Transfer *trans)
-{
-	if (trans != NULL) {
-		free(trans->file);
-		free(trans);
-	}
-}
-
 static Server *global_srv;
-
-int transfer_read(Transfer *trans, int sock)
-{
-	uchar buf[1024];
-	int len;
-	printf("XXXXXXX\n");
-	if ((len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf), 0))
-		== UDT::ERROR) {
-		printf("YYYYYYY\n");
-		fprintf(stderr, "recv: %s\n", UDT::getlasterror().getErrorMessage());
-		fclose(trans->fp);
-		dhash_remove_transfer(trans->dhash, trans);
-		free_transfer(trans);
-		return 1;
-	}
-
-	int i;
-	for (i = 0; i < len; i++)
-		printf("%02x ", buf[i]);
-	printf("\n");
-
-	if (fwrite(buf, 1, len, trans->fp) < len) {
-		weprintf("writing to \"%s\":", trans->file);
-		fclose(trans->fp);
-		dhash_remove_transfer(trans->dhash, trans);
-		free_transfer(trans);
-		return 1;
-	}
-
-	return 0;
-}
 
 int transfer_write(Transfer *trans, int sock)
 {
 	uchar buf[4];
 	int n = fread(buf, 1, sizeof(buf), trans->fp);
-
-	printf("sending: %s\n", n ? (const char *)buf : "(null)");
+	printf("read %d bytes from %s: ", n, trans->file);
+	int i;
+	for (i = 0; i < n; i++)
+		printf("%02x ", buf[i]);
+	printf("\n");
 
 	if (n < 0) {
 		weprintf("reading from \"%s\":", trans->file);
 		fclose(trans->fp);
-		dhash_remove_transfer(trans->dhash, trans);
-		UDT::close(trans->udt_sock);
-		free_transfer(trans);
 		return 1;
 	}
 	else if (n == 0) {
 		fclose(trans->fp);
-		dhash_transfer_complete(trans->dhash, trans);
-		dhash_remove_transfer(trans->dhash, trans);
-		UDT::close(trans->udt_sock);
-		free_transfer(trans);
 		return 1;
 	}
 
@@ -140,8 +89,6 @@ int transfer_write(Transfer *trans, int sock)
 		fprintf(stderr, "send: %s\n", UDT::getlasterror().getErrorMessage());
 		return 1;
 	}
-
-	return 0;
 }
 
 void transfer_start(Transfer *trans, const char *path)
@@ -173,43 +120,21 @@ void dhash_add_transfer(DHash *dhash, Transfer *trans)
 	trans->next = old_head;
 }
 
-void dhash_remove_transfer(DHash *dhash, Transfer *remove)
-{
-	assert(dhash->trans_head);
-
-	if (dhash->trans_head == remove)
-		dhash->trans_head = remove->next;
-	else {
-		Transfer *trans = dhash->trans_head;
-		while (trans) {
-			if (trans->next == remove) {
-				trans->next = remove->next;
-				break;
-			}
-			else
-				trans = trans->next;
-		}
-	}
-}
-
 int dhash_handle_udt_packet(DHash *dhash, int sock)
 {
-	printf("received packet\n");
-
-	ushort type;
-	if (recv(sock, &type, 2, MSG_PEEK) == 2 && type == 0xFFFF)
+	uchar type;
+	if (recv(sock, &type, 1, MSG_PEEK) == 1 && (type >> 4) == 0x0F)
 		return 0;
-
-	printf("received udt packet\n");
 
 	uchar buf[1024];
 	Transfer *trans;
 	for (trans = dhash->trans_head; trans != NULL; trans = trans->next) {
-		if (trans->chord_sock == sock)
-			return transfer_read(trans, sock);
+		if (trans->chord_sock == sock) {
+			int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf)-1, 0);
+			buf[len] = '\0';
+			printf("received data: %s\n", buf);
+		}
 	}
-
-	return 0;
 }
 
 DHash *new_dhash(const char *files_path)
@@ -222,11 +147,6 @@ DHash *new_dhash(const char *files_path)
 	dhash->files_path = (char *)malloc(strlen(files_path)+1);
 	strcpy(dhash->files_path, files_path);
 	return dhash;
-}
-
-void dhash_transfer_complete(DHash *dhash, Transfer *trans)
-{
-	printf("transfer of \"%s\" complete!\n", trans->file);
 }
 
 int dhash_local_file_exists(DHash *dhash, const char *file)
@@ -326,13 +246,6 @@ int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 		   v6addr_to_str(&from->addr), from->port);
 
 	Transfer *trans = new_transfer(file, srv->sock, 1, &from->addr, from->port);
-
-	char path[1024];
-	strcpy(path, dhash->files_path);
-	strcat(path, "/");
-	strcat(path, file);
-
-	transfer_start(trans, path);
 	dhash_add_transfer(dhash, trans);
 }
 
@@ -534,7 +447,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		//						 (socket_func)dhash_handle_chord_packet);
 	}
 
-	eventqueue_listen_socket(dhash->control_sock, dhash,
+	eventqueue_listen_socket(dhash_tunnel[1], dhash,
 							 (socket_func)dhash_handle_control_packet,
 							 SOCKET_READ);
 
