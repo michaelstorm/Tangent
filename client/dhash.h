@@ -3,33 +3,12 @@
 
 #include <netinet/in.h>
 
-typedef struct Transfer Transfer;
 typedef void (*dhash_request_reply_handler)(void *ctx, char code,
 											const char *file);
 
 struct Server;
+struct Transfer;
 typedef struct DHash DHash;
-
-struct Transfer
-{
-	char *file;
-	FILE *fp;
-
-	int chord_sock;
-	int udt_sock;
-
-	long received;
-	long size;
-
-	in6_addr remote_addr;
-	unsigned short remote_port;
-	unsigned short chord_port;
-
-	DHash *dhash;
-	Transfer *next;
-
-	int state;
-};
 
 struct DHash
 {
@@ -64,11 +43,25 @@ enum
 	DHASH_TRANSFER_FAILED,
 };
 
+enum
+{
+	DHASH_TRANSFER_EVENT_COMPLETE = 0,
+	DHASH_TRANSFER_EVENT_FAILED,
+};
+
 DHash *new_dhash(const char *files_path);
 int dhash_start(DHash *dhash, char **conf_files, int nservers);
 
 void dhash_client_request_file(int sock, const char *file);
 void dhash_client_process_request_reply(int sock, void *ctx,
 										dhash_request_reply_handler handler);
+
+void dhash_add_transfer(DHash *dhash, Transfer *trans);
+void dhash_remove_transfer(DHash *dhash, Transfer *remove);
+
+int dhash_stat_local_file(DHash *dhash, const char *file,
+						  struct stat *stat_buf);
+int dhash_local_file_exists(DHash *dhash, const char *file);
+int dhash_local_file_size(DHash *dhash, const char *file);
 
 #endif
