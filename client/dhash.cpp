@@ -22,6 +22,8 @@ Transfer *new_transfer(char *file, int chord_sock, const in6_addr *addr,
 	trans->received = 0;
 	trans->size = 0;
 
+	trans->state = DHASH_TRANSFER_IDLE;
+
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
 
@@ -65,8 +67,10 @@ Transfer *new_transfer(char *file, int chord_sock, const in6_addr *addr,
 	return trans;
 }
 
-int transfer_read(Transfer *trans, int sock)
+int transfer_receive(Transfer *trans, int sock)
 {
+	assert(trans->state == DHASH_TRANSFER_RECEIVING);
+
 	uchar buf[1024];
 	int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf), 0);
 
@@ -94,8 +98,10 @@ int transfer_read(Transfer *trans, int sock)
 	return 0;
 }
 
-int transfer_write(Transfer *trans, int sock)
+int transfer_send(Transfer *trans, int sock)
 {
+	assert(trans->state == DHASH_TRANSFER_SENDING);
+
 	uchar buf[1024];
 	int n = fread(buf, 1, sizeof(buf), trans->fp);
 	printf("read %d bytes from %s\n", n, trans->file);
@@ -121,6 +127,8 @@ int transfer_write(Transfer *trans, int sock)
 
 void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 {
+	assert(trans->state == DHASH_TRANSFER_IDLE);
+
 	char path[1024];
 	strcpy(path, dir);
 	strcat(path, "/");
@@ -133,11 +141,14 @@ void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 		return;
 	}
 
+	trans->state = DHASH_TRANSFER_RECEIVING;
 	printf("started receiving %s\n", path);
 }
 
 void transfer_start_sending(Transfer *trans, const char *dir)
 {
+	assert(trans->state == DHASH_TRANSFER_IDLE);
+
 	char path[1024];
 	strcpy(path, dir);
 	strcat(path, "/");
@@ -148,9 +159,10 @@ void transfer_start_sending(Transfer *trans, const char *dir)
 		return;
 	}
 
+	trans->state = DHASH_TRANSFER_SENDING;
 	printf("started sending %s\n", path);
 	eventqueue_listen_socket(trans->chord_sock, trans,
-							 (socket_func)transfer_write, SOCKET_WRITE);
+							 (socket_func)transfer_send, SOCKET_WRITE);
 }
 
 void dhash_add_transfer(DHash *dhash, Transfer *trans)
@@ -168,8 +180,9 @@ int dhash_handle_udt_packet(DHash *dhash, int sock)
 
 	Transfer *trans;
 	for (trans = dhash->trans_head; trans != NULL; trans = trans->next) {
-		if (trans->size > 0 && trans->chord_sock == sock)
-			transfer_read(trans, sock);
+		if (trans->state == DHASH_TRANSFER_RECEIVING
+			&& trans->chord_sock == sock)
+			transfer_receive(trans, sock);
 	}
 }
 

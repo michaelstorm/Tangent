@@ -34,7 +34,7 @@ int stabilize(Server *srv)
 	Finger *succ, *pred;
 
 	/* Set next stabilize time */
-	eventqueue_push(STABILIZE_PERIOD, srv, (event_func)stabilize);
+	eventqueue_push_timer(STABILIZE_PERIOD, srv, (timer_func)stabilize);
 
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {

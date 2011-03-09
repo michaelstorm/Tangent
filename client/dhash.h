@@ -27,6 +27,8 @@ struct Transfer
 
 	DHash *dhash;
 	Transfer *next;
+
+	int state;
 };
 
 struct DHash
@@ -51,6 +53,15 @@ enum
 	DHASH_QUERY = 0,
 	DHASH_QUERY_REPLY_SUCCESS,
 	DHASH_QUERY_REPLY_FAILURE,
+};
+
+enum
+{
+	DHASH_TRANSFER_IDLE = 0,
+	DHASH_TRANSFER_SENDING,
+	DHASH_TRANSFER_RECEIVING,
+	DHASH_TRANSFER_COMPLETE,
+	DHASH_TRANSFER_FAILED,
 };
 
 DHash *new_dhash(const char *files_path);

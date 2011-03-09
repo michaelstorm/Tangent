@@ -21,6 +21,7 @@ int discover_addr(Server *srv)
 						   srv->well_known[i].node.port);
 	}
 
-	eventqueue_push(ADDR_DISCOVER_INTERVAL, srv, (event_func)discover_addr);
+	eventqueue_push_timer(ADDR_DISCOVER_INTERVAL, srv,
+						  (timer_func)discover_addr);
 	return 0;
 }
