@@ -24,6 +24,11 @@ struct DHash
 
 enum
 {
+	DHASH_CLIENT_QUERY = 0,
+};
+
+enum
+{
 	DHASH_CLIENT_REPLY_LOCAL = 0,
 	DHASH_CLIENT_REPLY_SUCCESS,
 	DHASH_CLIENT_REPLY_FAILURE,
@@ -71,5 +76,6 @@ int dhash_process_query_reply_success(DHash *dhash, struct Server *srv,
 									  struct Node *from);
 int dhash_process_query(DHash *dhash, struct Server *srv, unsigned char *data,
 						int n, struct Node *from);
+void dhash_process_client_query(DHash *dhash, const char *file);
 
 #endif

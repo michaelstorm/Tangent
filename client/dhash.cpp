@@ -48,6 +48,8 @@ int dhash_handle_udt_packet(DHash *dhash, int sock)
 			&& trans->chord_sock == sock)
 			transfer_receive(trans, sock);
 	}
+
+	return 0;
 }
 
 DHash *new_dhash(const char *files_path)
@@ -191,6 +193,14 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 	return 1;
 }
 
+void dhash_process_client_query(DHash *dhash, const char *file)
+{
+	if (dhash_local_file_exists(dhash, file))
+		dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_LOCAL, file);
+	else
+		dhash_send_file_query(dhash, file);
+}
+
 int dhash_start(DHash *dhash, char **conf_files, int nservers)
 {
 	int dhash_tunnel[2];
@@ -254,7 +264,7 @@ void dhash_client_request_file(int sock, const char *file)
 	short size = strlen(file);
 	uchar buf[sizeof_fmt("s") + size];
 
-	int n = pack(buf, "s", size);
+	int n = pack(buf, "cs", DHASH_CLIENT_QUERY, size);
 	memcpy(buf + n, file, size);
 	n += size;
 

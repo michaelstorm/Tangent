@@ -13,11 +13,12 @@ int dhash_unpack_control_packet(DHash *dhash, int sock)
 	int n;
 	char file[1024];
 	short size;
+	uchar type;
 
 	if ((n = read(sock, buf, 1024)) < 0)
 		perror("reading control packet");
 
-	int len = unpack(buf, "s", &size);
+	int len = unpack(buf, "cs", &type, &size);
 	if (n != len + size) {
 		fprintf(stderr, "handle_control_packet: packet size error\n");
 		return 0;
@@ -25,10 +26,11 @@ int dhash_unpack_control_packet(DHash *dhash, int sock)
 	memcpy(file, buf + len, size);
 	file[size] = '\0';
 
-	if (dhash_local_file_exists(dhash, file))
-		dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_LOCAL, file);
-	else
-		dhash_send_file_query(dhash, file);
+	switch (type) {
+	case DHASH_CLIENT_QUERY:
+		dhash_process_client_query(dhash, file);
+		break;
+	}
 
 	return 0;
 }
