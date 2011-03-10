@@ -90,16 +90,12 @@ void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 	send_data(srv, CHORD_ROUTE, 10, &node, &id, data_len + name_len, buf);
 }
 
-int dhash_send_control_transfer_complete(DHash *dhash, Transfer *trans,
-										 void *ctx, int event)
+int dhash_send_control_transfer_complete(DHash *dhash, Transfer *trans)
 {
 	printf("dhash_send_control_transfer_complete\n");
-	dhash_remove_transfer(dhash, trans);
 }
 
-int dhash_send_control_transfer_failed(DHash *dhash, Transfer *trans, void *ctx,
-									   int event)
+int dhash_send_control_transfer_failed(DHash *dhash, Transfer *trans)
 {
 	printf("dhash_send_control_transfer_failed\n");
-	dhash_remove_transfer(dhash, trans);
 }

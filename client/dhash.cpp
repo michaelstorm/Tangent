@@ -21,8 +21,6 @@ void dhash_add_transfer(DHash *dhash, Transfer *trans)
 
 void dhash_remove_transfer(DHash *dhash, Transfer *remove)
 {
-	free_transfer(remove);
-
 	if (dhash->trans_head == remove)
 		dhash->trans_head = dhash->trans_head->next;
 	else {
@@ -87,6 +85,22 @@ int dhash_local_file_size(DHash *dhash, const char *file)
 	return stat_buf.st_size;
 }
 
+int dhash_handle_transfer_complete(DHash *dhash, Transfer *trans, void *ctx,
+								   int event)
+{
+	dhash_send_control_transfer_complete(dhash, trans);
+	dhash_remove_transfer(dhash, trans);
+	free_transfer(trans);
+}
+
+int dhash_handle_transfer_failed(DHash *dhash, Transfer *trans, void *ctx,
+								 int event)
+{
+	dhash_send_control_transfer_failed(dhash, trans);
+	dhash_remove_transfer(dhash, trans);
+	free_transfer(trans);
+}
+
 int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 									  int n, Node *from)
 {
@@ -109,9 +123,9 @@ int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 	Transfer *trans = new_transfer(file, srv->sock, &from->addr, from->port);
 
 	eventqueue_subscribe(dhash, trans, DHASH_TRANSFER_EVENT_COMPLETE,
-						 (event_func)dhash_send_control_transfer_complete);
+						 (event_func)dhash_handle_transfer_complete);
 	eventqueue_subscribe(dhash, trans, DHASH_TRANSFER_EVENT_FAILED,
-						 (event_func)dhash_send_control_transfer_failed);
+						 (event_func)dhash_handle_transfer_failed);
 
 	dhash_add_transfer(dhash, trans);
 	transfer_start_receiving(trans, dhash->files_path, file_size);
