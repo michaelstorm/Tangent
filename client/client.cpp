@@ -7,7 +7,7 @@
 void process_reply(void *ctx, char code, const char *file)
 {
 	switch (code) {
-	case DHASH_REPLY_LOCAL:
+	case DHASH_CLIENT_REPLY_LOCAL:
 		printf("%s is local\n", file);
 		break;
 	default:

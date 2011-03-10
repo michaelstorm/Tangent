@@ -24,7 +24,9 @@ struct DHash
 
 enum
 {
-	DHASH_REPLY_LOCAL = 0,
+	DHASH_CLIENT_REPLY_LOCAL = 0,
+	DHASH_CLIENT_REPLY_SUCCESS,
+	DHASH_CLIENT_REPLY_FAILURE,
 };
 
 enum
@@ -63,5 +65,11 @@ int dhash_stat_local_file(DHash *dhash, const char *file,
 						  struct stat *stat_buf);
 int dhash_local_file_exists(DHash *dhash, const char *file);
 int dhash_local_file_size(DHash *dhash, const char *file);
+
+int dhash_process_query_reply_success(DHash *dhash, struct Server *srv,
+									  unsigned char *data, int n,
+									  struct Node *from);
+int dhash_process_query(DHash *dhash, struct Server *srv, unsigned char *data,
+						int n, struct Node *from);
 
 #endif
