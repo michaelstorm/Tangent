@@ -1,9 +1,10 @@
 #ifndef CHORD_H
 #define CHORD_H
 
-#include <sys/types.h>
+#include <event2/event.h>
 #include <netinet/in.h>
 #include <openssl/blowfish.h>
+#include <sys/types.h>
 #ifdef __APPLE__
 #include <inttypes.h>  // Need uint64_t
 #endif
@@ -160,6 +161,11 @@ struct Server
 	chordID key_array[MAX_KEY_NUM];
 	int num_keys;
 
+	struct event_base *ev_base;
+	struct event *sock_event;
+	struct event *stab_event;
+	struct event *discover_addr_event;
+
 	BF_KEY ticket_key;
 
 	chord_packet_handler packet_handlers[CHORD_TRACEROUTE_REPL];
@@ -170,16 +176,15 @@ struct Server
 #define SUCC(srv) (srv->head_flist)
 
 /* chord.c */
-Server *new_server(int tunnel_sock);
+Server *new_server(struct event_base *ev_base, int tunnel_sock);
 void server_initialize_from_file(Server *srv, char *conf_file);
 void server_start(Server *srv);
-void server_listen_socket(Server *srv, int sock);
 void server_initialize_socket(Server *srv);
 void set_socket_nonblocking(int sock);
 
 void chord_main(char **conf_files, int nservers, int tunnel_sock);
 void initialize(Server *srv, int is_v6);
-int handle_packet(Server *srv, int sock);
+void handle_packet(evutil_socket_t sock, short what, void *arg);
 int read_keys(char *file, chordID *keyarray, int max_num_keys);
 
 void chord_update_range(Server *srv, chordID *l, chordID *r);
@@ -212,7 +217,7 @@ void chord_bind_v6socket(int sock, const in6_addr *addr, ushort port);
 void chord_bind_v4socket(int sock, ulong addr, ushort port);
 
 /* join.c */
-int discover_addr(Server *srv);
+void discover_addr(evutil_socket_t sock, short what, void *arg);
 void join(Server *srv, FILE *fp);
 
 /* pack.c */
@@ -327,7 +332,7 @@ void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
 							 ushort to_port);
 
 /* stabilize.c */
-int stabilize(Server *srv);
+void stabilize(evutil_socket_t sock, short what, void *arg);
 
 /* util.c */
 double f_rand();

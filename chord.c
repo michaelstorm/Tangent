@@ -21,7 +21,7 @@
 
 static void init_ticket_key(Server *srv);
 
-Server *new_server(int tunnel_sock)
+Server *new_server(struct event_base *ev_base, int tunnel_sock)
 {
 	Server *srv = calloc(1, sizeof(Server));
 	srv->to_fix_finger = NFINGERS-1;
@@ -29,7 +29,16 @@ Server *new_server(int tunnel_sock)
 	srv->tunnel_sock = tunnel_sock;
 	//eventqueue_listen_socket(srv->tunnel_sock, srv, (socket_func)handle_packet);
 
+	srv->ev_base = ev_base;
+
 	init_ticket_key(srv);
+
+	srv->stab_event = event_new(srv->ev_base, -1, EV_TIMEOUT|EV_PERSIST,
+								stabilize, srv);
+
+	srv->discover_addr_event = event_new(srv->ev_base, -1,
+										 EV_TIMEOUT|EV_PERSIST, discover_addr,
+										 srv);
 
 	return srv;
 }
@@ -53,15 +62,44 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 	srv->is_v6 = ip_ver == 6;
 
 	char addr_str[INET6_ADDRSTRLEN+16];
-	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, "[%s\n", addr_str) == 1) {
-		char *p = strstr(addr_str, "]:");
-		assert(p != NULL);
-		*p = '\0';
-		p += 2;
-		ushort port = atoi(p);
+	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, "%s\n", addr_str) == 1) {
+		in6_addr addr;
+		ushort port;
+
+		if (srv->is_v6) {
+			struct sockaddr_in6 sock_addr;
+			int outlen = sizeof(sock_addr);
+			if (evutil_parse_sockaddr_port(addr_str,
+										   (struct sockaddr *)&sock_addr,
+										   &outlen) != 0)
+			{
+				fprintf(stderr, "error parsing address and port \"%s\"\n",
+						addr_str);
+				exit(1);
+			}
+
+			v6_addr_copy(&addr, &sock_addr.sin6_addr);
+			port = ntohs(sock_addr.sin6_port);
+		}
+		else {
+			struct sockaddr_in sock_addr;
+			int outlen = sizeof(sock_addr);
+			if (evutil_parse_sockaddr_port(addr_str,
+										   (struct sockaddr *)&sock_addr,
+										   &outlen) != 0)
+			{
+				fprintf(stderr, "error parsing address and port \"%s\"\n",
+						addr_str);
+				exit(1);
+			}
+
+			to_v6addr(sock_addr.sin_addr.s_addr, &addr);
+			port = ntohs(sock_addr.sin_port);
+		}
 
 		/* resolve address */
-		if (resolve_v6name(addr_str, &srv->well_known[srv->nknown].node.addr)) {
+		if (resolve_v6name(v6addr_to_str(&addr),
+						   &srv->well_known[srv->nknown].node.addr)) {
 			weprintf("could not join well-known node [%s]:%d", addr_str, port);
 			break;
 		}
@@ -76,31 +114,31 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 
 void server_start(Server *srv)
 {
-	discover_addr(srv);
-}
+	struct timeval timeout;
+	timeout.tv_sec = ADDR_DISCOVER_INTERVAL / 1000000UL;
+	timeout.tv_usec = ADDR_DISCOVER_INTERVAL % 1000000UL;
 
-void server_listen_socket(Server *srv, int sock)
-{
-	srv->sock = sock;
-	eventqueue_listen_socket(srv->sock, srv, (socket_func)handle_packet,
-							 SOCKET_READ);
+	event_add(srv->discover_addr_event, &timeout);
+	event_active(srv->discover_addr_event, EV_TIMEOUT, 1);
 }
 
 void server_initialize_socket(Server *srv)
 {
-	int sock = socket(srv->is_v6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
+	srv->sock = socket(srv->is_v6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
 	if (srv->is_v6)
-		chord_bind_v6socket(sock, &in6addr_any, srv->node.port);
+		chord_bind_v6socket(srv->sock, &in6addr_any, srv->node.port);
 	else
-		chord_bind_v4socket(sock, INADDR_ANY, srv->node.port);
-	set_socket_nonblocking(sock);
+		chord_bind_v4socket(srv->sock, INADDR_ANY, srv->node.port);
+	set_socket_nonblocking(srv->sock);
 
-	server_listen_socket(srv, sock);
+	srv->sock_event = event_new(srv->ev_base, srv->sock, EV_READ|EV_PERSIST,
+								handle_packet, srv);
+	event_add(srv->sock_event, NULL);
 }
 
 void chord_main(char **conf_files, int nservers, int tunnel_sock)
 {
-	setprogname("chord");
+	/*setprogname("chord");
 	srandom(getpid() ^ time(0));
 
 	init_global_eventqueue();
@@ -114,7 +152,7 @@ void chord_main(char **conf_files, int nservers, int tunnel_sock)
 		server_start(servers[i]);
 	}
 
-	eventqueue_loop();
+	eventqueue_loop();*/
 }
 
 /**********************************************************************/
@@ -138,8 +176,9 @@ static void init_ticket_key(Server *srv)
 /**********************************************************************/
 
 /* handle_packet: snarf packet from network and dispatch */
-int handle_packet(Server *srv, int sock)
+void handle_packet(evutil_socket_t sock, short what, void *arg)
 {
+	Server *srv = arg;
 	ssize_t packet_len;
 	socklen_t from_len;
 	Node from;
@@ -149,7 +188,7 @@ int handle_packet(Server *srv, int sock)
 	   it's a UDT packet and we hand it back to be processed in this rather
 	   inelegant fashion */
 	if (recv(sock, buf, 2, MSG_PEEK) == 2 && *(unsigned short *)buf != 0xFFFF)
-		return 0;
+		return;
 
 	if (srv->is_v6) {
 		struct sockaddr_in6 from_sa;
@@ -171,15 +210,15 @@ int handle_packet(Server *srv, int sock)
 	if (packet_len < 0) {
 		if (errno != EAGAIN) {
 			weprintf("recvfrom failed:"); /* ignore errors for now */
-			return 0;
+			return;
 		}
 
-		return 0;
+		return;
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);
 	dispatch(srv, packet_len-2, buf+2, &from);
-	return 0;
+	return;
 }
 
 /**********************************************************************/

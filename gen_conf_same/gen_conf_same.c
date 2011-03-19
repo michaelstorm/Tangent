@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
 	for (; j < k; j++) {
 	  if (j == i) continue;
-	  fprintf(fp, "[::ffff:127.0.0.1]:%d\n", nodes[j].port);
+	  fprintf(fp, "127.0.0.1:%d\n", nodes[j].port);
 	}
 
 	fclose(fp);

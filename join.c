@@ -10,18 +10,17 @@
 #include "chord.h"
 #include "eventloop.h"
 
-int discover_addr(Server *srv)
+void discover_addr(evutil_socket_t sock, short what, void *arg)
 {
-	if (!IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
-		return 0;
+	Server *srv = arg;
+	if (!IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr)) {
+		fprintf(stderr, "called discover_addr when address is already known\n");
+		return;
+	}
 
 	int i;
 	for (i = 0; i < srv->nknown; i++) {
 		send_addr_discover(srv, &srv->well_known[i].node.addr,
 						   srv->well_known[i].node.port);
 	}
-
-	eventqueue_push_timer(ADDR_DISCOVER_INTERVAL, srv,
-						  (timer_func)discover_addr);
-	return 0;
 }

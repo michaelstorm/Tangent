@@ -28,7 +28,14 @@ int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
-		stabilize(srv);
+		event_del(srv->discover_addr_event);
+
+		struct timeval timeout;
+		timeout.tv_sec = STABILIZE_PERIOD / 1000000UL;
+		timeout.tv_usec = STABILIZE_PERIOD % 1000000UL;
+
+		event_add(srv->stab_event, &timeout);
+		event_active(srv->stab_event, EV_TIMEOUT, 1);
 	}
 	return 1;
 }

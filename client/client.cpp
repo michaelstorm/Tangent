@@ -30,8 +30,8 @@ int main(int argc, char **argv)
 	eventqueue_listen_socket(sock, 0, handle_reply, SOCKET_READ);
 
 	if (argc > 2) {
-		eventqueue_wait(5*1000000);
-		dhash_client_request_file(sock, "west");
+		//eventqueue_wait(5*1000000);
+		//dhash_client_request_file(sock, "west");
 	}
 
 	eventqueue_loop();

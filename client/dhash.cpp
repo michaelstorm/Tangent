@@ -7,6 +7,7 @@
 #include <time.h>
 #include <udt>
 #include <unistd.h>
+#include <event2/event.h>
 #include "chord.h"
 #include "dhash.h"
 #include "pack.h"
@@ -218,6 +219,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 	UDT::startup();
 
 	init_global_eventqueue();
+	struct event_base *ev_base = event_base_new();
 
 	dhash->servers = (Server **)malloc(sizeof(Server *)*nservers);
 	dhash->chord_tunnel_socks = (int *)malloc(sizeof(int)*nservers);
@@ -229,14 +231,14 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, chord_tunnel) < 0)
 			eprintf("socket_pair failed:");*/
 
-		dhash->servers[i] = new_server(0 /*chord_tunnel[1]*/);
+		dhash->servers[i] = new_server(ev_base, 0 /*chord_tunnel[1]*/);
 		dhash->chord_tunnel_socks[i] = 0 /*chord_tunnel[0]*/;
 
 		Server *srv = dhash->servers[i];
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 
-		eventqueue_listen_socket(srv->sock, dhash,
+		/*eventqueue_listen_socket(srv->sock, dhash,
 								 (socket_func)dhash_handle_udt_packet,
 								 SOCKET_READ);
 
@@ -244,7 +246,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 								 (chord_packet_handler)dhash_unpack_chord_packet);
 		chord_set_packet_handler(srv, CHORD_ROUTE_LAST,
 								 (chord_packet_handler)dhash_unpack_chord_packet);
-		chord_set_packet_handler_ctx(srv, dhash);
+		chord_set_packet_handler_ctx(srv, dhash);*/
 
 		server_start(srv);
 
@@ -252,11 +254,11 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		//						 (socket_func)dhash_handle_chord_packet);
 	}
 
-	eventqueue_listen_socket(dhash->control_sock, dhash,
+	/*eventqueue_listen_socket(dhash->control_sock, dhash,
 							 (socket_func)dhash_unpack_control_packet,
-							 SOCKET_READ);
+							 SOCKET_READ);*/
 
-	eventqueue_loop();
+	event_base_dispatch(ev_base);
 }
 
 void dhash_client_request_file(int sock, const char *file)

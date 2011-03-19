@@ -28,13 +28,11 @@ static void clean_finger_list(Server *srv);
 #define CHORD_CLEAN_PERIOD 60
 #define PERIOD_PING_PRED 5
 
-int stabilize(Server *srv)
+void stabilize(evutil_socket_t sock, short what, void *arg)
 {
+	Server *srv = arg;
 	static int idx = 0, i;
 	Finger *succ, *pred;
-
-	/* Set next stabilize time */
-	eventqueue_push_timer(STABILIZE_PERIOD, srv, (timer_func)stabilize);
 
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {
@@ -87,7 +85,7 @@ int stabilize(Server *srv)
 		clean_finger_list(srv);
 	}
 
-	return 0;
+	return;
 }
 
 /**********************************************************************/

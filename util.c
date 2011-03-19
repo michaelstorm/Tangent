@@ -405,8 +405,9 @@ void print_finger(Finger *f, char *prefix, char *suffix)
 {
 	printf("%sFinger:", prefix);
 	print_node(&f->node, "<", ">");
-	printf(" (status = %d, npings = %d, rtt = %ld/%ld) %s", f->status,
-		   f->npings, f->rtt_avg, f->rtt_dev, suffix);
+	printf(" (status = %s, npings = %d, rtt = %ld/%ld) %s",
+		   f->status ? "ACTIVE" : "PASSIVE", f->npings, f->rtt_avg, f->rtt_dev,
+		   suffix);
 }
 
 

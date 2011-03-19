@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(Chord)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
 file(GLOB lib_sources "*.c")
@@ -10,8 +11,11 @@ find_package(OpenSSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
 set(CMAKE_C_FLAGS "-ggdb -fdump-rtl-expand")
 
+find_package(LibEvent)
+include_directories(${LIBEVENT_INCLUDE_DIR})
+
 add_library(chord SHARED ${lib_sources})
-target_link_libraries(chord ${OPENSSL_LIBRARIES} dl)
+target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} dl)
 
 file(GLOB client_sources "client/*.cpp")
 add_executable(client ${client_sources})
