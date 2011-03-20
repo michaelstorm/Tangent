@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <event2/event.h>
 #include <sys/wait.h>
 #include "chord_api.h"
 #include "dhash.h"
@@ -16,9 +17,9 @@ void process_reply(void *ctx, char code, const char *file)
 	}
 }
 
-int handle_reply(void *ctx, int sock)
+void handle_reply(evutil_socket_t sock, short what, void *arg)
 {
-	dhash_client_process_request_reply(sock, ctx, process_reply);
+	dhash_client_process_request_reply(sock, arg, process_reply);
 }
 
 int main(int argc, char **argv)
@@ -26,15 +27,23 @@ int main(int argc, char **argv)
 	DHash *dhash = new_dhash("files");
 	int sock = dhash_start(dhash, argv+1, 1 /*argc-1 */);
 
-	init_global_eventqueue();
-	eventqueue_listen_socket(sock, 0, handle_reply, SOCKET_READ);
+	struct event_base *ev_base = event_base_new();
+	struct event *reply_event = event_new(ev_base, sock, EV_READ|EV_PERSIST,
+										  handle_reply, NULL);
+	event_add(reply_event, NULL);
 
 	if (argc > 2) {
-		//eventqueue_wait(5*1000000);
-		//dhash_client_request_file(sock, "west");
+		struct timeval timeout;
+		timeout.tv_sec = 5;
+		timeout.tv_usec = 0;
+
+		event_base_loopexit(ev_base, &timeout);
+		event_base_dispatch(ev_base);
+
+		dhash_client_request_file(sock, "west");
 	}
 
-	eventqueue_loop();
+	event_base_dispatch(ev_base);
 
 	return 0;
 }

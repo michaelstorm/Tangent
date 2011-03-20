@@ -37,20 +37,19 @@ void dhash_remove_transfer(DHash *dhash, Transfer *remove)
 	}
 }
 
-int dhash_handle_udt_packet(DHash *dhash, int sock)
+void dhash_handle_udt_packet(evutil_socket_t sock, short what, void *arg)
 {
 	ushort type;
 	if (recv(sock, &type, 2, MSG_PEEK) == 2 && type == 0xFFFF)
-		return 0;
+		return;
 
+	DHash *dhash = (DHash *)arg;
 	Transfer *trans;
 	for (trans = dhash->trans_head; trans != NULL; trans = trans->next) {
-		if (trans->state == DHASH_TRANSFER_RECEIVING
+		if (trans->state == TRANSFER_RECEIVING
 			&& trans->chord_sock == sock)
 			transfer_receive(trans, sock);
 	}
-
-	return 0;
 }
 
 DHash *new_dhash(const char *files_path)
@@ -89,20 +88,14 @@ int dhash_local_file_size(DHash *dhash, const char *file)
 	return stat_buf.st_size;
 }
 
-int dhash_handle_transfer_complete(DHash *dhash, Transfer *trans, void *ctx,
-								   int event)
+void handle_transfer_statechange(Transfer *trans, int old_state, void *arg)
 {
-	dhash_send_control_transfer_complete(dhash, trans);
-	dhash_remove_transfer(dhash, trans);
-	free_transfer(trans);
-}
-
-int dhash_handle_transfer_failed(DHash *dhash, Transfer *trans, void *ctx,
-								 int event)
-{
-	dhash_send_control_transfer_failed(dhash, trans);
-	dhash_remove_transfer(dhash, trans);
-	free_transfer(trans);
+	DHash *dhash = (DHash *)arg;
+	if (trans->state == TRANSFER_COMPLETE || trans->state == TRANSFER_FAILED) {
+		dhash_send_control_transfer_complete(dhash, trans);
+		dhash_remove_transfer(dhash, trans);
+		free_transfer(trans);
+	}
 }
 
 int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
@@ -124,12 +117,9 @@ int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 	printf("receiving transfer of \"%s\" of size %d from [%s]:%d\n", file,
 		   file_size, v6addr_to_str(&from->addr), from->port);
 
-	Transfer *trans = new_transfer(file, srv->sock, &from->addr, from->port);
-
-	eventqueue_subscribe(dhash, trans, DHASH_TRANSFER_EVENT_COMPLETE,
-						 (event_func)dhash_handle_transfer_complete);
-	eventqueue_subscribe(dhash, trans, DHASH_TRANSFER_EVENT_FAILED,
-						 (event_func)dhash_handle_transfer_failed);
+	Transfer *trans = new_transfer(dhash->ev_base, file, srv->sock, &from->addr,
+								   from->port);
+	transfer_set_statechange_cb(trans, handle_transfer_statechange, dhash);
 
 	dhash_add_transfer(dhash, trans);
 	transfer_start_receiving(trans, dhash->files_path, file_size);
@@ -163,8 +153,8 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 		dhash_send_query_reply_success(dhash, srv, &reply_addr, reply_port,
 									   file);
 
-		Transfer *trans = new_transfer(file, srv->sock, &reply_addr,
-									   reply_port);
+		Transfer *trans = new_transfer(dhash->ev_base, file, srv->sock,
+									   &reply_addr, reply_port);
 
 		dhash_add_transfer(dhash, trans);
 
@@ -218,8 +208,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 
 	UDT::startup();
 
-	init_global_eventqueue();
-	struct event_base *ev_base = event_base_new();
+	dhash->ev_base = event_base_new();
 
 	dhash->servers = (Server **)malloc(sizeof(Server *)*nservers);
 	dhash->chord_tunnel_socks = (int *)malloc(sizeof(int)*nservers);
@@ -231,34 +220,33 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, chord_tunnel) < 0)
 			eprintf("socket_pair failed:");*/
 
-		dhash->servers[i] = new_server(ev_base, 0 /*chord_tunnel[1]*/);
+		dhash->servers[i] = new_server(dhash->ev_base, 0 /*chord_tunnel[1]*/);
 		dhash->chord_tunnel_socks[i] = 0 /*chord_tunnel[0]*/;
 
 		Server *srv = dhash->servers[i];
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 
-		/*eventqueue_listen_socket(srv->sock, dhash,
-								 (socket_func)dhash_handle_udt_packet,
-								 SOCKET_READ);
+		dhash->udt_sock_event = event_new(dhash->ev_base, srv->sock,
+										  EV_READ|EV_PERSIST,
+										  dhash_handle_udt_packet, dhash);
+		event_add(dhash->udt_sock_event, NULL);
 
 		chord_set_packet_handler(srv, CHORD_ROUTE,
 								 (chord_packet_handler)dhash_unpack_chord_packet);
 		chord_set_packet_handler(srv, CHORD_ROUTE_LAST,
 								 (chord_packet_handler)dhash_unpack_chord_packet);
-		chord_set_packet_handler_ctx(srv, dhash);*/
+		chord_set_packet_handler_ctx(srv, dhash);
 
 		server_start(srv);
-
-		//eventqueue_listen_socket(chord_tunnel[0], dhash,
-		//						 (socket_func)dhash_handle_chord_packet);
 	}
 
-	/*eventqueue_listen_socket(dhash->control_sock, dhash,
-							 (socket_func)dhash_unpack_control_packet,
-							 SOCKET_READ);*/
+	dhash->control_sock_event = event_new(dhash->ev_base, dhash->control_sock,
+										  EV_READ|EV_PERSIST,
+										  dhash_unpack_control_packet, dhash);
+	event_add(dhash->control_sock_event, NULL);
 
-	event_base_dispatch(ev_base);
+	event_base_dispatch(dhash->ev_base);
 }
 
 void dhash_client_request_file(int sock, const char *file)

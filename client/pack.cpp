@@ -5,10 +5,11 @@
 #include "dhash.h"
 #include "send.h"
 
-int dhash_unpack_control_packet(DHash *dhash, int sock)
+void dhash_unpack_control_packet(evutil_socket_t sock, short what, void *arg)
 {
 	fprintf(stderr, "handle_control_packet\n");
 
+	DHash *dhash = (DHash *)arg;
 	uchar buf[1024];
 	int n;
 	char file[1024];
@@ -21,7 +22,7 @@ int dhash_unpack_control_packet(DHash *dhash, int sock)
 	int len = unpack(buf, "cs", &type, &size);
 	if (n != len + size) {
 		fprintf(stderr, "handle_control_packet: packet size error\n");
-		return 0;
+		return;
 	}
 	memcpy(file, buf + len, size);
 	file[size] = '\0';
@@ -32,7 +33,7 @@ int dhash_unpack_control_packet(DHash *dhash, int sock)
 		break;
 	}
 
-	return 0;
+	return;
 }
 
 int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,

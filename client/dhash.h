@@ -6,6 +6,8 @@
 typedef void (*dhash_request_reply_handler)(void *ctx, char code,
 											const char *file);
 
+struct event;
+struct event_base;
 struct Server;
 struct Transfer;
 typedef struct DHash DHash;
@@ -20,6 +22,10 @@ struct DHash
 
 	char *files_path;
 	int control_sock;
+
+	struct event_base *ev_base;
+	struct event *udt_sock_event;
+	struct event *control_sock_event;
 };
 
 enum
@@ -39,21 +45,6 @@ enum
 	DHASH_QUERY = 0,
 	DHASH_QUERY_REPLY_SUCCESS,
 	DHASH_QUERY_REPLY_FAILURE,
-};
-
-enum
-{
-	DHASH_TRANSFER_IDLE = 0,
-	DHASH_TRANSFER_SENDING,
-	DHASH_TRANSFER_RECEIVING,
-	DHASH_TRANSFER_COMPLETE,
-	DHASH_TRANSFER_FAILED,
-};
-
-enum
-{
-	DHASH_TRANSFER_EVENT_COMPLETE = 0,
-	DHASH_TRANSFER_EVENT_FAILED,
 };
 
 DHash *new_dhash(const char *files_path);

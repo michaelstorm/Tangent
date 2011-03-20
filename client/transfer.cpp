@@ -7,10 +7,11 @@
 #include "dhash.h"
 #include "transfer.h"
 
-Transfer *new_transfer(char *file, int chord_sock, const in6_addr *addr,
-					   ushort port)
+Transfer *new_transfer(struct event_base *ev_base, char *file, int chord_sock,
+					   const in6_addr *addr, ushort port)
 {
 	Transfer *trans = (Transfer *)malloc(sizeof(Transfer));
+	trans->ev_base = ev_base;
 	trans->chord_sock = chord_sock;
 	trans->next = NULL;
 	trans->file = (char *)malloc(strlen(file)+1);
@@ -19,7 +20,8 @@ Transfer *new_transfer(char *file, int chord_sock, const in6_addr *addr,
 	trans->received = 0;
 	trans->size = 0;
 
-	trans->state = DHASH_TRANSFER_IDLE;
+	trans->state = TRANSFER_IDLE;
+	trans->statechange_cb = NULL;
 
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
@@ -61,31 +63,59 @@ Transfer *new_transfer(char *file, int chord_sock, const in6_addr *addr,
 		return NULL;
 	}
 
+	trans->chord_sock_event = event_new(trans->ev_base, trans->chord_sock,
+										EV_WRITE|EV_PERSIST, transfer_send,
+										trans);
+
 	return trans;
 }
 
 void free_transfer(Transfer *trans)
 {
 	if (trans) {
+		if (trans->state == TRANSFER_SENDING
+			|| trans->state == TRANSFER_RECEIVING)
+			transfer_stop(trans, TRANSFER_FAILED);
+
 		free(trans->file);
+		event_free(trans->chord_sock_event);
 		free(trans);
 	}
 }
 
+void transfer_set_statechange_cb(Transfer *trans, transfer_statechange_cb cb,
+								 void *arg)
+{
+	trans->statechange_cb = cb;
+	trans->statechange_arg = arg;
+}
+
+static void transfer_set_state(Transfer *trans, int new_state)
+{
+	int old_state = trans->state;
+	trans->state = new_state;
+
+	if (old_state != new_state && trans->statechange_cb != NULL)
+		trans->statechange_cb(trans, old_state, trans->statechange_arg);
+}
+
 void transfer_stop(Transfer *trans, int state)
 {
-	if (trans->state == DHASH_TRANSFER_RECEIVING
-		|| trans->state == DHASH_TRANSFER_SENDING) {
+	if (trans->state == TRANSFER_RECEIVING
+		|| trans->state == TRANSFER_SENDING) {
 		fclose(trans->fp);
 		UDT::close(trans->udt_sock);
+
+		if (trans->state == TRANSFER_SENDING)
+			event_del(trans->chord_sock_event);
 	}
 
-	trans->state = state;
+	transfer_set_state(trans, state);
 }
 
 int transfer_receive(Transfer *trans, int sock)
 {
-	assert(trans->state == DHASH_TRANSFER_RECEIVING);
+	assert(trans->state == TRANSFER_RECEIVING);
 
 	uchar buf[1024];
 	int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf), 0);
@@ -95,33 +125,30 @@ int transfer_receive(Transfer *trans, int sock)
 
 	if (fwrite(buf, 1, len, trans->fp) < len) {
 		weprintf("writing to \"%\":", trans->file);
-		transfer_stop(trans, DHASH_TRANSFER_FAILED);
+		transfer_stop(trans, TRANSFER_FAILED);
 		return 1;
 	}
 
 	trans->received += len;
 	if (trans->received == trans->size) {
 		printf("done receiving \"%s\"\n", trans->file);
-
-		transfer_stop(trans, DHASH_TRANSFER_COMPLETE);
-		eventqueue_publish(trans, 0, DHASH_TRANSFER_EVENT_COMPLETE);
+		transfer_stop(trans, TRANSFER_COMPLETE);
 		return 1;
 	}
 	else if (trans->received >= trans->size) {
 		printf("received size %ld greater than expected size %ld for \"%s\"\n",
 			   trans->received, trans->size, trans->file);
-
-		transfer_stop(trans, DHASH_TRANSFER_FAILED);
-		eventqueue_publish(trans, 0, DHASH_TRANSFER_EVENT_FAILED);
+		transfer_stop(trans, TRANSFER_FAILED);
 		return 1;
 	}
 
 	return 0;
 }
 
-int transfer_send(Transfer *trans, int sock)
+void transfer_send(evutil_socket_t sock, short what, void *arg)
 {
-	assert(trans->state == DHASH_TRANSFER_SENDING);
+	Transfer *trans = (Transfer *)arg;
+	assert(trans->state == TRANSFER_SENDING);
 
 	uchar buf[1024];
 	int n = fread(buf, 1, sizeof(buf), trans->fp);
@@ -129,30 +156,26 @@ int transfer_send(Transfer *trans, int sock)
 
 	if (n < 0) {
 		weprintf("reading from \"%s\":", trans->file);
-
-		transfer_stop(trans, DHASH_TRANSFER_FAILED);
-		eventqueue_publish(trans, 0, DHASH_TRANSFER_EVENT_FAILED);
-		return 1;
+		transfer_stop(trans, TRANSFER_FAILED);
+		return;
 	}
 	else if (n == 0) {
 		printf("done reading from \"%s\"\n", trans->file);
-
-		transfer_stop(trans, DHASH_TRANSFER_COMPLETE);
-		eventqueue_publish(trans, 0, DHASH_TRANSFER_EVENT_COMPLETE);
-		return 1;
+		transfer_stop(trans, TRANSFER_COMPLETE);
+		return;
 	}
 
 	if (UDT::ERROR == UDT::send(trans->udt_sock, (char *)buf, n, 0)) {
 		fprintf(stderr, "send: %s\n", UDT::getlasterror().getErrorMessage());
-		return 1;
+		return;
 	}
 
-	return 0;
+	return;
 }
 
 void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 {
-	assert(trans->state == DHASH_TRANSFER_IDLE);
+	assert(trans->state == TRANSFER_IDLE);
 
 	char path[1024];
 	strcpy(path, dir);
@@ -166,13 +189,13 @@ void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 		return;
 	}
 
-	trans->state = DHASH_TRANSFER_RECEIVING;
+	transfer_set_state(trans, TRANSFER_RECEIVING);
 	printf("started receiving %s\n", path);
 }
 
 void transfer_start_sending(Transfer *trans, const char *dir)
 {
-	assert(trans->state == DHASH_TRANSFER_IDLE);
+	assert(trans->state == TRANSFER_IDLE);
 
 	char path[1024];
 	strcpy(path, dir);
@@ -184,8 +207,8 @@ void transfer_start_sending(Transfer *trans, const char *dir)
 		return;
 	}
 
-	trans->state = DHASH_TRANSFER_SENDING;
-	printf("started sending %s\n", path);
-	eventqueue_listen_socket(trans->chord_sock, trans,
-							 (socket_func)transfer_send, SOCKET_WRITE);
+	transfer_set_state(trans, TRANSFER_SENDING);
+	fprintf(stderr, "started sending %s\n", path);
+
+	event_add(trans->chord_sock_event, NULL);
 }
