@@ -3,7 +3,6 @@
 #include <sys/wait.h>
 #include "chord_api.h"
 #include "dhash.h"
-#include "eventloop.h"
 
 void process_reply(void *ctx, char code, const char *file)
 {

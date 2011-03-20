@@ -12,7 +12,6 @@
 #include "chord_api.h"
 #include "debug.h"
 #include "eprintf.h"
-#include "eventloop.h"
 
 #ifdef __cplusplus
 extern "C" {

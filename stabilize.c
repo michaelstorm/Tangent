@@ -7,7 +7,6 @@
 #include <arpa/inet.h>
 
 #include "chord.h"
-#include "eventloop.h"
 
 /* local functions */
 static void fix_fingers(Server *srv);
