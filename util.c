@@ -392,8 +392,6 @@ void print_three_chordIDs(char *preffix, chordID *id1,
 
 void print_node(Node *node, char *prefix, char *suffix)
 {
-	struct in_addr ia;
-
 	printf("%s", prefix);
 	print_chordID(&node->id);
 

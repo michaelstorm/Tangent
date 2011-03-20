@@ -149,7 +149,10 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 
 	srv->num_passive_fingers++;
 
-	n.id = *id; v6_addr_equals(&n.addr, addr); n.port = port;
+	n.id = *id;
+	v6_addr_copy(&n.addr, addr);
+	n.port = port;
+
 	new_f = new_finger(&n);
 
 	f = srv->head_flist;

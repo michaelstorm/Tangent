@@ -28,6 +28,12 @@ int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
+		printf("setting address to: [%s]:%d\n", v6addr_to_str(&srv->node.addr),
+			   srv->node.port);
+		printf("node id: ");
+		print_chordID(&srv->node.id);
+		printf("\n");
+
 		event_del(srv->discover_addr_event);
 
 		struct timeval timeout;
@@ -234,6 +240,7 @@ int process_ping(Server *srv, uchar *ticket, ulong time, Node *from)
 
 	CHORD_DEBUG(5, print_process(srv, "process_ping", &from->id, &from->addr,
 								 from->port));
+
 	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
 	pred = pred_finger(srv);
 	if (fnew == TRUE
