@@ -120,7 +120,7 @@ int transfer_receive(Transfer *trans, int sock)
 	uchar buf[1024];
 	int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf), 0);
 
-	printf("received %ld/%ld of \"%s\"\n", trans->received, trans->size,
+	fprintf(stderr, "received %ld/%ld of \"%s\"\n", trans->received, trans->size,
 		   trans->file);
 
 	if (fwrite(buf, 1, len, trans->fp) < len) {
@@ -131,12 +131,12 @@ int transfer_receive(Transfer *trans, int sock)
 
 	trans->received += len;
 	if (trans->received == trans->size) {
-		printf("done receiving \"%s\"\n", trans->file);
+		fprintf(stderr, "done receiving \"%s\"\n", trans->file);
 		transfer_stop(trans, TRANSFER_COMPLETE);
 		return 1;
 	}
 	else if (trans->received >= trans->size) {
-		printf("received size %ld greater than expected size %ld for \"%s\"\n",
+		fprintf(stderr, "received size %ld greater than expected size %ld for \"%s\"\n",
 			   trans->received, trans->size, trans->file);
 		transfer_stop(trans, TRANSFER_FAILED);
 		return 1;
@@ -152,7 +152,7 @@ void transfer_send(evutil_socket_t sock, short what, void *arg)
 
 	uchar buf[1024];
 	int n = fread(buf, 1, sizeof(buf), trans->fp);
-	printf("read %d bytes from %s\n", n, trans->file);
+	fprintf(stderr, "read %d bytes from %s\n", n, trans->file);
 
 	if (n < 0) {
 		weprintf("reading from \"%s\":", trans->file);
@@ -160,7 +160,7 @@ void transfer_send(evutil_socket_t sock, short what, void *arg)
 		return;
 	}
 	else if (n == 0) {
-		printf("done reading from \"%s\"\n", trans->file);
+		fprintf(stderr, "done reading from \"%s\"\n", trans->file);
 		transfer_stop(trans, TRANSFER_COMPLETE);
 		return;
 	}
@@ -190,7 +190,7 @@ void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 	}
 
 	transfer_set_state(trans, TRANSFER_RECEIVING);
-	printf("started receiving %s\n", path);
+	fprintf(stderr, "started receiving %s\n", path);
 }
 
 void transfer_start_sending(Transfer *trans, const char *dir)

@@ -346,14 +346,14 @@ void print_chordID(chordID *id)
 		int i;
 #ifdef CHORD_PRINT_LONG_IDS
 		for (i = 0; i < CHORD_ID_LEN; i++)
-			printf("%02x", id->x[i]);
+			fprintf(stderr, "%02x", id->x[i]);
 #else
 		for (i = 0; i < 4; i++)
-			printf("%02x", id->x[i]);
+			fprintf(stderr, "%02x", id->x[i]);
 #endif
 	}
 	else
-		printf("<null>");
+		fprintf(stderr, "<null>");
 }
 
 /***********************************************************************/
@@ -363,11 +363,11 @@ void print_two_chordIDs(char *preffix, chordID *id1,
 						char *suffix)
 {
 	assert(preffix && id1 && middle && id2 && suffix);
-	printf("%s", preffix);
+	fprintf(stderr, "%s", preffix);
 	print_chordID(id1);
-	printf("%s", middle);
+	fprintf(stderr, "%s", middle);
 	print_chordID(id2);
-	printf("%s", suffix);
+	fprintf(stderr, "%s", suffix);
 }
 
 /***********************************************************************/
@@ -378,13 +378,13 @@ void print_three_chordIDs(char *preffix, chordID *id1,
 						  char *suffix)
 {
 	assert(preffix && id1 && middle1 && id2 && middle2 && id3 && suffix);
-	printf("%s", preffix);
+	fprintf(stderr, "%s", preffix);
 	print_chordID(id1);
-	printf("%s", middle1);
+	fprintf(stderr, "%s", middle1);
 	print_chordID(id2);
-	printf("%s", middle2);
+	fprintf(stderr, "%s", middle2);
 	print_chordID(id3);
-	printf("%s", suffix);
+	fprintf(stderr, "%s", suffix);
 }
 
 
@@ -392,18 +392,18 @@ void print_three_chordIDs(char *preffix, chordID *id1,
 
 void print_node(Node *node, char *prefix, char *suffix)
 {
-	printf("%s", prefix);
+	fprintf(stderr, "%s", prefix);
 	print_chordID(&node->id);
 
 	char *addr_str = v6addr_to_str(&node->addr);
-	printf(", %s, %d%s", addr_str, node->port, suffix);
+	fprintf(stderr, ", %s, %d%s", addr_str, node->port, suffix);
 }
 
 void print_finger(Finger *f, char *prefix, char *suffix)
 {
-	printf("%sFinger:", prefix);
+	fprintf(stderr, "%sFinger:", prefix);
 	print_node(&f->node, "<", ">");
-	printf(" (status = %s, npings = %d, rtt = %ld/%ld) %s",
+	fprintf(stderr, " (status = %s, npings = %d, rtt = %ld/%ld) %s",
 		   f->status ? "ACTIVE" : "PASSIVE", f->npings, f->rtt_avg, f->rtt_dev,
 		   suffix);
 }
@@ -414,21 +414,21 @@ void print_finger_list(Finger *fhead, char *prefix, char *suffix)
 	int i;
 	Finger *f;
 
-	printf("%s", prefix);
+	fprintf(stderr, "%s", prefix);
 	for (f = fhead, i = 0; f; f = f->next, i++) {
-		printf("	[%d] ", i);
+		fprintf(stderr, "	[%d] ", i);
 		print_finger(f, "", "\n");
 	}
-	printf("%s", suffix);
+	fprintf(stderr, "%s", suffix);
 }
 
 void print_server(Server *s, char *prefix, char *suffix)
 {
-	printf("---------------%s---------------\n", prefix);
+	fprintf(stderr, "---------------%s---------------\n", prefix);
 	print_node(&s->node, "[", "]\n");
-	printf("(%d passive)\n", s->num_passive_fingers);
+	fprintf(stderr, "(%d passive)\n", s->num_passive_fingers);
 	print_finger_list(s->head_flist, "	Finger list:\n", "\n");
-	printf("---------------%s---------------\n", suffix);
+	fprintf(stderr, "---------------%s---------------\n", suffix);
 }
 
 
@@ -438,20 +438,20 @@ void print_process(Server *srv, char *process_type, chordID *id, in6_addr *addr,
 #define TYPE_LEN 16
 	int i = TYPE_LEN - strlen(process_type);
 
-	printf("[%s]", process_type);
-	if (i > 0) for (; i; i--) printf(" ");
+	fprintf(stderr, "[%s]", process_type);
+	if (i > 0) for (; i; i--) fprintf(stderr, " ");
 
-	printf(" (");
+	fprintf(stderr, " (");
 	if (id)
 		print_chordID(id);
 	else
-		printf("null");
-	printf(") ");
+		fprintf(stderr, "null");
+	fprintf(stderr, ") ");
 	print_node(&srv->node, " <", ">");
 	if (addr == NULL)
-		printf(" <----- <,>");
+		fprintf(stderr, " <----- <,>");
 	else
-		printf(" <----- <%s, %d>", v6addr_to_str(addr), port);
+		fprintf(stderr, " <----- <%s, %d>", v6addr_to_str(addr), port);
 	print_current_time(" Time:", "\n");
 }
 
@@ -460,28 +460,28 @@ void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
 {
 	int i = TYPE_LEN - strlen(send_type);
 
-	printf("[%s]", send_type);
-	if (i > 0) for (; i; i--) printf(" ");
+	fprintf(stderr, "[%s]", send_type);
+	if (i > 0) for (; i; i--) fprintf(stderr, " ");
 
-	printf(" (");
+	fprintf(stderr, " (");
 	if (id)
 		print_chordID(id);
 	else
-		printf("null");
-	printf(") ");
+		fprintf(stderr, "null");
+	fprintf(stderr, ") ");
 	print_node(&srv->node, " <", ">");
 	if (addr == NULL)
-		printf(" -----> <,>");
+		fprintf(stderr, " -----> <,>");
 	else
-		printf(" -----> <%s, %d>", v6addr_to_str(addr), port);
+		fprintf(stderr, " -----> <%s, %d>", v6addr_to_str(addr), port);
 	print_current_time(" Time:", "\n");
 }
 
 void print_fun(Server *srv, char *fun_name, chordID *id)
 {
-	printf("%s: ", fun_name);
+	fprintf(stderr, "%s: ", fun_name);
 	print_chordID(&srv->node.id);
-	printf(" > ");
+	fprintf(stderr, " > ");
 	print_chordID(id);
 	print_current_time(" @ ", "\n");
 }
@@ -494,9 +494,9 @@ ulong get_current_time()
 void print_current_time(char *prefix, char *suffix)
 {
 #ifdef CHORD_PRINT_LONG_TIME
-	printf("%s%lld%s", prefix, wall_time(), suffix);
+	fprintf(stderr, "%s%lld%s", prefix, wall_time(), suffix);
 #else
-	printf("%s%lld%s", prefix, (wall_time() << 32) >> 32, suffix);
+	fprintf(stderr, "%s%lld%s", prefix, (wall_time() << 32) >> 32, suffix);
 #endif
 }
 

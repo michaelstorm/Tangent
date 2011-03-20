@@ -46,9 +46,9 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 
 	chordID id;
 	unpack(buf, "*c*cx", &id);
-	printf("received routing packet to id ");
+	fprintf(stderr, "received routing packet to id ");
 	print_chordID(&id);
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	len = unpack(buf, "cc*xs", &type, &ttl, &pkt_len);
 	if (len < 0 || len + pkt_len != n)
@@ -64,7 +64,7 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 		return dhash_process_query_reply_success(dhash, srv, data, pkt_len,
 												 from);
 	case DHASH_QUERY_REPLY_FAILURE:
-		printf("query_reply_failure\n");
+		fprintf(stderr, "query_reply_failure\n");
 		return 1;
 	}
 

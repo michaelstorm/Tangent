@@ -28,11 +28,11 @@ int vpack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
 	if (buf && buf_len) {
 		EVP_DigestUpdate(&ctx, buf, buf_len);
 #ifdef C_DEBUG_ON
-		printf("buf: ");
+		fprintf(stderr, "buf: ");
 		int i;
 		for (i = 0; i < buf_len; i++)
-			printf("%02x", buf[i]);
-		printf("\n");
+			fprintf(stderr, "%02x", buf[i]);
+		fprintf(stderr, "\n");
 #endif
 	}
 
@@ -42,33 +42,33 @@ int vpack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
 			c = va_arg(args, int);
 			EVP_DigestUpdate(&ctx, &c, 1);
 
-			C_DEBUG(printf("char: %02x\n", c));
+			C_DEBUG(fprintf(stderr, "char: %02x\n", c));
 			break;
 		case 's':	 /* short */
 			s = va_arg(args, int);
 			EVP_DigestUpdate(&ctx, &s, sizeof(ushort));
 
-			C_DEBUG(printf("short: %hu\n", s));
+			C_DEBUG(fprintf(stderr, "short: %hu\n", s));
 			break;
 		case 'l':	 /* long */
 			l = va_arg(args, ulong);
 			EVP_DigestUpdate(&ctx, &l, sizeof(ulong));
 
-			C_DEBUG(printf("long: %lu\n", l));
+			C_DEBUG(fprintf(stderr, "long: %lu\n", l));
 			break;
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
 			EVP_DigestUpdate(&ctx, id->x, CHORD_ID_LEN);
 
-			C_DEBUG(printf("chordID: "));
+			C_DEBUG(fprintf(stderr, "chordID: "));
 			C_DEBUG(print_id(stdout, id));
-			C_DEBUG(printf("\n"));
+			C_DEBUG(fprintf(stderr, "\n"));
 			break;
 		case '6':
 			v6addr = va_arg(args, in6_addr *);
 			EVP_DigestUpdate(&ctx, v6addr->s6_addr, 16);
 
-			C_DEBUG(printf("addr: %s\n", v6addr_to_str(v6addr)));
+			C_DEBUG(fprintf(stderr, "addr: %s\n", v6addr_to_str(v6addr)));
 			break;
 		default:	 /* illegal type character */
 			fprintf(stderr, "bad ticket type %c", *fmt);
@@ -98,12 +98,12 @@ int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...)
 	uint32_t epoch_time = (uint32_t)time(NULL);
 
 #ifdef C_DEBUG_ON
-	printf("\ngenerating:\n");
+	fprintf(stderr, "\ngenerating:\n");
 
-	printf("time: ");
+	fprintf(stderr, "time: ");
 	for (i = 0; i < 4; i++)
-		printf("%02x", ((uchar *)&epoch_time)[i]);
-	printf(" %u\n", epoch_time);
+		fprintf(stderr, "%02x", ((uchar *)&epoch_time)[i]);
+	fprintf(stderr, " %u\n", epoch_time);
 #endif
 
 	// hash the unix epoch time together with the caller's arguments
@@ -127,15 +127,15 @@ int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...)
 	BF_ecb_encrypt(ticket_value, (uchar *)out, key, BF_ENCRYPT);
 
 #ifdef C_DEBUG_ON
-	printf("ticket: ");
+	fprintf(stderr, "ticket: ");
 	for (i = 0; i < TICKET_LEN; i++)
-		printf("%02x", ticket_value[i]);
-	printf("\n");
+		fprintf(stderr, "%02x", ticket_value[i]);
+	fprintf(stderr, "\n");
 
-	printf("encrypted ticket: ");
+	fprintf(stderr, "encrypted ticket: ");
 	for (i = 0; i < TICKET_LEN; i++)
-		printf("%02x", out[i]);
-	printf("\n");
+		fprintf(stderr, "%02x", out[i]);
+	fprintf(stderr, "\n");
 #endif
 
 	return 1;
@@ -153,18 +153,18 @@ int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...)
 	BF_ecb_encrypt(ticket_enc, ticket, key, BF_DECRYPT);
 
 #ifdef C_DEBUG_ON
-	printf("\nverifying:\n");
+	fprintf(stderr, "\nverifying:\n");
 
-	printf("encrypted ticket: ");
+	fprintf(stderr, "encrypted ticket: ");
 	int i;
 	for (i = 0; i < TICKET_LEN; i++)
-		printf("%02x", ticket_enc[i]);
-	printf("\n");
+		fprintf(stderr, "%02x", ticket_enc[i]);
+	fprintf(stderr, "\n");
 
-	printf("ticket: ");
+	fprintf(stderr, "ticket: ");
 	for (i = 0; i < TICKET_LEN; i++)
-		printf("%02x", ticket[i]);
-	printf("\n");
+		fprintf(stderr, "%02x", ticket[i]);
+	fprintf(stderr, "\n");
 #endif
 
 	unpack(ticket, "lcccc", &ticket_time, &ticket_md[0], &ticket_md[1],
@@ -182,20 +182,20 @@ int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...)
 	va_end(args);
 
 #ifdef C_DEBUG_ON
-	printf("time: ");
+	fprintf(stderr, "time: ");
 	for (i = 0; i < 4; i++)
-		printf("%02x", ((uchar *)&ticket_time)[i]);
-	printf(" %u\n", ticket_time);
+		fprintf(stderr, "%02x", ((uchar *)&ticket_time)[i]);
+	fprintf(stderr, " %u\n", ticket_time);
 
-	printf("md: ");
+	fprintf(stderr, "md: ");
 	for (i = 0; i < 4; i++)
-		printf("%02x", md_value[i]);
-	printf("\n");
+		fprintf(stderr, "%02x", md_value[i]);
+	fprintf(stderr, "\n");
 
-	printf("ticket_md: ");
+	fprintf(stderr, "ticket_md: ");
 	for (i = 0; i < 4; i++)
-		printf("%02x", ticket_md[i]);
-	printf("\n");
+		fprintf(stderr, "%02x", ticket_md[i]);
+	fprintf(stderr, "\n");
 #endif
 
 	return memcmp(md_value, ticket_md, 4) == 0;

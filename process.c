@@ -28,11 +28,11 @@ int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
-		printf("setting address to: [%s]:%d\n", v6addr_to_str(&srv->node.addr),
+		fprintf(stderr, "setting address to: [%s]:%d\n", v6addr_to_str(&srv->node.addr),
 			   srv->node.port);
-		printf("node id: ");
+		fprintf(stderr, "node id: ");
 		print_chordID(&srv->node.id);
-		printf("\n");
+		fprintf(stderr, "\n");
 
 		event_del(srv->discover_addr_event);
 
@@ -91,7 +91,7 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 	/* handle request locally? */
 	if (chord_is_local(srv, id)) {
 		/* Upcall goes here... */
-		printf("id is local\n");
+		fprintf(stderr, "id is local\n");
 		//chord_deliver(len, data, from);
 	}
 	else {

@@ -20,7 +20,7 @@ void dhash_send_control_packet(DHash *dhash, int code, const char *file)
 
 void dhash_send_file_query(DHash *dhash, const char *file)
 {
-	printf("sending file query for %s\n", file);
+	fprintf(stderr, "sending file query for %s\n", file);
 
 	uchar buf[1024];
 
@@ -50,7 +50,7 @@ void dhash_send_file_query(DHash *dhash, const char *file)
 void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
 									ushort port, const char *file)
 {
-	printf("sending query reply SUCCESS for %s to [%s]:%d\n", file,
+	fprintf(stderr, "sending query reply SUCCESS for %s to [%s]:%d\n", file,
 		   v6addr_to_str(addr), port);
 
 	uchar buf[1024];
@@ -73,7 +73,7 @@ void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
 void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 									ushort port, const char *file)
 {
-	printf("sending query reply FAILURE for %s to [%s]:%d\n", file,
+	fprintf(stderr, "sending query reply FAILURE for %s to [%s]:%d\n", file,
 		   v6addr_to_str(addr), port);
 
 	uchar buf[1024];

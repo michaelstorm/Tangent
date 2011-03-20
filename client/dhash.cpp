@@ -101,7 +101,7 @@ void handle_transfer_statechange(Transfer *trans, int old_state, void *arg)
 int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 									  int n, Node *from)
 {
-	printf("dhash_process_query_reply_success\n");
+	fprintf(stderr, "dhash_process_query_reply_success\n");
 
 	uchar code;
 	ushort name_len;
@@ -114,7 +114,7 @@ int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 	memcpy(file, data + data_len, name_len);
 	file[name_len] = '\0';
 
-	printf("receiving transfer of \"%s\" of size %d from [%s]:%d\n", file,
+	fprintf(stderr, "receiving transfer of \"%s\" of size %d from [%s]:%d\n", file,
 		   file_size, v6addr_to_str(&from->addr), from->port);
 
 	Transfer *trans = new_transfer(dhash->ev_base, file, srv->sock, &from->addr,
@@ -128,7 +128,7 @@ int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 						Node *from)
 {
-	printf("dhash_process_query\n");
+	fprintf(stderr, "dhash_process_query\n");
 
 	uchar query_type;
 	in6_addr reply_addr;
@@ -144,12 +144,12 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 	memcpy(file, data+data_len, file_len);
 	file[file_len] = '\0';
 
-	printf("received query from [%s]:%d for %s\n", v6addr_to_str(&reply_addr),
+	fprintf(stderr, "received query from [%s]:%d for %s\n", v6addr_to_str(&reply_addr),
 		   reply_port, file);
 
 	/* if we have the file, notify the requesting node */
 	if (dhash_local_file_exists(dhash, file)) {
-		printf("we have %s\n", file);
+		fprintf(stderr, "we have %s\n", file);
 		dhash_send_query_reply_success(dhash, srv, &reply_addr, reply_port,
 									   file);
 
@@ -161,26 +161,26 @@ int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
 		transfer_start_sending(trans, dhash->files_path);
 	}
 	else {
-		printf("we don't have %s\n", file);
+		fprintf(stderr, "we don't have %s\n", file);
 		chordID id;
 		get_data_id(&id, (const uchar *)file, strlen(file));
 
 		/* if we should have the file, as its successor, but don't, also notify
 		   the requesting node */
 		if (chord_is_local(srv, &id)) {
-			printf("but we should, so we're replying\n", file);
+			fprintf(stderr, "but we should, so we're replying\n", file);
 			dhash_send_query_reply_failure(dhash, srv, &reply_addr, reply_port,
 										   file);
-			printf("and listening on port %d\n", srv->node.port);
+			fprintf(stderr, "and listening on port %d\n", srv->node.port);
 		}
 		/* otherwise, forward the request to the closest finger */
 		else {
-			printf("so we're forwarding the query\n", file);
+			fprintf(stderr, "so we're forwarding the query\n", file);
 			return 0;
 		}
 	}
 
-	printf("and we're dropping the routing packet\n");
+	fprintf(stderr, "and we're dropping the routing packet\n");
 	return 1;
 }
 

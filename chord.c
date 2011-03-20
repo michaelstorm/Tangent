@@ -109,7 +109,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 	}
 
 	if (srv->nknown == 0)
-		printf("Didn't find any known hosts.");
+		fprintf(stderr, "Didn't find any known hosts.");
 }
 
 void server_start(Server *srv)
@@ -241,11 +241,11 @@ int read_keys(char *file, chordID *key_array, int max_num_keys)
 
 void chord_update_range(Server *srv, chordID *l, chordID *r)
 {
-	printf("update_range(");
+	fprintf(stderr, "update_range(");
 	print_chordID(l);
-	printf(" - ");
+	fprintf(stderr, " - ");
 	print_chordID(r);
-	printf(")\n");
+	fprintf(stderr, ")\n");
 
 	srv->pred_bound = *l;
 	srv->node.id = *r;
