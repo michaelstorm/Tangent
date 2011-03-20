@@ -1,14 +1,23 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <event2/event.h>
 #include <sys/wait.h>
 #include "chord_api.h"
 #include "dhash.h"
+
+static int control_sock;
 
 void process_reply(void *ctx, char code, const char *file)
 {
 	switch (code) {
 	case DHASH_CLIENT_REPLY_LOCAL:
 		printf("%s is local\n", file);
+		break;
+	case DHASH_CLIENT_REPLY_SUCCESS:
+		printf("%s retrieved successfully\n", file);
+		break;
+	case DHASH_CLIENT_REPLY_FAILURE:
+		printf("%s retrieval failed\n", file);
 		break;
 	default:
 		printf("unknown code\n");
@@ -21,28 +30,44 @@ void handle_reply(evutil_socket_t sock, short what, void *arg)
 	dhash_client_process_request_reply(sock, arg, process_reply);
 }
 
+void handle_request(evutil_socket_t sock, short what, void *arg)
+{
+	int n;
+	char file[128];
+
+	if ((n = read(sock, file, sizeof(file)-1)) < 0)
+		perror("reading file request reply");
+
+	if (n > 0) {
+		file[n-1] = '\0'; // overwrite newline
+		dhash_client_request_file(control_sock, file);
+	}
+}
+
 int main(int argc, char **argv)
 {
+	// fork the dhash/chord process
 	DHash *dhash = new_dhash("files");
-	int sock = dhash_start(dhash, argv+1, 1 /*argc-1 */);
+	control_sock = dhash_start(dhash, argv+1, 1 /*argc-1 */);
 
-	struct event_base *ev_base = event_base_new();
-	struct event *reply_event = event_new(ev_base, sock, EV_READ|EV_PERSIST,
-										  handle_reply, NULL);
+	// create an event_base that works with events on file descriptors
+	struct event_config *cfg = event_config_new();
+	event_config_require_features(cfg, EV_FEATURE_FDS);
+	struct event_base *ev_base = event_base_new_with_config(cfg);
+	event_config_free(cfg);
+
+	// listen on the control socket
+	struct event *reply_event = event_new(ev_base, control_sock,
+										  EV_READ|EV_PERSIST, handle_reply,
+										  NULL);
 	event_add(reply_event, NULL);
 
-	if (argc > 2) {
-		struct timeval timeout;
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 0;
+	// listen on stdin
+	struct event *request_event = event_new(ev_base, 0, EV_READ|EV_PERSIST,
+											handle_request, dhash);
+	event_add(request_event, NULL);
 
-		event_base_loopexit(ev_base, &timeout);
-		event_base_dispatch(ev_base);
-
-		dhash_client_request_file(sock, "west");
-	}
-
+	// start event loop
 	event_base_dispatch(ev_base);
-
 	return 0;
 }

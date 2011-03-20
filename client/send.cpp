@@ -3,6 +3,7 @@
 #include "chord.h"
 #include "dhash.h"
 #include "send.h"
+#include "transfer.h"
 
 void dhash_send_control_packet(DHash *dhash, int code, const char *file)
 {
@@ -72,7 +73,7 @@ void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
 void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 									ushort port, const char *file)
 {
-	printf("sending query reply SUCCESS for %s to [%s]:%d\n", file,
+	printf("sending query reply FAILURE for %s to [%s]:%d\n", file,
 		   v6addr_to_str(addr), port);
 
 	uchar buf[1024];
@@ -92,10 +93,10 @@ void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 
 int dhash_send_control_transfer_complete(DHash *dhash, Transfer *trans)
 {
-	printf("dhash_send_control_transfer_complete\n");
+	dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_SUCCESS, trans->file);
 }
 
 int dhash_send_control_transfer_failed(DHash *dhash, Transfer *trans)
 {
-	printf("dhash_send_control_transfer_failed\n");
+	dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_FAILURE, trans->file);
 }
