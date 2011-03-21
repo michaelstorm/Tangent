@@ -88,7 +88,8 @@ int dhash_local_file_size(DHash *dhash, const char *file)
 	return stat_buf.st_size;
 }
 
-void handle_transfer_statechange(Transfer *trans, int old_state, void *arg)
+void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
+									   void *arg)
 {
 	DHash *dhash = (DHash *)arg;
 	if (trans->state == TRANSFER_COMPLETE || trans->state == TRANSFER_FAILED) {
@@ -96,100 +97,6 @@ void handle_transfer_statechange(Transfer *trans, int old_state, void *arg)
 		dhash_remove_transfer(dhash, trans);
 		free_transfer(trans);
 	}
-}
-
-int dhash_process_query_reply_success(DHash *dhash, Server *srv, uchar *data,
-									  int n, Node *from)
-{
-	fprintf(stderr, "dhash_process_query_reply_success\n");
-
-	uchar code;
-	ushort name_len;
-	int file_size;
-
-	int data_len = unpack(data, "cls", &code, &file_size, &name_len);
-	assert(code == DHASH_QUERY_REPLY_SUCCESS);
-
-	char file[name_len+1];
-	memcpy(file, data + data_len, name_len);
-	file[name_len] = '\0';
-
-	fprintf(stderr, "receiving transfer of \"%s\" of size %d from [%s]:%d\n", file,
-		   file_size, v6addr_to_str(&from->addr), from->port);
-
-	Transfer *trans = new_transfer(dhash->ev_base, file, srv->sock, &from->addr,
-								   from->port);
-	transfer_set_statechange_cb(trans, handle_transfer_statechange, dhash);
-
-	dhash_add_transfer(dhash, trans);
-	transfer_start_receiving(trans, dhash->files_path, file_size);
-}
-
-int dhash_process_query(DHash *dhash, Server *srv, uchar *data, int n,
-						Node *from)
-{
-	fprintf(stderr, "dhash_process_query\n");
-
-	uchar query_type;
-	in6_addr reply_addr;
-	ushort reply_port;
-	ushort file_len;
-
-	int data_len = unpack(data, "c6ss", &query_type, &reply_addr, &reply_port,
-						  &file_len);
-	if (data_len + file_len != n)
-		weprintf("bad packet length");
-
-	char file[file_len+1];
-	memcpy(file, data+data_len, file_len);
-	file[file_len] = '\0';
-
-	fprintf(stderr, "received query from [%s]:%d for %s\n", v6addr_to_str(&reply_addr),
-		   reply_port, file);
-
-	/* if we have the file, notify the requesting node */
-	if (dhash_local_file_exists(dhash, file)) {
-		fprintf(stderr, "we have %s\n", file);
-		dhash_send_query_reply_success(dhash, srv, &reply_addr, reply_port,
-									   file);
-
-		Transfer *trans = new_transfer(dhash->ev_base, file, srv->sock,
-									   &reply_addr, reply_port);
-
-		dhash_add_transfer(dhash, trans);
-
-		transfer_start_sending(trans, dhash->files_path);
-	}
-	else {
-		fprintf(stderr, "we don't have %s\n", file);
-		chordID id;
-		get_data_id(&id, (const uchar *)file, strlen(file));
-
-		/* if we should have the file, as its successor, but don't, also notify
-		   the requesting node */
-		if (chord_is_local(srv, &id)) {
-			fprintf(stderr, "but we should, so we're replying\n", file);
-			dhash_send_query_reply_failure(dhash, srv, &reply_addr, reply_port,
-										   file);
-			fprintf(stderr, "and listening on port %d\n", srv->node.port);
-		}
-		/* otherwise, forward the request to the closest finger */
-		else {
-			fprintf(stderr, "so we're forwarding the query\n", file);
-			return 0;
-		}
-	}
-
-	fprintf(stderr, "and we're dropping the routing packet\n");
-	return 1;
-}
-
-void dhash_process_client_query(DHash *dhash, const char *file)
-{
-	if (dhash_local_file_exists(dhash, file))
-		dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_LOCAL, file);
-	else
-		dhash_send_file_query(dhash, file);
 }
 
 int dhash_start(DHash *dhash, char **conf_files, int nservers)
@@ -247,41 +154,4 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 	event_add(dhash->control_sock_event, NULL);
 
 	event_base_dispatch(dhash->ev_base);
-}
-
-void dhash_client_request_file(int sock, const char *file)
-{
-	short size = strlen(file);
-	uchar buf[sizeof_fmt("s") + size];
-
-	int n = pack(buf, "cs", DHASH_CLIENT_QUERY, size);
-	memcpy(buf + n, file, size);
-	n += size;
-
-	if (write(sock, buf, n) < 0)
-		perror("writing file request");
-}
-
-void dhash_client_process_request_reply(int sock, void *ctx,
-										dhash_request_reply_handler handler)
-{
-	uchar buf[1024];
-	char file[128];
-	char code;
-	short size;
-	int n;
-
-	if ((n = read(sock, buf, 1024)) < 0)
-		perror("reading file request reply");
-
-	int len = unpack(buf, "cs", &code, &size);
-	if (n != len + size) {
-		fprintf(stderr, "process_request_reply: packet size error\n");
-		return;
-	}
-
-	memcpy(file, buf + len, size);
-	file[size] = '\0';
-
-	handler(ctx, code, file);
 }

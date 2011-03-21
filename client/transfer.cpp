@@ -7,8 +7,8 @@
 #include "dhash.h"
 #include "transfer.h"
 
-Transfer *new_transfer(struct event_base *ev_base, char *file, int chord_sock,
-					   const in6_addr *addr, ushort port)
+Transfer *new_transfer(struct event_base *ev_base, const char *file,
+					   int chord_sock, const in6_addr *addr, ushort port)
 {
 	Transfer *trans = (Transfer *)malloc(sizeof(Transfer));
 	trans->ev_base = ev_base;

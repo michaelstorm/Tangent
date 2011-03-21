@@ -43,8 +43,8 @@ struct Transfer
 	void *statechange_arg;
 };
 
-Transfer *new_transfer(struct event_base *ev_base, char *file, int chord_sock,
-					   const in6_addr *addr, ushort port);
+Transfer *new_transfer(struct event_base *ev_base, const char *file,
+					   int chord_sock, const in6_addr *addr, ushort port);
 void free_transfer(Transfer *trans);
 void transfer_set_statechange_cb(Transfer *trans, transfer_statechange_cb cb,
 								 void *arg);

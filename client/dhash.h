@@ -47,26 +47,23 @@ enum
 	DHASH_QUERY_REPLY_FAILURE,
 };
 
+// in send.cpp
+extern void dhash_client_send_request(int sock, const char *file);
+// in pack.cpp
+extern int dhash_client_unpack_request_reply(int sock, void *ctx,
+											 dhash_request_reply_handler handler);
+
 DHash *new_dhash(const char *files_path);
 int dhash_start(DHash *dhash, char **conf_files, int nservers);
 
-void dhash_client_request_file(int sock, const char *file);
-void dhash_client_process_request_reply(int sock, void *ctx,
-										dhash_request_reply_handler handler);
-
 void dhash_add_transfer(DHash *dhash, Transfer *trans);
 void dhash_remove_transfer(DHash *dhash, Transfer *remove);
+void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
+									   void *arg);
 
 int dhash_stat_local_file(DHash *dhash, const char *file,
 						  struct stat *stat_buf);
 int dhash_local_file_exists(DHash *dhash, const char *file);
 int dhash_local_file_size(DHash *dhash, const char *file);
-
-int dhash_process_query_reply_success(DHash *dhash, struct Server *srv,
-									  unsigned char *data, int n,
-									  struct Node *from);
-int dhash_process_query(DHash *dhash, struct Server *srv, unsigned char *data,
-						int n, struct Node *from);
-void dhash_process_client_query(DHash *dhash, const char *file);
 
 #endif

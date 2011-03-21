@@ -27,7 +27,7 @@ void process_reply(void *ctx, char code, const char *file)
 
 void handle_reply(evutil_socket_t sock, short what, void *arg)
 {
-	dhash_client_process_request_reply(sock, arg, process_reply);
+	dhash_client_unpack_request_reply(sock, arg, process_reply);
 }
 
 void handle_request(evutil_socket_t sock, short what, void *arg)
@@ -40,7 +40,7 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 
 	if (n > 0) {
 		file[n-1] = '\0'; // overwrite newline
-		dhash_client_request_file(control_sock, file);
+		dhash_client_send_request(control_sock, file);
 	}
 }
 

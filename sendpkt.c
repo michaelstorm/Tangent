@@ -30,7 +30,7 @@ void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
 }
 
 void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
-			   ushort n, uchar *data)
+			   ushort n, const uchar *data)
 {
 	byte buf[BUFSIZE];
 	*(unsigned short *)buf = 0xFFFF;

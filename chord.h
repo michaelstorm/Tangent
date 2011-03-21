@@ -242,7 +242,7 @@ struct unpack_args {
 #endif
 
 int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
-			  uchar *data);
+			  const uchar *data);
 int unpack_data(Server *srv, int n, uchar *buf, Node *from);
 int pack_fs(uchar *buf, uchar *ticket, byte ttl, in6_addr *addr, ushort port);
 int unpack_fs(Server *srv, int n, uchar *buf, Node *from);
@@ -303,7 +303,7 @@ void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
-			   ushort n, uchar *data);
+			   ushort n, const uchar *data);
 void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port);
 void send_fs_forward(Server *srv, uchar *ticket, byte ttl, in6_addr *to_addr,

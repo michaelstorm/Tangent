@@ -310,7 +310,7 @@ int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from)
 
 /* pack_data: pack data packet */
 int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
-			  uchar *data)
+			  const uchar *data)
 {
 	int n;
 
