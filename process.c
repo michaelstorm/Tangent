@@ -28,7 +28,7 @@ int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
-		fprintf(stderr, "setting address to: [%s]:%d\n", v6addr_to_str(&srv->node.addr),
+		fprintf(stderr, "address: [%s]:%d\n", v6addr_to_str(&srv->node.addr),
 			   srv->node.port);
 		fprintf(stderr, "node id: ");
 		print_chordID(&srv->node.id);

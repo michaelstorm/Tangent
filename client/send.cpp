@@ -101,16 +101,16 @@ void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 
 /* Notify the control process that a file was downloaded.
  */
-void dhash_send_control_transfer_complete(DHash *dhash, Transfer *trans)
+void dhash_send_control_query_success(DHash *dhash, const char *file)
 {
-	dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_SUCCESS, trans->file);
+	dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_SUCCESS, file);
 }
 
 /* Notify the control process that a file could not be downloaded.
  */
-void dhash_send_control_transfer_failed(DHash *dhash, Transfer *trans)
+void dhash_send_control_query_failure(DHash *dhash, const char *file)
 {
-	dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_FAILURE, trans->file);
+	dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_FAILURE, file);
 }
 
 /* Send a file request to the DHash process.

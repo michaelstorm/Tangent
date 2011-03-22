@@ -9,8 +9,8 @@ void dhash_send_query_reply_success(struct DHash *dhash, Server *srv,
 void dhash_send_query_reply_failure(struct DHash *dhash, Server *srv,
 									in6_addr *addr, ushort port,
 									const char *file);
-void dhash_send_control_transfer_complete(struct DHash *dhash, Transfer *trans);
-void dhash_send_control_transfer_failed(struct DHash *dhash, Transfer *trans);
+void dhash_send_control_query_success(struct DHash *dhash, const char *file);
+void dhash_send_control_query_failure(struct DHash *dhash, const char *file);
 void dhash_client_send_request(int sock, const char *file);
 
 #endif

@@ -92,8 +92,12 @@ void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
 									   void *arg)
 {
 	DHash *dhash = (DHash *)arg;
+
+	if (trans->state == TRANSFER_COMPLETE)
+		;//dhash_send_push(dhash, trans->file);
+
 	if (trans->state == TRANSFER_COMPLETE || trans->state == TRANSFER_FAILED) {
-		dhash_send_control_transfer_complete(dhash, trans);
+		dhash_send_control_query_success(dhash, trans->file);
 		dhash_remove_transfer(dhash, trans);
 		free_transfer(trans);
 	}

@@ -60,6 +60,7 @@ void dhash_add_transfer(DHash *dhash, Transfer *trans);
 void dhash_remove_transfer(DHash *dhash, Transfer *remove);
 void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
 									   void *arg);
+void dhash_query_timeout(evutil_socket_t sock, short what, void *arg);
 
 int dhash_stat_local_file(DHash *dhash, const char *file,
 						  struct stat *stat_buf);

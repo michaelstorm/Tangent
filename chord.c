@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include <openssl/rand.h>
 #include "chord.h"
+#include "circle.h"
 #include "gen_utils.h"
 
 static void init_ticket_key(Server *srv);
@@ -241,14 +242,26 @@ int read_keys(char *file, chordID *key_array, int max_num_keys)
 
 void chord_update_range(Server *srv, chordID *l, chordID *r)
 {
-	fprintf(stderr, "update_range(");
+	fprintf(stderr, "range: ");
 	print_chordID(l);
 	fprintf(stderr, " - ");
 	print_chordID(r);
-	fprintf(stderr, ")\n");
+	fprintf(stderr, "\n");
 
 	srv->pred_bound = *l;
 	srv->node.id = *r;
+
+	if (!equals(&srv->pred_bound, &srv->node.id)) {
+		struct circle *c = new_circle(30, 4);
+		draw_circle(c, '.', 0, 2*PI);
+
+		long double from = id_to_radians(&srv->pred_bound);
+		long double to = id_to_radians(&srv->node.id);
+
+		draw_circle(c, '#', from, to);
+		print_circle(stderr, c);
+		free_circle(c);
+	}
 }
 
 /* get_range: returns the range (l,r] that this node is responsible for */

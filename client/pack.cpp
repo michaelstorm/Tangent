@@ -59,6 +59,39 @@ int dhash_unpack_query(DHash *dhash, Server *srv, uchar *data, int n,
 	return dhash_process_query(dhash, srv, &reply_addr, reply_port, file, from);
 }
 
+int dhash_unpack_query_reply_success(DHash *dhash, Server *srv, uchar *data,
+									  int n, Node *from)
+{
+	uchar code;
+	ushort name_len;
+	long file_size;
+
+	int data_len = unpack(data, "cls", &code, &file_size, &name_len);
+	assert(code == DHASH_QUERY_REPLY_SUCCESS);
+
+	char file[name_len+1];
+	memcpy(file, data + data_len, name_len);
+	file[name_len] = '\0';
+
+	return dhash_process_query_reply_success(dhash, srv, file_size, file, from);
+}
+
+int dhash_unpack_query_reply_failure(DHash *dhash, Server *srv, uchar *data,
+									 int n, Node *from)
+{
+	uchar code;
+	ushort name_len;
+
+	int data_len = unpack(data, "cs", &code, &name_len);
+	assert(code == DHASH_QUERY_REPLY_FAILURE);
+
+	char file[name_len+1];
+	memcpy(file, data + data_len, name_len);
+	file[name_len] = '\0';
+
+	return dhash_process_query_reply_failure(dhash, srv, file, from);
+}
+
 int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 							  Node *from)
 {
@@ -84,10 +117,11 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 	case DHASH_QUERY:
 		return dhash_unpack_query(dhash, srv, data, pkt_len, from);
 	case DHASH_QUERY_REPLY_SUCCESS:
-		return dhash_process_query_reply_success(dhash, srv, data, pkt_len,
-												 from);
+		return dhash_unpack_query_reply_success(dhash, srv, data, pkt_len,
+												from);
 	case DHASH_QUERY_REPLY_FAILURE:
-		fprintf(stderr, "query_reply_failure\n");
+		return dhash_unpack_query_reply_failure(dhash, srv, data, pkt_len,
+												from);
 		return 1;
 	}
 

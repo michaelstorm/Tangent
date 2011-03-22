@@ -15,7 +15,7 @@ find_package(LibEvent)
 include_directories(${LIBEVENT_INCLUDE_DIR})
 
 add_library(chord SHARED ${lib_sources})
-target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} dl)
+target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} dl m)
 
 file(GLOB client_sources "client/*.cpp")
 add_executable(client ${client_sources})
