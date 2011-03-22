@@ -41,7 +41,7 @@ enum {
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
 	ADDR_DISCOVER_INTERVAL = 1*1000000,
-	STABILIZE_PERIOD = 100*1000000,  /* in usec */
+	STABILIZE_PERIOD = 10*1000000,  /* in usec */
 	BUFSIZE      = 65535,          /* buffer for packets */
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
 									*  (read from configuration file)
@@ -53,7 +53,7 @@ enum {
 									* have yet to respond to ping
 									*/
 	PING_THRESH = 5,               /* this many unanswered pings are allowed */
-	DEF_TTL      = 64,             /* default TTL for multi-hop packets */
+	DEF_TTL      = 32,             /* default TTL for multi-hop packets */
 };
 
 /* packet types */

@@ -209,12 +209,15 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 	}
 
 	if (packet_len < 0) {
-		if (errno != EAGAIN) {
-			weprintf("recvfrom failed:"); /* ignore errors for now */
+		switch (errno) {
+		default:
+			weprintf("recvfrom failed:");
+			// fall through
+		case EAGAIN:
+		case EWOULDBLOCK:
+		case EINTR:
 			return;
 		}
-
-		return;
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);
@@ -240,6 +243,31 @@ int read_keys(char *file, chordID *key_array, int max_num_keys)
 	return i;
 }
 
+void chord_print_circle(Server *srv)
+{
+	struct circle *c = new_circle(50, 2, -PI/2);
+	draw_circle(c, '.');
+
+	long double from = id_to_radians(&srv->pred_bound);
+	long double to = id_to_radians(&srv->node.id);
+
+	draw_arc(c, '*', from, to);
+	draw_radius(c, '^', from);
+	draw_radius(c, '^', to);
+
+	Finger *f;
+	for (f = srv->head_flist; f != NULL; f = f->next) {
+		long double pos = id_to_radians(&f->node.id);
+		if (f->status == F_PASSIVE)
+			draw_point(c, 'P', pos);
+		else
+			draw_point(c, 'A', pos);
+	}
+
+	print_circle(stderr, c);
+	free_circle(c);
+}
+
 void chord_update_range(Server *srv, chordID *l, chordID *r)
 {
 	fprintf(stderr, "range: ");
@@ -251,17 +279,7 @@ void chord_update_range(Server *srv, chordID *l, chordID *r)
 	srv->pred_bound = *l;
 	srv->node.id = *r;
 
-	if (!equals(&srv->pred_bound, &srv->node.id)) {
-		struct circle *c = new_circle(30, 4);
-		draw_circle(c, '.', 0, 2*PI);
-
-		long double from = id_to_radians(&srv->pred_bound);
-		long double to = id_to_radians(&srv->node.id);
-
-		draw_circle(c, '#', from, to);
-		print_circle(stderr, c);
-		free_circle(c);
-	}
+	chord_print_circle(srv);
 }
 
 /* get_range: returns the range (l,r] that this node is responsible for */

@@ -61,7 +61,7 @@ int vpack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
 			EVP_DigestUpdate(&ctx, id->x, CHORD_ID_LEN);
 
 			C_DEBUG(fprintf(stderr, "chordID: "));
-			C_DEBUG(print_id(stdout, id));
+			C_DEBUG(print_id(stderr, id));
 			C_DEBUG(fprintf(stderr, "\n"));
 			break;
 		case '6':

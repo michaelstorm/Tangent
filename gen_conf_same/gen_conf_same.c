@@ -57,6 +57,8 @@ int main(int argc, char **argv)
 	k = i;
 	if (k < 5)
 	  k = 5;
+	if (n < 5)
+	  k = n;
 
 	for (; j < k; j++) {
 	  if (j == i) continue;
@@ -90,6 +92,8 @@ int main(int argc, char **argv)
 	k = i;
 	if (k < 5)
 	  k = 5;
+	if (n < 5)
+	  k = n;
 
 	for (; j < k; j++) {
 	  if (j == i) continue;

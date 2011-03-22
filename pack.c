@@ -221,7 +221,6 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 	int res;
 
 	type = buf[0];
-
 	if (type < NELEMS(unpackfn)) {
 		if (srv->packet_handlers[type]
 			&& (res = srv->packet_handlers[type](srv->packet_handler_ctx,

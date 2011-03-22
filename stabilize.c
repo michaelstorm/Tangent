@@ -95,7 +95,7 @@ void fix_fingers(Server *srv)
 	chordID id = successor(srv->node.id, srv->to_fix_finger);
 	chordID to_id = successor(srv->node.id, NFINGERS-1);
 
-	CHORD_DEBUG(5, print_fun(srv, "fix_finger", &id));
+	CHORD_DEBUG(4, print_fun(srv, "fix_finger", &id));
 
 	/* Only loop across most significant fingers */
 	if (is_between(&id, &srv->node.id, &succ->node.id)
@@ -156,7 +156,7 @@ void fix_succs_preds(Server *srv)
 	Finger *f, *succ, *pred;
 	chordID id;
 
-	CHORD_DEBUG(5, print_fun(srv, "fix_successors", 0));
+	CHORD_DEBUG(4, print_fun(srv, "fix_successors", 0));
 
 	if (succ_finger(srv) == NULL)
 		return;

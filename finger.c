@@ -85,7 +85,7 @@ Finger *get_finger(Server *srv, chordID *id)
 	return NULL;
 }
 
-/* find the finger that has not responded to the greatest number of pings */
+/* find the finger that has failed to respond to the greatest number of pings */
 Finger *get_worst_passive_finger(Server *srv)
 {
 	Finger *f;
@@ -134,7 +134,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 		 * Refreshing f here might preclude the ping procedure from removing
 		 * f when it dies.
 		 */
-		CHORD_DEBUG(5, print_server(srv, "[insert_finger(1)]", "end"));
+		CHORD_DEBUG(4, print_server(srv, "[insert_finger(1)]", "end"));
 		*fnew = FALSE;
 		return f;
 	}
@@ -179,7 +179,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 		}
 	}
 
-	CHORD_DEBUG(5, print_server(srv, "[insert_finger(2)]", ""));
+	CHORD_DEBUG(4, print_server(srv, "[insert_finger(2)]", ""));
 
 	*fnew = TRUE;
 	return new_f;
@@ -187,8 +187,11 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 
 void activate_finger(Server *srv, Finger *f)
 {
-	srv->num_passive_fingers--;
-	f->status = F_ACTIVE;
+	if (f->status == F_PASSIVE) {
+		srv->num_passive_fingers--;
+		f->status = F_ACTIVE;
+		chord_print_circle(srv);
+	}
 }
 
 /**********************************************************************/
@@ -227,7 +230,7 @@ void remove_finger(Server *srv, Finger *f)
 			chord_update_range(srv, &pf->node.id, &srv->node.id);
 	}
 
-	CHORD_DEBUG(5, print_server(srv, "[remove_finger]", ""));
+	CHORD_DEBUG(4, print_server(srv, "[remove_finger]", ""));
 	free(f);
 }
 

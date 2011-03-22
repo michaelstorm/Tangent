@@ -20,8 +20,9 @@ int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
 								 &from->addr, from->port));
 
-	verify_ticket(&srv->ticket_key, ticket, "c6s", CHORD_ADDR_DISCOVER,
-				  &from->addr, from->port);
+	if (!verify_ticket(&srv->ticket_key, ticket, "c6s", CHORD_ADDR_DISCOVER,
+					   &from->addr, from->port))
+		return CHORD_INVALID_TICKET;
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr)) {
 		v6_addr_copy(&srv->node.addr, addr);
