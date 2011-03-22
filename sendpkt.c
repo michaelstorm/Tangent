@@ -114,7 +114,7 @@ void send_notify(Server *srv, in6_addr *to_addr, ushort to_port)
 	*(unsigned short *)buf = 0xFFFF;
 
 	CHORD_DEBUG(5, print_send(srv, "send_notify", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_notify(buf)+2, buf);
+	send_packet(srv, to_addr, to_port, pack_notify(buf+2)+2, buf);
 }
 
 /**********************************************************************/
