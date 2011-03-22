@@ -214,7 +214,6 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 			weprintf("recvfrom failed:");
 			// fall through
 		case EAGAIN:
-		case EWOULDBLOCK:
 		case EINTR:
 			return;
 		}
