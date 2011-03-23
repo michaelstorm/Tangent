@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <math.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
@@ -244,7 +245,7 @@ int read_keys(char *file, chordID *key_array, int max_num_keys)
 
 void chord_print_circle(Server *srv)
 {
-	struct circle *c = new_circle(50, 2, -PI/2);
+	struct circle *c = new_circle(53, 4, -PI/2);
 	draw_circle(c, '.');
 
 	long double from = id_to_radians(&srv->pred_bound);
@@ -262,6 +263,48 @@ void chord_print_circle(Server *srv)
 		else
 			draw_point(c, 'A', pos);
 	}
+
+	char addr_str[INET6_ADDRSTRLEN+16];
+	if (!V4_MAPPED(&srv->node.addr)) {
+		strcpy(addr_str, "[");
+		strncat(addr_str, v6addr_to_str(&srv->node.addr), sizeof(addr_str)-1);
+
+		char port_str[16];
+		sprintf(port_str, "]:%d", srv->node.port);
+		strncat(addr_str, port_str, sizeof(port_str)-1);
+	}
+	else {
+		addr_str[0] = '\0';
+		strncat(addr_str, v6addr_to_str(&srv->node.addr), sizeof(addr_str));
+
+		char port_str[16];
+		sprintf(port_str, ":%d", srv->node.port);
+		strncat(addr_str, port_str, sizeof(port_str)-1);
+	}
+
+	char center_text[128];
+	strcpy(center_text, addr_str);
+	strcat(center_text, "\n");
+	int id_start = strlen(center_text);
+
+	int i;
+	for (i = 0; i < 4; i++)
+		sprintf(center_text+id_start+(i*2), "%02x", srv->pred_bound.x[i]);
+	center_text[id_start+(i*2)] = '\0';
+
+	strcat(center_text, " - ");
+	id_start = strlen(center_text);
+
+	for (i = 0; i < 4; i++)
+		sprintf(center_text+id_start+(i*2), "%02x", srv->node.id.x[i]);
+	center_text[id_start+(i*2)] = '\0';
+
+	int text_width, text_height;
+	measure_text(center_text, &text_width, &text_height);
+
+	long double x = (c->diameter/2) - (((long double)(text_width+2))/2);
+	long double y = (c->diameter/2) - (((long double)(text_height+2))/2);
+	draw_centered_text(c, center_text, lrintl(x), lrintl(y*ROW_RATIO), 1);
 
 	print_circle(stderr, c);
 	free_circle(c);

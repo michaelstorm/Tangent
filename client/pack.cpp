@@ -128,6 +128,11 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 	return 0;
 }
 
+/* Clients are likely to have different event loops and not particularly
+   care about packet internals. So this function can be called when the control
+   socket is readable, at which point it unpacks a reply from the DHash server
+   and calls the handler with the response data.
+ */
 int dhash_client_unpack_request_reply(int sock, void *ctx,
 									  dhash_request_reply_handler handler)
 {
