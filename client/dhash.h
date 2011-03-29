@@ -45,6 +45,8 @@ enum
 	DHASH_QUERY = 0,
 	DHASH_QUERY_REPLY_SUCCESS,
 	DHASH_QUERY_REPLY_FAILURE,
+	DHASH_PUSH,
+	DHASH_PUSH_REPLY,
 };
 
 // in send.cpp
@@ -60,7 +62,11 @@ void dhash_add_transfer(DHash *dhash, Transfer *trans);
 void dhash_remove_transfer(DHash *dhash, Transfer *remove);
 void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
 									   void *arg);
-void dhash_query_timeout(evutil_socket_t sock, short what, void *arg);
+
+void dhash_receive_file(DHash *dhash, int sock, int file_size, const char *file,
+						in6_addr *addr, ushort port, int push);
+void dhash_send_file(DHash *dhash, int sock, const char *file, in6_addr *addr,
+					 ushort port, int push);
 
 int dhash_stat_local_file(DHash *dhash, const char *file,
 						  struct stat *stat_buf);

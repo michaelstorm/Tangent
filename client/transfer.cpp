@@ -17,6 +17,9 @@ Transfer *new_transfer(struct event_base *ev_base, const char *file,
 	trans->file = (char *)malloc(strlen(file)+1);
 	strcpy(trans->file, file);
 
+	v6_addr_copy(&trans->remote_addr, addr);
+	trans->remote_port = port;
+
 	trans->received = 0;
 	trans->size = 0;
 
@@ -37,12 +40,36 @@ Transfer *new_transfer(struct event_base *ev_base, const char *file,
 		return NULL;
 	}
 
+	return trans;
+}
+
+void free_transfer(Transfer *trans)
+{
+	if (trans) {
+		if (trans->state == TRANSFER_SENDING
+			|| trans->state == TRANSFER_RECEIVING)
+			transfer_stop(trans, TRANSFER_FAILED);
+
+		free(trans->file);
+		event_free(trans->chord_sock_event);
+		free(trans);
+	}
+}
+
+/* Connect within a thread until UDT implements non-blocking connection setup;
+   otherwise, peers can hang us for the 30 seconds until the handshake times
+   out.
+ */
+void *transfer_connect(void *arg)
+{
+	Transfer *trans = (Transfer *)arg;
+
 	int err;
-	if (V4_MAPPED(addr)) {
+	if (V4_MAPPED(&trans->remote_addr)) {
 		sockaddr_in serv_addr;
 		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_port = htons(port);
-		serv_addr.sin_addr.s_addr = to_v4addr(addr);
+		serv_addr.sin_port = htons(trans->remote_port);
+		serv_addr.sin_addr.s_addr = to_v4addr(&trans->remote_addr);
 		memset(&(serv_addr.sin_zero), '\0', 8);
 
 		err = UDT::connect(trans->udt_sock, (sockaddr*)&serv_addr,
@@ -51,8 +78,8 @@ Transfer *new_transfer(struct event_base *ev_base, const char *file,
 	else {
 		sockaddr_in6 serv_addr;
 		serv_addr.sin6_family = AF_INET6;
-		serv_addr.sin6_port = htons(port);
-		v6_addr_copy(&serv_addr.sin6_addr, addr);
+		serv_addr.sin6_port = htons(trans->remote_port);
+		v6_addr_copy(&serv_addr.sin6_addr, &trans->remote_addr);
 
 		err = UDT::connect(trans->udt_sock, (sockaddr*)&serv_addr,
 						   sizeof(serv_addr));
@@ -67,19 +94,13 @@ Transfer *new_transfer(struct event_base *ev_base, const char *file,
 										EV_WRITE|EV_PERSIST, transfer_send,
 										trans);
 
-	return trans;
-}
-
-void free_transfer(Transfer *trans)
-{
-	if (trans) {
-		if (trans->state == TRANSFER_SENDING
-			|| trans->state == TRANSFER_RECEIVING)
-			transfer_stop(trans, TRANSFER_FAILED);
-
-		free(trans->file);
-		event_free(trans->chord_sock_event);
-		free(trans);
+	if (trans->type & TRANSFER_RECEIVE)
+		transfer_start_receiving(trans);
+	else if (trans->type & TRANSFER_SEND)
+		transfer_start_sending(trans);
+	else {
+		fprintf(stderr, "invalid transfer type %02x\n", trans->type);
+		abort();
 	}
 }
 
@@ -173,16 +194,14 @@ void transfer_send(evutil_socket_t sock, short what, void *arg)
 	return;
 }
 
-void transfer_start_receiving(Transfer *trans, const char *dir, int size)
+void transfer_start_receiving(Transfer *trans)
 {
 	assert(trans->state == TRANSFER_IDLE);
 
 	char path[1024];
-	strcpy(path, dir);
+	strcpy(path, trans->directory);
 	strcat(path, "/");
 	strcat(path, trans->file);
-
-	trans->size = size;
 
 	if (NULL == (trans->fp = fopen(path, "wb"))) {
 		weprintf("could not open \"%s\" for reading:", path);
@@ -193,12 +212,12 @@ void transfer_start_receiving(Transfer *trans, const char *dir, int size)
 	fprintf(stderr, "started receiving %s\n", path);
 }
 
-void transfer_start_sending(Transfer *trans, const char *dir)
+void transfer_start_sending(Transfer *trans)
 {
 	assert(trans->state == TRANSFER_IDLE);
 
 	char path[1024];
-	strcpy(path, dir);
+	strcpy(path, trans->directory);
 	strcat(path, "/");
 	strcat(path, trans->file);
 

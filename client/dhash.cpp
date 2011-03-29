@@ -7,7 +7,9 @@
 #include <time.h>
 #include <udt>
 #include <unistd.h>
+#include <pthread.h>
 #include <event2/event.h>
+#include <event2/thread.h>
 #include "chord.h"
 #include "dhash.h"
 #include "pack.h"
@@ -93,14 +95,41 @@ void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
 {
 	DHash *dhash = (DHash *)arg;
 
-	if (trans->state == TRANSFER_COMPLETE)
-		;//dhash_send_push(dhash, trans->file);
+	if (trans->state == TRANSFER_COMPLETE && !(trans->type & TRANSFER_PUSH))
+		dhash_send_push(dhash, trans->file, trans->size);
 
 	if (trans->state == TRANSFER_COMPLETE || trans->state == TRANSFER_FAILED) {
 		dhash_send_control_query_success(dhash, trans->file);
 		dhash_remove_transfer(dhash, trans);
 		free_transfer(trans);
 	}
+}
+
+void dhash_receive_file(DHash *dhash, int sock, int file_size, const char *file,
+						in6_addr *addr, ushort port, int push)
+{
+	Transfer *trans = new_transfer(dhash->ev_base, file, sock, addr, port);
+	transfer_set_statechange_cb(trans, dhash_handle_transfer_statechange,
+								dhash);
+
+	dhash_add_transfer(dhash, trans);
+
+	trans->type = TRANSFER_RECEIVE | (push ? TRANSFER_PUSH : 0);
+	trans->size = file_size;
+	trans->directory = dhash->files_path;
+	pthread_create(&trans->thread, NULL, transfer_connect, trans);
+}
+
+void dhash_send_file(DHash *dhash, int sock, const char *file, in6_addr *addr,
+					 ushort port, int push)
+{
+	Transfer *trans = new_transfer(dhash->ev_base, file, sock, addr, port);
+
+	dhash_add_transfer(dhash, trans);
+
+	trans->type = TRANSFER_SEND | (push ? TRANSFER_PUSH : 0);
+	trans->directory = dhash->files_path;
+	pthread_create(&trans->thread, NULL, transfer_connect, trans);
 }
 
 int dhash_start(DHash *dhash, char **conf_files, int nservers)
@@ -122,6 +151,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 
 	UDT::startup();
 
+	evthread_use_pthreads();
 	dhash->ev_base = event_base_new();
 
 	dhash->servers = (Server **)malloc(sizeof(Server *)*nservers);

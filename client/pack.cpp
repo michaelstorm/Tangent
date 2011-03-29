@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include "chord.h"
 #include "dhash.h"
+#include "pack.h"
 #include "process.h"
 #include "send.h"
 
@@ -122,7 +123,8 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 	case DHASH_QUERY_REPLY_FAILURE:
 		return dhash_unpack_query_reply_failure(dhash, srv, data, pkt_len,
 												from);
-		return 1;
+	case DHASH_PUSH:
+		return dhash_unpack_push(dhash, srv, data, pkt_len, from);
 	}
 
 	return 0;
@@ -187,4 +189,61 @@ int dhash_pack_query_reply_failure(uchar *buf, const char *name, int name_len)
 	int n = pack(buf, "cs", DHASH_QUERY_REPLY_FAILURE, name_len);
 	memcpy(buf + n, name, name_len);
 	return n + name_len;
+}
+
+int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const char *name,
+					int name_len, int file_size)
+{
+	int n = pack(buf, "c6sls", DHASH_PUSH, addr, port, file_size, name_len);
+	memcpy(buf + n, name, name_len);
+	return n + name_len;
+}
+
+int dhash_unpack_push(DHash *dhash, Server *srv, uchar *data, int n, Node *from)
+{
+	uchar query_type;
+	in6_addr reply_addr;
+	ushort reply_port;
+	ushort name_len;
+	int file_size;
+
+	int data_len = unpack(data, "c6sls", &query_type, &reply_addr, &reply_port,
+						  &file_size, &name_len);
+
+	assert(query_type == DHASH_PUSH);
+	if (data_len + name_len != n)
+		weprintf("bad packet length");
+
+	char file[name_len+1];
+	memcpy(file, data+data_len, name_len);
+	file[name_len] = '\0';
+
+	fprintf(stderr, "received push for \"%s\"\n", file);
+
+	dhash_process_push(dhash, srv, &reply_addr, reply_port, file_size, file,
+					   from);
+	return 1;
+}
+
+int dhash_pack_push_reply(uchar *buf, const char *name, int name_len)
+{
+	int n = pack(buf, "cs", DHASH_PUSH_REPLY, name_len);
+	memcpy(buf + n, name, name_len);
+	return n + name_len;
+}
+
+int dhash_unpack_push_reply(DHash *dhash, Server *srv, uchar *data, int n,
+							Node *from)
+{
+	uchar code;
+	ushort name_len;
+
+	int data_len = unpack(data, "cs", &code, &name_len);
+	assert(code == DHASH_PUSH_REPLY);
+
+	char file[name_len+1];
+	memcpy(file, data + data_len, name_len);
+	file[name_len] = '\0';
+
+	return 1;//dhash_process_push_reply(dhash, srv, file, from);
 }

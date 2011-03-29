@@ -1,8 +1,11 @@
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <event2/event.h>
 #include <sys/wait.h>
 #include "chord_api.h"
+#include "chord.h"
+#include "grid.h"
 #include "dhash.h"
 
 static int control_sock;
@@ -46,6 +49,16 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 
 int main(int argc, char **argv)
 {
+	if (strcmp(argv[1], "--butterfly") == 0) {
+#define DIAM ((long double)100)
+#define ROW_RATIO ((long double).5)
+		struct grid *g = new_grid(DIAM+1, DIAM*ROW_RATIO+1);
+		struct circle *c = new_circle(DIAM/2, DIAM/2, DIAM, PI, ROW_RATIO, 10);
+		draw_butterfly(g, c, '*', 0, 24*PI);
+		print_grid(stdout, g);
+		return 0;
+	}
+
 	// fork the dhash/chord process
 	DHash *dhash = new_dhash("files");
 	control_sock = dhash_start(dhash, argv+1, 1 /*argc-1 */);

@@ -6,15 +6,32 @@
 #include "send.h"
 #include "transfer.h"
 
-/* Send file query result to the control process
- */
-void dhash_send_control_packet(DHash *dhash, int code, const char *file)
+void dhash_send_push(DHash *dhash, const char *name, long file_size)
 {
-	uchar buf[1024];
-	int n = dhash_pack_control_request_reply(buf, code, file, strlen(file));
+	fprintf(stderr, "sending push for %s\n", name);
 
-	if (write(dhash->control_sock, buf, n) < 0)
-		perror("writing control packet");
+	uchar buf[1024];
+	int n;
+	short name_len = strlen(name);
+
+	chordID id;
+	get_data_id(&id, (const uchar *)name, name_len);
+
+	int i;
+	for (i = 0; i < dhash->nservers; i++) {
+		Server *srv = dhash->servers[i];
+
+		/* pack the server's reply address and port */
+		n = dhash_pack_push(buf, &srv->node.addr, srv->node.port, name,
+							name_len, file_size);
+
+		/* send it ourselves rather than tunneling, to avoid having it echoed
+		   back to us */
+		uchar route_type;
+		Node *next = next_route_node(srv, &id, CHORD_ROUTE, &route_type);
+		if (!IN6_IS_ADDR_UNSPECIFIED(&next->addr))
+			send_data(srv, route_type, 10, next, &id, n, buf);
+	}
 }
 
 /* Send a file request to the network. This is accomplished by addressing a
@@ -97,6 +114,28 @@ void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 	uchar buf[1024];
 	int n = dhash_pack_query_reply_failure(buf, file, strlen(file));
 	send_chord_pkt_directly(srv, addr, port, buf, n);
+}
+
+void dhash_send_push_reply(DHash *dhash, Server *srv, in6_addr *addr,
+						   ushort port, const char *file)
+{
+	fprintf(stderr, "sending push reply for %s to [%s]:%d\n", file,
+			v6addr_to_str(addr), port);
+
+	uchar buf[1024];
+	int n = dhash_pack_push_reply(buf, file, strlen(file));
+	send_chord_pkt_directly(srv, addr, port, buf, n);
+}
+
+/* Send file query result to the control process.
+ */
+void dhash_send_control_packet(DHash *dhash, int code, const char *file)
+{
+	uchar buf[1024];
+	int n = dhash_pack_control_request_reply(buf, code, file, strlen(file));
+
+	if (write(dhash->control_sock, buf, n) < 0)
+		perror("writing control packet");
 }
 
 /* Notify the control process that a file was downloaded.
