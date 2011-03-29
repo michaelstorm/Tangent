@@ -241,5 +241,5 @@ void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 	v6_addr_copy(&dest.sin6_addr, addr);
 
 	if (sendto(sock, buf, n, 0, (struct sockaddr *)&dest, sizeof(dest)) < 0)
-			weprintf("sendto failed:");
+		weprintf("sendto failed:");
 }

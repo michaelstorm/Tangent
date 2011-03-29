@@ -5,11 +5,11 @@ project(Chord)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 
-file(GLOB lib_sources "*.c")
+file(GLOB lib_sources "*.c" "*.h")
 
 find_package(OpenSSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
-set(CMAKE_C_FLAGS "-ggdb -fdump-rtl-expand")
+set(CMAKE_C_FLAGS "-Wall -ggdb -fdump-rtl-expand")
 
 find_package(LibEvent)
 include_directories(${LIBEVENT_INCLUDE_DIR})

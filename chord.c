@@ -18,7 +18,7 @@
 #include <sys/time.h>
 #include <openssl/rand.h>
 #include "chord.h"
-#include "circle.h"
+#include "grid.h"
 #include "gen_utils.h"
 
 static void init_ticket_key(Server *srv);
@@ -243,25 +243,42 @@ int read_keys(char *file, chordID *key_array, int max_num_keys)
 	return i;
 }
 
+long double id_to_radians(const chordID *id)
+{
+	int i;
+	long double rad = 0.0;
+
+	for (i = 0; i < CHORD_ID_LEN; i++) {
+		long double numerator = id->x[i];
+		long double denominator = powl(256, i+1);
+		rad += numerator/denominator;
+	}
+	return rad*2*PI;
+}
+
 void chord_print_circle(Server *srv)
 {
-	struct circle *c = new_circle(53, 4, -PI/2);
-	draw_circle(c, '.');
+#define ROW_RATIO ((long double)0.5)
+#define DIAM ((long double)50)
+	struct grid *g = new_grid(DIAM+1, DIAM*ROW_RATIO+1);
+
+	struct circle *c = new_circle(DIAM/2, DIAM/2, DIAM, PI, ROW_RATIO, 4);
+	draw_circle(g, c, '.');
 
 	long double from = id_to_radians(&srv->pred_bound);
 	long double to = id_to_radians(&srv->node.id);
 
-	draw_arc(c, '*', from, to);
-	draw_radius(c, '^', from);
-	draw_radius(c, '^', to);
+	draw_arc(g, c, '*', from, to);
+	draw_radius(g, c, '^', from);
+	draw_radius(g, c, '^', to);
 
 	Finger *f;
 	for (f = srv->head_flist; f != NULL; f = f->next) {
 		long double pos = id_to_radians(&f->node.id);
 		if (f->status == F_PASSIVE)
-			draw_point(c, 'P', pos);
+			draw_circle_point(g, c, 'P', pos);
 		else
-			draw_point(c, 'A', pos);
+			draw_circle_point(g, c, 'A', pos);
 	}
 
 	char addr_str[INET6_ADDRSTRLEN+16];
@@ -302,12 +319,13 @@ void chord_print_circle(Server *srv)
 	int text_width, text_height;
 	measure_text(center_text, &text_width, &text_height);
 
-	long double x = (c->diameter/2) - (((long double)(text_width+2))/2);
-	long double y = (c->diameter/2) - (((long double)(text_height+2))/2);
-	draw_centered_text(c, center_text, lrintl(x), lrintl(y*ROW_RATIO), 1);
+	long double x = c->center_x-(((long double)(text_width+2))/2);
+	long double y = (c->center_y*ROW_RATIO)+(((long double)(text_height+2))/2);
+	draw_centered_text(g, center_text, lrintl(x), lrintl(y), 1);
 
-	print_circle(stderr, c);
+	print_grid(stderr, g);
 	free_circle(c);
+	free_grid(g);
 }
 
 void chord_update_range(Server *srv, chordID *l, chordID *r)
