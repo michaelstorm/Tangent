@@ -65,16 +65,15 @@ int dhash_unpack_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 {
 	uchar code;
 	ushort name_len;
-	long file_size;
 
-	int data_len = unpack(data, "cls", &code, &file_size, &name_len);
+	int data_len = unpack(data, "cs", &code, &name_len);
 	assert(code == DHASH_QUERY_REPLY_SUCCESS);
 
 	char file[name_len+1];
 	memcpy(file, data + data_len, name_len);
 	file[name_len] = '\0';
 
-	return dhash_process_query_reply_success(dhash, srv, file_size, file, from);
+	return dhash_process_query_reply_success(dhash, srv, file, from);
 }
 
 int dhash_unpack_query_reply_failure(DHash *dhash, Server *srv, uchar *data,
@@ -176,10 +175,10 @@ int dhash_pack_query(uchar *buf, in6_addr *addr, ushort port, const char *name,
 	return n + name_len;
 }
 
-int dhash_pack_query_reply_success(uchar *buf, long file_size, const char *name,
+int dhash_pack_query_reply_success(uchar *buf, const char *name,
 								   int name_len)
 {
-	int n = pack(buf, "cls", DHASH_QUERY_REPLY_SUCCESS, file_size, name_len);
+	int n = pack(buf, "cs", DHASH_QUERY_REPLY_SUCCESS, name_len);
 	memcpy(buf + n, name, name_len);
 	return n + name_len;
 }

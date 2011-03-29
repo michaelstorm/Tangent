@@ -16,44 +16,6 @@
 #include "send.h"
 #include "transfer.h"
 
-void dhash_add_transfer(DHash *dhash, Transfer *trans)
-{
-	Transfer *old_head = dhash->trans_head;
-	dhash->trans_head = trans;
-	trans->next = old_head;
-}
-
-void dhash_remove_transfer(DHash *dhash, Transfer *remove)
-{
-	if (dhash->trans_head == remove)
-		dhash->trans_head = dhash->trans_head->next;
-	else {
-		Transfer *trans = dhash->trans_head;
-		while (trans->next) {
-			if (trans->next == remove) {
-				trans->next = remove->next;
-				break;
-			}
-			trans = trans->next;
-		}
-	}
-}
-
-void dhash_handle_udt_packet(evutil_socket_t sock, short what, void *arg)
-{
-	ushort type;
-	if (recv(sock, &type, 2, MSG_PEEK) == 2 && type == 0xFFFF)
-		return;
-
-	DHash *dhash = (DHash *)arg;
-	Transfer *trans;
-	for (trans = dhash->trans_head; trans != NULL; trans = trans->next) {
-		if (trans->state == TRANSFER_RECEIVING
-			&& trans->chord_sock == sock)
-			transfer_receive(trans, sock);
-	}
-}
-
 DHash *new_dhash(const char *files_path)
 {
 	DHash *dhash = (DHash *)malloc(sizeof(DHash));
@@ -88,48 +50,6 @@ int dhash_local_file_size(DHash *dhash, const char *file)
 	struct stat stat_buf;
 	assert(dhash_stat_local_file(dhash, file, &stat_buf) == 0);
 	return stat_buf.st_size;
-}
-
-void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
-									   void *arg)
-{
-	DHash *dhash = (DHash *)arg;
-
-	if (trans->state == TRANSFER_COMPLETE && !(trans->type & TRANSFER_PUSH))
-		dhash_send_push(dhash, trans->file, trans->size);
-
-	if (trans->state == TRANSFER_COMPLETE || trans->state == TRANSFER_FAILED) {
-		dhash_send_control_query_success(dhash, trans->file);
-		dhash_remove_transfer(dhash, trans);
-		free_transfer(trans);
-	}
-}
-
-void dhash_receive_file(DHash *dhash, int sock, int file_size, const char *file,
-						in6_addr *addr, ushort port, int push)
-{
-	Transfer *trans = new_transfer(dhash->ev_base, file, sock, addr, port);
-	transfer_set_statechange_cb(trans, dhash_handle_transfer_statechange,
-								dhash);
-
-	dhash_add_transfer(dhash, trans);
-
-	trans->type = TRANSFER_RECEIVE | (push ? TRANSFER_PUSH : 0);
-	trans->size = file_size;
-	trans->directory = dhash->files_path;
-	pthread_create(&trans->thread, NULL, transfer_connect, trans);
-}
-
-void dhash_send_file(DHash *dhash, int sock, const char *file, in6_addr *addr,
-					 ushort port, int push)
-{
-	Transfer *trans = new_transfer(dhash->ev_base, file, sock, addr, port);
-
-	dhash_add_transfer(dhash, trans);
-
-	trans->type = TRANSFER_SEND | (push ? TRANSFER_PUSH : 0);
-	trans->directory = dhash->files_path;
-	pthread_create(&trans->thread, NULL, transfer_connect, trans);
 }
 
 int dhash_start(DHash *dhash, char **conf_files, int nservers)
@@ -170,11 +90,6 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		Server *srv = dhash->servers[i];
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
-
-		dhash->udt_sock_event = event_new(dhash->ev_base, srv->sock,
-										  EV_READ|EV_PERSIST,
-										  dhash_handle_udt_packet, dhash);
-		event_add(dhash->udt_sock_event, NULL);
 
 		chord_set_packet_handler(srv, CHORD_ROUTE,
 								 (chord_packet_handler)dhash_unpack_chord_packet);

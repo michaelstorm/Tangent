@@ -24,7 +24,6 @@ struct DHash
 	int control_sock;
 
 	struct event_base *ev_base;
-	struct event *udt_sock_event;
 	struct event *control_sock_event;
 };
 
@@ -57,16 +56,6 @@ extern int dhash_client_unpack_request_reply(int sock, void *ctx,
 
 DHash *new_dhash(const char *files_path);
 int dhash_start(DHash *dhash, char **conf_files, int nservers);
-
-void dhash_add_transfer(DHash *dhash, Transfer *trans);
-void dhash_remove_transfer(DHash *dhash, Transfer *remove);
-void dhash_handle_transfer_statechange(Transfer *trans, int old_state,
-									   void *arg);
-
-void dhash_receive_file(DHash *dhash, int sock, int file_size, const char *file,
-						in6_addr *addr, ushort port, int push);
-void dhash_send_file(DHash *dhash, int sock, const char *file, in6_addr *addr,
-					 ushort port, int push);
 
 int dhash_stat_local_file(DHash *dhash, const char *file,
 						  struct stat *stat_buf);

@@ -97,8 +97,7 @@ void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
 		   v6addr_to_str(addr), port);
 
 	uchar buf[1024];
-	int file_size = dhash_local_file_size(dhash, file);
-	int n = dhash_pack_query_reply_success(buf, file_size, file, strlen(file));
+	int n = dhash_pack_query_reply_success(buf, file, strlen(file));
 	send_chord_pkt_directly(srv, addr, port, buf, n);
 }
 

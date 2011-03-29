@@ -27,7 +27,9 @@ int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 		dhash_send_query_reply_success(dhash, srv, reply_addr, reply_port,
 									   file);
 
-		dhash_send_file(dhash, srv->sock, file, reply_addr, reply_port, 0);
+		Transfer *trans = new_transfer(dhash, srv->sock, reply_addr, reply_port,
+									   TRANSFER_SEND);
+		transfer_start_sending(trans);
 	}
 	else {
 		fprintf(stderr, "we don't have %s\n", file);
@@ -53,14 +55,15 @@ int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 	return 1;
 }
 
-int dhash_process_query_reply_success(DHash *dhash, Server *srv, long file_size,
+int dhash_process_query_reply_success(DHash *dhash, Server *srv,
 									  const char *file, Node *from)
 {
-	fprintf(stderr, "receiving transfer of \"%s\" of size %ld from [%s]:%d\n",
-			file, file_size, v6addr_to_str(&from->addr), from->port);
+	fprintf(stderr, "receiving transfer of \"%s\" from [%s]:%d\n",
+			file, v6addr_to_str(&from->addr), from->port);
 
-	dhash_receive_file(dhash, srv->sock, file_size, file, &from->addr,
-					   from->port, 0);
+	Transfer *trans = new_transfer(dhash, srv->sock, &from->addr, from->port,
+								   TRANSFER_RECEIVE);
+	transfer_start_receiving(trans, file);
 	return 0;
 }
 
@@ -78,14 +81,6 @@ int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
 	dhash_send_push_reply(dhash, srv, reply_addr, reply_port, file);
 	return 0;
 }
-
-/*int dhash_process_push_reply(DHash *dhash, Server *srv, in6_addr *reply_addr,
-					   ushort reply_port, int file_size, const char *file,
-					   Node *from)
-{
-	dhash_receive_
-	return 0;
-}*/
 
 int dhash_process_client_query(DHash *dhash, const char *file)
 {

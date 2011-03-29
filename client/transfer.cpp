@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <fstream>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,33 +8,25 @@
 #include "chord.h"
 #include "dhash.h"
 #include "transfer.h"
+using namespace std;
 
-Transfer *new_transfer(struct event_base *ev_base, const char *file,
-					   int chord_sock, const in6_addr *addr, ushort port)
+Transfer *new_transfer(DHash *dhash, int chord_sock, const in6_addr *addr,
+					   ushort port, int type)
 {
 	Transfer *trans = (Transfer *)malloc(sizeof(Transfer));
-	trans->ev_base = ev_base;
-	trans->chord_sock = chord_sock;
-	trans->next = NULL;
-	trans->file = (char *)malloc(strlen(file)+1);
-	strcpy(trans->file, file);
+	trans->dhash = dhash;
+	trans->file = NULL;
 
 	v6_addr_copy(&trans->remote_addr, addr);
 	trans->remote_port = port;
 
-	trans->received = 0;
-	trans->size = 0;
-
-	trans->state = TRANSFER_IDLE;
-	trans->statechange_cb = NULL;
+	trans->type = type;
 
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
 
 	int yes = true;
 	UDT::setsockopt(trans->udt_sock, 0, UDT_RENDEZVOUS, &yes, sizeof(yes));
-	UDT::setsockopt(trans->udt_sock, 0, UDT_SNDSYN, &yes, sizeof(yes));
-	UDT::setsockopt(trans->udt_sock, 0, UDT_RCVSYN, &yes, sizeof(yes));
 
 	if (UDT::ERROR == UDT::bind(trans->udt_sock, chord_sock)) {
 		fprintf(stderr, "bind error: %s\n",
@@ -46,14 +40,120 @@ Transfer *new_transfer(struct event_base *ev_base, const char *file,
 void free_transfer(Transfer *trans)
 {
 	if (trans) {
-		if (trans->state == TRANSFER_SENDING
-			|| trans->state == TRANSFER_RECEIVING)
-			transfer_stop(trans, TRANSFER_FAILED);
-
 		free(trans->file);
-		event_free(trans->chord_sock_event);
 		free(trans);
 	}
+}
+
+void transfer_start_receiving(Transfer *trans, const char *file)
+{
+	trans->file = (char *)malloc(strlen(file)+1);
+	strcpy(trans->file, file);
+
+	pthread_create(&trans->thread, NULL, transfer_connect, trans);
+}
+
+void transfer_start_sending(Transfer *trans)
+{
+	pthread_create(&trans->thread, NULL, transfer_connect, trans);
+}
+
+static int blocking_recv_buf(Transfer *trans, uchar *buf, int size)
+{
+	int n, received = 0;
+	while (received < size) {
+		n = UDT::recv(trans->udt_sock, (char *)buf, size-received, 0);
+		if (n == UDT::ERROR) {
+			cerr << "recv: " << UDT::getlasterror().getErrorMessage();
+			return 0;
+		}
+
+		received += n;
+	}
+	return 1;
+}
+
+static int send_buf(Transfer *trans, const uchar *buf, int size)
+{
+	if (UDT::ERROR == UDT::send(trans->udt_sock, (const char *)buf, size, 0)) {
+		cerr << "send: " << UDT::getlasterror().getErrorMessage();
+		return 0;
+	}
+	return 1;
+}
+
+static void transfer_receive(Transfer *trans)
+{
+	// send length of file name
+	short name_len = (short)strlen(trans->file);
+	short net_name_len = htons(name_len);
+	send_buf(trans, (uchar *)&net_name_len, 2);
+
+	// send file name
+	send_buf(trans, (uchar *)trans->file, name_len);
+
+	// receive file size
+	int size;
+	blocking_recv_buf(trans, (uchar *)&size, 4);
+	size = ntohl(size);
+
+	char path[1024];
+	strcpy(path, trans->dhash->files_path);
+	strcat(path, "/");
+	strcat(path, trans->file);
+
+	// open file
+	fstream ofs(path, ios_base::out);
+
+	// receive file
+	int64_t zero = 0;
+	if (UDT::ERROR == UDT::recvfile(trans->udt_sock, ofs, zero, size)) {
+		cerr << "recvfile: " << UDT::getlasterror().getErrorMessage();
+		return;
+	}
+	fprintf(stderr, "finished receiving!\n");
+}
+
+static void transfer_send(Transfer *trans)
+{
+	// receive length of file name
+	short name_len;
+	blocking_recv_buf(trans, (uchar *)&name_len, 2);
+	name_len = ntohs(name_len);
+
+	// receive file name
+	char buf[name_len+1];
+	blocking_recv_buf(trans, (uchar *)buf, name_len);
+	buf[name_len] = '\0';
+
+	trans->file = (char *)malloc(strlen(trans->dhash->files_path+name_len+2));
+	strcpy(trans->file, buf);
+
+	char path[1024];
+	strcpy(path, trans->dhash->files_path);
+	strcat(path, "/");
+	strcat(path, trans->file);
+
+	// open file, get file size
+	fstream ifs(path, ios_base::in);
+	ifs.seekg(0, ios::end);
+	int size = ifs.tellg();
+	ifs.seekg(0, ios::beg);
+
+	// send file size
+	int net_size = htonl(size);
+	if (UDT::ERROR == UDT::send(trans->udt_sock, (char *)&net_size, 4, 0)) {
+		cerr << "send: " << UDT::getlasterror().getErrorMessage();
+		return;
+	}
+
+	// send file
+	int64_t zero = 0;
+	if (UDT::ERROR == UDT::sendfile(trans->udt_sock, ifs, zero, size)) {
+		cerr << "sendfile: " << UDT::getlasterror().getErrorMessage();
+		return;
+	}
+	fprintf(stderr, "finished sending!\n");
 }
 
 /* Connect within a thread until UDT implements non-blocking connection setup;
@@ -90,144 +190,12 @@ void *transfer_connect(void *arg)
 		return NULL;
 	}
 
-	trans->chord_sock_event = event_new(trans->ev_base, trans->chord_sock,
-										EV_WRITE|EV_PERSIST, transfer_send,
-										trans);
-
 	if (trans->type & TRANSFER_RECEIVE)
-		transfer_start_receiving(trans);
+		transfer_receive(trans);
 	else if (trans->type & TRANSFER_SEND)
-		transfer_start_sending(trans);
+		transfer_send(trans);
 	else {
 		fprintf(stderr, "invalid transfer type %02x\n", trans->type);
 		abort();
 	}
-}
-
-void transfer_set_statechange_cb(Transfer *trans, transfer_statechange_cb cb,
-								 void *arg)
-{
-	trans->statechange_cb = cb;
-	trans->statechange_arg = arg;
-}
-
-static void transfer_set_state(Transfer *trans, int new_state)
-{
-	int old_state = trans->state;
-	trans->state = new_state;
-
-	if (old_state != new_state && trans->statechange_cb != NULL)
-		trans->statechange_cb(trans, old_state, trans->statechange_arg);
-}
-
-void transfer_stop(Transfer *trans, int state)
-{
-	if (trans->state == TRANSFER_RECEIVING
-		|| trans->state == TRANSFER_SENDING) {
-		fclose(trans->fp);
-		UDT::close(trans->udt_sock);
-
-		if (trans->state == TRANSFER_SENDING)
-			event_del(trans->chord_sock_event);
-	}
-
-	transfer_set_state(trans, state);
-}
-
-int transfer_receive(Transfer *trans, int sock)
-{
-	assert(trans->state == TRANSFER_RECEIVING);
-
-	uchar buf[1024];
-	int len = UDT::recv(trans->udt_sock, (char *)buf, sizeof(buf), 0);
-
-	fprintf(stderr, "received %ld/%ld of \"%s\"\n", trans->received, trans->size,
-		   trans->file);
-
-	if (fwrite(buf, 1, len, trans->fp) < len) {
-		weprintf("writing to \"%\":", trans->file);
-		transfer_stop(trans, TRANSFER_FAILED);
-		return 1;
-	}
-
-	trans->received += len;
-	if (trans->received == trans->size) {
-		fprintf(stderr, "done receiving \"%s\"\n", trans->file);
-		transfer_stop(trans, TRANSFER_COMPLETE);
-		return 1;
-	}
-	else if (trans->received >= trans->size) {
-		fprintf(stderr, "received size %ld greater than expected size %ld for \"%s\"\n",
-			   trans->received, trans->size, trans->file);
-		transfer_stop(trans, TRANSFER_FAILED);
-		return 1;
-	}
-
-	return 0;
-}
-
-void transfer_send(evutil_socket_t sock, short what, void *arg)
-{
-	Transfer *trans = (Transfer *)arg;
-	assert(trans->state == TRANSFER_SENDING);
-
-	uchar buf[1024];
-	int n = fread(buf, 1, sizeof(buf), trans->fp);
-	fprintf(stderr, "read %d bytes from %s\n", n, trans->file);
-
-	if (n < 0) {
-		weprintf("reading from \"%s\":", trans->file);
-		transfer_stop(trans, TRANSFER_FAILED);
-		return;
-	}
-	else if (n == 0) {
-		fprintf(stderr, "done reading from \"%s\"\n", trans->file);
-		transfer_stop(trans, TRANSFER_COMPLETE);
-		return;
-	}
-
-	if (UDT::ERROR == UDT::send(trans->udt_sock, (char *)buf, n, 0)) {
-		fprintf(stderr, "send: %s\n", UDT::getlasterror().getErrorMessage());
-		return;
-	}
-
-	return;
-}
-
-void transfer_start_receiving(Transfer *trans)
-{
-	assert(trans->state == TRANSFER_IDLE);
-
-	char path[1024];
-	strcpy(path, trans->directory);
-	strcat(path, "/");
-	strcat(path, trans->file);
-
-	if (NULL == (trans->fp = fopen(path, "wb"))) {
-		weprintf("could not open \"%s\" for reading:", path);
-		return;
-	}
-
-	transfer_set_state(trans, TRANSFER_RECEIVING);
-	fprintf(stderr, "started receiving %s\n", path);
-}
-
-void transfer_start_sending(Transfer *trans)
-{
-	assert(trans->state == TRANSFER_IDLE);
-
-	char path[1024];
-	strcpy(path, trans->directory);
-	strcat(path, "/");
-	strcat(path, trans->file);
-
-	if (NULL == (trans->fp = fopen(path, "rb"))) {
-		weprintf("could not open \"%s\" for reading:", path);
-		return;
-	}
-
-	transfer_set_state(trans, TRANSFER_SENDING);
-	fprintf(stderr, "started sending %s\n", path);
-
-	event_add(trans->chord_sock_event, NULL);
 }
