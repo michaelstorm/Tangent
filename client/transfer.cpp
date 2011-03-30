@@ -219,10 +219,6 @@ static int transfer_send(Transfer *trans)
 	return 1;
 }
 
-/* Connect within a thread until UDT implements non-blocking connection setup;
-   otherwise, peers can hang us for the 30 seconds until the handshake times
-   out.
- */
 void *transfer_connect(void *arg)
 {
 	Transfer *trans = (Transfer *)arg;
@@ -233,7 +229,7 @@ void *transfer_connect(void *arg)
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_port = htons(trans->remote_port);
 		serv_addr.sin_addr.s_addr = to_v4addr(&trans->remote_addr);
-		memset(&(serv_addr.sin_zero), '\0', 8);
+		memset(&serv_addr.sin_zero, '\0', 8);
 
 		err = UDT::connect(trans->udt_sock, (sockaddr*)&serv_addr,
 						   sizeof(serv_addr));
@@ -278,4 +274,6 @@ void *transfer_connect(void *arg)
 		else
 			free_transfer(trans);
 	}
+
+	return NULL;
 }

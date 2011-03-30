@@ -153,7 +153,7 @@ void fix_fingers(Server *srv)
 void fix_succs_preds(Server *srv)
 {
 	int k;
-	Finger *f, *succ, *pred;
+	Finger *f, *succ;
 	chordID id;
 
 	CHORD_DEBUG(4, print_fun(srv, "fix_successors", 0));

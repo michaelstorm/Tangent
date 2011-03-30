@@ -275,7 +275,7 @@ int pack_addr_discover(uchar *buf, uchar *ticket)
 
 int unpack_addr_discover(Server *srv, int n, uchar *buf, Node *from)
 {
-	byte type;
+	uchar type;
 	uchar ticket[TICKET_LEN];
 
 	if (unpack(buf, "ct", &type, ticket) != n) {
@@ -294,7 +294,7 @@ int pack_addr_discover_repl(uchar *buf, uchar *ticket, in6_addr *addr)
 
 int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from)
 {
-	byte type;
+	uchar type;
 	uchar ticket[TICKET_LEN];
 	in6_addr addr;
 
@@ -308,7 +308,7 @@ int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from)
 /**********************************************************************/
 
 /* pack_data: pack data packet */
-int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
+int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 			  const uchar *data)
 {
 	int n;
@@ -327,7 +327,7 @@ int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
 int unpack_data(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
-	byte ttl;
+	uchar ttl;
 	int len;
 	chordID id;
 	ushort pkt_len;
@@ -342,7 +342,7 @@ int unpack_data(Server *srv, int n, uchar *buf, Node *from)
 /**********************************************************************/
 
 /* pack_fs: pack find_successor packet */
-int pack_fs(uchar *buf, uchar *ticket, byte ttl, in6_addr *addr, ushort port)
+int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port)
 {
 	return pack(buf, "ctc6s", CHORD_FS, ticket, ttl, addr, port);
 }
@@ -354,7 +354,7 @@ int unpack_fs(Server *srv, int n, uchar *buf, Node *from)
 {
 	uchar type;
 	uchar ticket[TICKET_LEN];
-	byte ttl;
+	uchar ttl;
 	in6_addr addr;
 	ushort port;
 
@@ -590,8 +590,8 @@ int unpack_fingers_repl(Server *srv, int n, uchar *buf, Node *from)
  *		ushort port; ... and port number of the client
  *		....
  */
-int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
-					byte hops)
+int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, uchar ttl,
+					uchar hops)
 {
 	int	 n = 0;
 
@@ -625,9 +625,9 @@ int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
 int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from)
 {
 	chordID id;
-	byte		type;
-	byte		ttl;
-	byte		hops;
+	uchar type;
+	uchar ttl;
+	uchar hops;
 
 	/* unpack following fields: type, ttl, hops, and target id */
 	if (unpack(buf, "cccx", &type, &ttl, &hops, &id) >= n)
@@ -658,7 +658,7 @@ int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from)
  *		ushort port; ... and port number of the client
  *		....
  */
-int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
+int pack_traceroute_repl(uchar *buf, Server *srv, uchar ttl, uchar hops,
 						 in6_addr *paddr, ushort *pport, int one_hop)
 {
 	int	 n = 0;
@@ -702,9 +702,9 @@ int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
  */
 int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from)
 {
-	byte type;
-	byte ttl;
-	byte hops;
+	uchar type;
+	uchar ttl;
+	uchar hops;
 
 	/* unpack following fields: type, ttl, and hops */
 	if (unpack(buf, "ccc", &type, &ttl, &hops) >= n)

@@ -5,7 +5,14 @@
 extern "C" {
 #endif
 
-typedef unsigned char byte;
+typedef unsigned char uchar;
+typedef unsigned short ushort;
+typedef unsigned long ulong;
+typedef struct in6_addr in6_addr;
+typedef struct in_addr in_addr;
+#ifdef __APPLE__
+typedef u_long ulong;
+#endif
 
 enum {
   CHORD_ID_BITS = 160,
@@ -13,7 +20,7 @@ enum {
 };
 
 typedef struct {
-	byte x[CHORD_ID_LEN];
+	uchar x[CHORD_ID_LEN];
 } chordID;
 
 /* init: initialize chord server, provide configuration file */

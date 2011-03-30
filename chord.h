@@ -88,16 +88,6 @@ enum {
 	CHORD_EVENT_UPDATE_RANGE = 0,
 };
 
-/* XXX: warning: portability bugs */
-typedef unsigned char uchar;
-typedef unsigned short ushort;
-typedef unsigned long ulong;
-typedef struct in6_addr in6_addr;
-typedef struct in_addr in_addr;
-#ifdef __APPLE__
-typedef u_long ulong;
-#endif
-
 typedef int (*chord_packet_handler)(void *ctx, Server *srv, int n, uchar *buf,
 									Node *from);
 
@@ -194,6 +184,8 @@ void chord_set_packet_handler(Server *srv, int event,
 							  chord_packet_handler handler);
 void chord_set_packet_handler_ctx(Server *srv, void *ctx);
 
+void chord_print_circle(Server *srv);
+
 /* finger.c */
 Finger *new_finger(Node *node);
 Finger *succ_finger(Server *srv);
@@ -204,6 +196,7 @@ void remove_finger(Server *srv, Finger *f);
 Finger *get_finger(Server *srv, chordID *id);
 Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 					  int *fnew);
+void activate_finger(Server *srv, Finger *f);
 void free_finger_list(Finger *flist);
 
 /* hosts.c */
@@ -241,10 +234,10 @@ struct unpack_args {
 #pragma ccuredvararg("unpack", sizeof(struct unpack_args))
 #endif
 
-int pack_data(uchar *buf, uchar type, byte ttl, chordID *id, ushort len,
+int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 			  const uchar *data);
 int unpack_data(Server *srv, int n, uchar *buf, Node *from);
-int pack_fs(uchar *buf, uchar *ticket, byte ttl, in6_addr *addr, ushort port);
+int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port);
 int unpack_fs(Server *srv, int n, uchar *buf, Node *from);
 int pack_fs_repl(uchar *buf, uchar *ticket, in6_addr *addr, ushort port);
 int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from);
@@ -263,10 +256,10 @@ int pack_fingers_get(uchar *buf, uchar *ticket, in6_addr *addr, ushort port,
 int unpack_fingers_get(Server *srv, int n, uchar *buf, Node *from);
 int pack_fingers_repl(uchar *buf, Server *srv, uchar *ticket);
 int unpack_fingers_repl(Server *null, int n, uchar *buf, Node *from);
-int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, byte ttl,
-					byte hops);
+int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, uchar ttl,
+					uchar hops);
 int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from);
-int pack_traceroute_repl(uchar *buf, Server *srv, byte ttl, byte hops,
+int pack_traceroute_repl(uchar *buf, Server *srv, uchar ttl, uchar hops,
 						 in6_addr *paddr, ushort *pport, int one_hop);
 int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from);
 int pack_addr_discover(uchar *buf, uchar *ticket);
@@ -277,9 +270,9 @@ int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from);
 /* process.c */
 Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 					  uchar *route_type);
-int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
+int process_data(Server *srv, uchar type, uchar ttl, chordID *id, ushort len,
 				 uchar *data, Node *from);
-int process_fs(Server *srv, uchar *ticket, byte ttl, in6_addr *addr,
+int process_fs(Server *srv, uchar *ticket, uchar ttl, in6_addr *addr,
 			   ushort port);
 int process_fs_repl(Server *srv, uchar *ticket, in6_addr *addr, ushort port);
 int process_stab(Server *srv, in6_addr *addr, ushort port);
@@ -290,9 +283,9 @@ int process_pong(Server *srv, uchar *ticket, ulong time, Node *from);
 int process_fingers_get(Server *srv, uchar *ticket, in6_addr *addr, ushort port,
 						chordID *key);
 int process_fingers_repl(Server *srv, uchar ret_code);
-int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
-					   byte ttl, byte hops);
-int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops);
+int process_traceroute(Server *srv, chordID *id, uchar *buf, uchar type,
+					   uchar ttl, uchar hops);
+int process_traceroute_repl(Server *srv, uchar *buf, uchar ttl, uchar hops);
 int process_addr_discover(Server *srv, uchar *ticket, Node *from);
 int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
 							   Node *from);
@@ -302,11 +295,11 @@ void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,
 				 uchar *buf);
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
-void send_data(Server *srv, uchar type, byte ttl, Node *np, chordID *id,
+void send_data(Server *srv, uchar type, uchar ttl, Node *np, chordID *id,
 			   ushort n, const uchar *data);
-void send_fs(Server *srv, byte ttl, in6_addr *to_addr, ushort to_port,
+void send_fs(Server *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port);
-void send_fs_forward(Server *srv, uchar *ticket, byte ttl, in6_addr *to_addr,
+void send_fs_forward(Server *srv, uchar *ticket, uchar ttl, in6_addr *to_addr,
 					 ushort to_port, in6_addr *addr, ushort port);
 void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 				  in6_addr *addr, ushort port);
@@ -322,8 +315,8 @@ void send_fingers_get(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *
 					  ushort port, chordID *key);
 void send_fingers_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
 					   ushort to_port);
-void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, byte ttl,
-					 byte hops);
+void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, uchar ttl,
+					 uchar hops);
 void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
 						  int one_hop);
 void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port);

@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,13 +89,13 @@ void update_rtt(long *rtt_avg, long *rtt_dev, long new_rtt)
 /**********************************************************************/
 
 /* randID: return a random ID */
-chordID rand_ID(void)
+chordID rand_ID()
 {
 	chordID id;
 
 	int i;
 	for (i = 0; i < CHORD_ID_LEN; i++)
-		id.x[i] = (byte)(random() & 0xff);
+		id.x[i] = (uchar)(random() & 0xff);
 	return id;
 }
 
@@ -103,7 +104,7 @@ chordID rand_ID(void)
 /* successorID: id + (1 << n) */
 chordID successor(chordID id, int n)
 {
-	byte old;
+	uchar old;
 	int start, i;
 
 	assert(n >= 0 && n < CHORD_ID_BITS);
@@ -126,7 +127,7 @@ chordID successor(chordID id, int n)
 /* predecessorID: id - (1 << n) */
 chordID predecessor(chordID id, int n)
 {
-	byte old;
+	uchar old;
 	int start, i;
 
 	assert(n >= 0 && n < CHORD_ID_BITS);
@@ -244,12 +245,6 @@ int is_zero(chordID *x)
 }
 
 /**********************************************************************/
-
-/* greater: a>b? */
-static int is_greater(chordID *a, chordID *b)
-{
-	return memcmp(a->x, b->x, sizeof(chordID)) > 0;
-}
 
 /* less: a<b? */
 static int is_less(chordID *a, chordID *b)

@@ -184,7 +184,7 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 	ssize_t packet_len;
 	socklen_t from_len;
 	Node from;
-	byte buf[BUFSIZE];
+	uchar buf[BUFSIZE];
 
 	if (srv->is_v6) {
 		struct sockaddr_in6 from_sa;

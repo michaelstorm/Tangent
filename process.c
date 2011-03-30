@@ -78,7 +78,7 @@ Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 	return closest_preceding_node(srv, id, FALSE);
 }
 
-int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
+int process_data(Server *srv, uchar type, uchar ttl, chordID *id, ushort len,
 				 uchar *data, Node *from)
 {
 	CHORD_DEBUG(3, print_process(srv, "process_data", id, NULL, -1));
@@ -105,7 +105,7 @@ int process_data(Server *srv, uchar type, byte ttl, chordID *id, ushort len,
 
 /**********************************************************************/
 
-int process_fs(Server *srv, uchar *ticket, byte ttl, in6_addr *reply_addr,
+int process_fs(Server *srv, uchar *ticket, uchar ttl, in6_addr *reply_addr,
 			   ushort reply_port)
 {
 	Node *succ, *np;
@@ -317,8 +317,8 @@ int process_fingers_repl(Server *srv, uchar ret_code)
 
 /**********************************************************************/
 
-int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
-					   byte ttl, byte hops)
+int process_traceroute(Server *srv, chordID *id, uchar *buf, uchar type,
+					   uchar ttl, uchar hops)
 {
 	Finger *f;
 
@@ -358,7 +358,7 @@ int process_traceroute(Server *srv, chordID *id, char *buf, uchar type,
 
 /**********************************************************************/
 
-int process_traceroute_repl(Server *srv, char *buf, byte ttl, byte hops)
+int process_traceroute_repl(Server *srv, uchar *buf, uchar ttl, uchar hops)
 {
 	CHORD_DEBUG(5, print_process(srv, "process_traceroute_repl", &srv->node.id,
 								 NULL, -1));

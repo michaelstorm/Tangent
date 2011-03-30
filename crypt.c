@@ -1,7 +1,7 @@
 #include <openssl/blowfish.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
-
+#include <string.h>
 #include "chord.h"
 
 #undef C_DEBUG_ON
@@ -76,8 +76,10 @@ int vpack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
 		}
 	}
 
-	EVP_DigestFinal_ex(&ctx, (uchar *)out, NULL);
+	unsigned int len;
+	EVP_DigestFinal_ex(&ctx, (uchar *)out, &len);
 	EVP_MD_CTX_cleanup(&ctx);
+	return len;
 }
 
 int pack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
@@ -92,7 +94,6 @@ int pack_hash(const EVP_MD *type, const uchar *out, const uchar *buf,
 
 int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...)
 {
-	int i;
 	va_list args;
 	uchar md_value[EVP_MAX_MD_SIZE];
 	uint32_t epoch_time = (uint32_t)time(NULL);
@@ -101,6 +102,7 @@ int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...)
 	fprintf(stderr, "\ngenerating:\n");
 
 	fprintf(stderr, "time: ");
+	int i;
 	for (i = 0; i < 4; i++)
 		fprintf(stderr, "%02x", ((uchar *)&epoch_time)[i]);
 	fprintf(stderr, " %u\n", epoch_time);

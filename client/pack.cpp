@@ -103,7 +103,7 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 	fprintf(stderr, "\n");
 
 	uchar type;
-	byte ttl;
+	uchar ttl;
 	ushort pkt_len;
 	int len = unpack(buf, "cc*xs", &type, &ttl, &pkt_len);
 

@@ -66,8 +66,8 @@ int main(int argc, char **argv)
 	}
 
 	// fork the dhash/chord process
-	DHash *dhash = new_dhash("files");
-	control_sock = dhash_start(dhash, argv+1, 1 /*argc-1 */);
+	DHash *dhash = new_dhash(argv[1]);
+	control_sock = dhash_start(dhash, argv+2, argc-2);
 
 	// create an event_base that works with events on file descriptors
 	struct event_config *cfg = event_config_new();
