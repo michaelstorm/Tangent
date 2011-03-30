@@ -6,7 +6,7 @@
 #include "send.h"
 #include "transfer.h"
 
-void dhash_send_push(DHash *dhash, const char *name, long file_size)
+void dhash_send_push(DHash *dhash, const char *name)
 {
 	fprintf(stderr, "sending push for %s\n", name);
 
@@ -23,7 +23,7 @@ void dhash_send_push(DHash *dhash, const char *name, long file_size)
 
 		/* pack the server's reply address and port */
 		n = dhash_pack_push(buf, &srv->node.addr, srv->node.port, name,
-							name_len, file_size);
+							name_len);
 
 		/* send it ourselves rather than tunneling, to avoid having it echoed
 		   back to us */

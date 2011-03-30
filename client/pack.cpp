@@ -191,9 +191,9 @@ int dhash_pack_query_reply_failure(uchar *buf, const char *name, int name_len)
 }
 
 int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const char *name,
-					int name_len, int file_size)
+					int name_len)
 {
-	int n = pack(buf, "c6sls", DHASH_PUSH, addr, port, file_size, name_len);
+	int n = pack(buf, "c6ss", DHASH_PUSH, addr, port, name_len);
 	memcpy(buf + n, name, name_len);
 	return n + name_len;
 }
@@ -204,10 +204,9 @@ int dhash_unpack_push(DHash *dhash, Server *srv, uchar *data, int n, Node *from)
 	in6_addr reply_addr;
 	ushort reply_port;
 	ushort name_len;
-	int file_size;
 
-	int data_len = unpack(data, "c6sls", &query_type, &reply_addr, &reply_port,
-						  &file_size, &name_len);
+	int data_len = unpack(data, "c6ss", &query_type, &reply_addr, &reply_port,
+						  &name_len);
 
 	assert(query_type == DHASH_PUSH);
 	if (data_len + name_len != n)
@@ -219,8 +218,7 @@ int dhash_unpack_push(DHash *dhash, Server *srv, uchar *data, int n, Node *from)
 
 	fprintf(stderr, "received push for \"%s\"\n", file);
 
-	dhash_process_push(dhash, srv, &reply_addr, reply_port, file_size, file,
-					   from);
+	dhash_process_push(dhash, srv, &reply_addr, reply_port, file, from);
 	return 1;
 }
 

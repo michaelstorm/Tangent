@@ -6,6 +6,18 @@
 #include "send.h"
 #include "transfer.h"
 
+static void send_success(Transfer *trans, void *arg)
+{
+	DHash *dhash = (DHash *)arg;
+	free_transfer(trans);
+}
+
+static void send_fail(Transfer *trans, void *arg)
+{
+	DHash *dhash = (DHash *)arg;
+	free_transfer(trans);
+}
+
 int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 						ushort reply_port, const char *file, Node *from)
 {
@@ -27,8 +39,10 @@ int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 		dhash_send_query_reply_success(dhash, srv, reply_addr, reply_port,
 									   file);
 
-		Transfer *trans = new_transfer(dhash, srv->sock, reply_addr, reply_port,
-									   TRANSFER_SEND);
+		Transfer *trans = new_transfer(srv->sock, reply_addr, reply_port,
+									   TRANSFER_SEND, dhash->files_path,
+									   send_success, send_fail, dhash,
+									   dhash->ev_base);
 		transfer_start_sending(trans);
 	}
 	else {
@@ -55,14 +69,30 @@ int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 	return 1;
 }
 
+static void receive_success(Transfer *trans, void *arg)
+{
+	DHash *dhash = (DHash *)arg;
+	dhash_send_control_query_success(dhash, trans->file);
+	free_transfer(trans);
+}
+
+static void receive_fail(Transfer *trans, void *arg)
+{
+	DHash *dhash = (DHash *)arg;
+	dhash_send_control_query_failure(dhash, trans->file);
+	free_transfer(trans);
+}
+
 int dhash_process_query_reply_success(DHash *dhash, Server *srv,
 									  const char *file, Node *from)
 {
 	fprintf(stderr, "receiving transfer of \"%s\" from [%s]:%d\n",
 			file, v6addr_to_str(&from->addr), from->port);
 
-	Transfer *trans = new_transfer(dhash, srv->sock, &from->addr, from->port,
-								   TRANSFER_RECEIVE);
+	Transfer *trans = new_transfer(srv->sock, &from->addr, from->port,
+								   TRANSFER_RECEIVE, dhash->files_path,
+								   receive_success, receive_fail, dhash,
+								   dhash->ev_base);
 	transfer_start_receiving(trans, file);
 	return 0;
 }
@@ -75,8 +105,7 @@ int dhash_process_query_reply_failure(DHash *dhash, Server *srv,
 }
 
 int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
-					   ushort reply_port, int file_size, const char *file,
-					   Node *from)
+					   ushort reply_port, const char *file, Node *from)
 {
 	dhash_send_push_reply(dhash, srv, reply_addr, reply_port, file);
 	return 0;

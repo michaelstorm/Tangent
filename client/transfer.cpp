@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <event2/event.h>
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
@@ -10,15 +11,47 @@
 #include "transfer.h"
 using namespace std;
 
-Transfer *new_transfer(DHash *dhash, int chord_sock, const in6_addr *addr,
-					   ushort port, int type)
+/* Trigger events to call these so that the callbacks run in the main thread. */
+static void call_success_cb(evutil_socket_t sock, short what, void *arg)
+{
+	Transfer *trans = (Transfer *)arg;
+	if (trans->success_cb)
+		trans->success_cb(trans, trans->cb_arg);
+	else
+		free_transfer(trans);
+}
+
+static void call_fail_cb(evutil_socket_t sock, short what, void *arg)
+{
+	Transfer *trans = (Transfer *)arg;
+	if (trans->fail_cb)
+		trans->fail_cb(trans, trans->cb_arg);
+	else
+		free_transfer(trans);
+}
+
+Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
+					   int type, const char *dir,
+					   transfer_event_fn success_cb,
+					   transfer_event_fn fail_cb, void *cb_arg,
+					   struct event_base *ev_base)
 {
 	Transfer *trans = (Transfer *)malloc(sizeof(Transfer));
-	trans->dhash = dhash;
 	trans->file = NULL;
+
+	trans->dir = (char *)malloc(strlen(dir)+1);
+	strcpy(trans->dir, dir);
 
 	v6_addr_copy(&trans->remote_addr, addr);
 	trans->remote_port = port;
+
+	trans->success_cb = success_cb;
+	trans->fail_cb = fail_cb;
+	trans->cb_arg = cb_arg;
+
+	trans->success_ev = event_new(ev_base, -1, EV_TIMEOUT, call_success_cb,
+								  trans);
+	trans->fail_ev = event_new(ev_base, -1, EV_TIMEOUT, call_fail_cb, trans);
 
 	trans->type = type;
 
@@ -40,6 +73,8 @@ Transfer *new_transfer(DHash *dhash, int chord_sock, const in6_addr *addr,
 void free_transfer(Transfer *trans)
 {
 	if (trans) {
+		event_free(trans->success_ev);
+		event_free(trans->fail_ev);
 		free(trans->file);
 		free(trans);
 	}
@@ -73,32 +108,41 @@ static int blocking_recv_buf(Transfer *trans, uchar *buf, int size)
 	return 1;
 }
 
-static int send_buf(Transfer *trans, const uchar *buf, int size)
+static int blocking_send_buf(Transfer *trans, const uchar *buf, int size)
 {
-	if (UDT::ERROR == UDT::send(trans->udt_sock, (const char *)buf, size, 0)) {
-		cerr << "send: " << UDT::getlasterror().getErrorMessage();
-		return 0;
+	int n, sent = 0;
+	while (sent < size) {
+		n = UDT::send(trans->udt_sock, (const char *)buf, size, 0);
+		if (n == UDT::ERROR) {
+			cerr << "send: " << UDT::getlasterror().getErrorMessage();
+			return 0;
+		}
+
+		sent += n;
 	}
 	return 1;
 }
 
-static void transfer_receive(Transfer *trans)
+static int transfer_receive(Transfer *trans)
 {
 	// send length of file name
 	short name_len = (short)strlen(trans->file);
 	short net_name_len = htons(name_len);
-	send_buf(trans, (uchar *)&net_name_len, 2);
+	if (!blocking_send_buf(trans, (uchar *)&net_name_len, 2))
+		return 0;
 
 	// send file name
-	send_buf(trans, (uchar *)trans->file, name_len);
+	if (!blocking_send_buf(trans, (uchar *)trans->file, name_len))
+		return 0;
 
 	// receive file size
 	int size;
-	blocking_recv_buf(trans, (uchar *)&size, 4);
+	if (!blocking_recv_buf(trans, (uchar *)&size, 4))
+		return 0;
 	size = ntohl(size);
 
 	char path[1024];
-	strcpy(path, trans->dhash->files_path);
+	strcpy(path, trans->dir);
 	strcat(path, "/");
 	strcat(path, trans->file);
 
@@ -109,28 +153,32 @@ static void transfer_receive(Transfer *trans)
 	int64_t zero = 0;
 	if (UDT::ERROR == UDT::recvfile(trans->udt_sock, ofs, zero, size)) {
 		cerr << "recvfile: " << UDT::getlasterror().getErrorMessage();
-		return;
+		return 0;
 	}
-	fprintf(stderr, "finished receiving!\n");
+
+	return 1;
 }
 
-static void transfer_send(Transfer *trans)
+static int transfer_send(Transfer *trans)
 {
 	// receive length of file name
 	short name_len;
-	blocking_recv_buf(trans, (uchar *)&name_len, 2);
+	if (!blocking_recv_buf(trans, (uchar *)&name_len, 2))
+		return 0;	// receive file name
+
 	name_len = ntohs(name_len);
 
 	// receive file name
 	char buf[name_len+1];
-	blocking_recv_buf(trans, (uchar *)buf, name_len);
+	if (!blocking_recv_buf(trans, (uchar *)buf, name_len))
+		return 0;
 	buf[name_len] = '\0';
 
-	trans->file = (char *)malloc(strlen(trans->dhash->files_path+name_len+2));
+	trans->file = (char *)malloc(strlen(trans->dir)+name_len+2);
 	strcpy(trans->file, buf);
 
 	char path[1024];
-	strcpy(path, trans->dhash->files_path);
+	strcpy(path, trans->dir);
 	strcat(path, "/");
 	strcat(path, trans->file);
 
@@ -142,18 +190,17 @@ static void transfer_send(Transfer *trans)
 
 	// send file size
 	int net_size = htonl(size);
-	if (UDT::ERROR == UDT::send(trans->udt_sock, (char *)&net_size, 4, 0)) {
-		cerr << "send: " << UDT::getlasterror().getErrorMessage();
-		return;
-	}
+	if (!blocking_send_buf(trans, (uchar *)&net_size, 4))
+		return 0;
 
 	// send file
 	int64_t zero = 0;
 	if (UDT::ERROR == UDT::sendfile(trans->udt_sock, ifs, zero, size)) {
 		cerr << "sendfile: " << UDT::getlasterror().getErrorMessage();
-		return;
+		return 0;
 	}
-	fprintf(stderr, "finished sending!\n");
+
+	return 1;
 }
 
 /* Connect within a thread until UDT implements non-blocking connection setup;
@@ -190,12 +237,18 @@ void *transfer_connect(void *arg)
 		return NULL;
 	}
 
+	int succeeded;
 	if (trans->type & TRANSFER_RECEIVE)
-		transfer_receive(trans);
+		succeeded = transfer_receive(trans);
 	else if (trans->type & TRANSFER_SEND)
-		transfer_send(trans);
+		succeeded = transfer_send(trans);
 	else {
 		fprintf(stderr, "invalid transfer type %02x\n", trans->type);
-		abort();
+		succeeded = 0;
 	}
+
+	if (succeeded)
+		event_active(trans->success_ev, 0, 1);
+	else
+		event_active(trans->fail_ev, 0, 1);
 }
