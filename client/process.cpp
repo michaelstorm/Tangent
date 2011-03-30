@@ -6,18 +6,6 @@
 #include "send.h"
 #include "transfer.h"
 
-static void send_success(Transfer *trans, void *arg)
-{
-	DHash *dhash = (DHash *)arg;
-	free_transfer(trans);
-}
-
-static void send_fail(Transfer *trans, void *arg)
-{
-	DHash *dhash = (DHash *)arg;
-	free_transfer(trans);
-}
-
 int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 						ushort reply_port, const char *file, Node *from)
 {
@@ -40,9 +28,8 @@ int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 									   file);
 
 		Transfer *trans = new_transfer(srv->sock, reply_addr, reply_port,
-									   TRANSFER_SEND, dhash->files_path,
-									   send_success, send_fail, dhash,
-									   dhash->ev_base);
+									   TRANSFER_SEND, dhash->files_path, 0,
+									   0, 0, 0);
 		transfer_start_sending(trans);
 	}
 	else {
@@ -107,7 +94,14 @@ int dhash_process_query_reply_failure(DHash *dhash, Server *srv,
 int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
 					   ushort reply_port, const char *file, Node *from)
 {
+	fprintf(stderr, "received push for \"%s\"\n", file);
 	dhash_send_push_reply(dhash, srv, reply_addr, reply_port, file);
+
+	Transfer *trans = new_transfer(srv->sock, reply_addr, reply_port,
+								   TRANSFER_RECEIVE, dhash->files_path,
+								   receive_success, receive_fail, dhash,
+								   dhash->ev_base);
+	transfer_start_receiving(trans, file);
 	return 0;
 }
 

@@ -17,7 +17,7 @@ include_directories(${LIBEVENT_INCLUDE_DIR})
 add_library(chord SHARED ${lib_sources})
 target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} dl m)
 
-file(GLOB client_sources "client/*.cpp")
+file(GLOB client_sources "client/*.cpp" "client/*.h")
 add_executable(client ${client_sources})
 
 #file(GLOB fingers_sources "getfingers/*.c")

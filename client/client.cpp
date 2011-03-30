@@ -50,10 +50,15 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 int main(int argc, char **argv)
 {
 	if (strcmp(argv[1], "--butterfly") == 0) {
-#define DIAM ((long double)100)
+		long double diam;
+		if (argc > 2)
+			sscanf(argv[2], "%Lf", &diam);
+		else
+			diam = 80;
+
 #define ROW_RATIO ((long double).5)
-		struct grid *g = new_grid(DIAM+1, DIAM*ROW_RATIO+1);
-		struct circle *c = new_circle(DIAM/2, DIAM/2, DIAM, PI, ROW_RATIO, 10);
+		struct grid *g = new_grid(diam, diam*ROW_RATIO+1);
+		struct circle *c = new_circle((diam-1)/2, (diam-1)/2, diam-1, PI, ROW_RATIO, 10);
 		draw_butterfly(g, c, '*', 0, 24*PI);
 		print_grid(stdout, g);
 		return 0;

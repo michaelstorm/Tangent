@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <udt>
+#include <unistd.h>
 #include "chord.h"
 #include "dhash.h"
 #include "transfer.h"
@@ -15,19 +16,13 @@ using namespace std;
 static void call_success_cb(evutil_socket_t sock, short what, void *arg)
 {
 	Transfer *trans = (Transfer *)arg;
-	if (trans->success_cb)
-		trans->success_cb(trans, trans->cb_arg);
-	else
-		free_transfer(trans);
+	trans->success_cb(trans, trans->cb_arg);
 }
 
 static void call_fail_cb(evutil_socket_t sock, short what, void *arg)
 {
 	Transfer *trans = (Transfer *)arg;
-	if (trans->fail_cb)
-		trans->fail_cb(trans, trans->cb_arg);
-	else
-		free_transfer(trans);
+	trans->fail_cb(trans, trans->cb_arg);
 }
 
 Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
@@ -49,9 +44,13 @@ Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
 	trans->fail_cb = fail_cb;
 	trans->cb_arg = cb_arg;
 
-	trans->success_ev = event_new(ev_base, -1, EV_TIMEOUT, call_success_cb,
-								  trans);
-	trans->fail_ev = event_new(ev_base, -1, EV_TIMEOUT, call_fail_cb, trans);
+	if (success_cb)
+		trans->success_ev = event_new(ev_base, -1, EV_TIMEOUT, call_success_cb,
+									  trans);
+
+	if (fail_cb)
+		trans->fail_ev = event_new(ev_base, -1, EV_TIMEOUT, call_fail_cb,
+								   trans);
 
 	trans->type = type;
 
@@ -61,7 +60,15 @@ Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
 	int yes = true;
 	UDT::setsockopt(trans->udt_sock, 0, UDT_RENDEZVOUS, &yes, sizeof(yes));
 
-	if (UDT::ERROR == UDT::bind(trans->udt_sock, chord_sock)) {
+	/* duplicate the socket that Chord uses, since UDT is going to close it when
+	   the transfer is complete */
+	int dup_sock = dup(chord_sock);
+	if (dup_sock == -1) {
+		weprintf("dup failed:");
+		return NULL;
+	}
+
+	if (UDT::ERROR == UDT::bind(trans->udt_sock, dup_sock)) {
 		fprintf(stderr, "bind error: %s\n",
 				UDT::getlasterror().getErrorMessage());
 		return NULL;
@@ -73,8 +80,11 @@ Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
 void free_transfer(Transfer *trans)
 {
 	if (trans) {
-		event_free(trans->success_ev);
-		event_free(trans->fail_ev);
+		if (trans->success_cb)
+			event_free(trans->success_ev);
+		if (trans->fail_cb)
+			event_free(trans->fail_ev);
+
 		free(trans->file);
 		free(trans);
 	}
@@ -156,6 +166,9 @@ static int transfer_receive(Transfer *trans)
 		return 0;
 	}
 
+	if (UDT::ERROR == UDT::close(trans->udt_sock))
+		cerr << "close: " << UDT::getlasterror().getErrorMessage();
+
 	return 1;
 }
 
@@ -199,6 +212,9 @@ static int transfer_send(Transfer *trans)
 		cerr << "sendfile: " << UDT::getlasterror().getErrorMessage();
 		return 0;
 	}
+
+	if (UDT::ERROR == UDT::close(trans->udt_sock))
+		cerr << "close: " << UDT::getlasterror().getErrorMessage();
 
 	return 1;
 }
@@ -247,8 +263,16 @@ void *transfer_connect(void *arg)
 		succeeded = 0;
 	}
 
-	if (succeeded)
-		event_active(trans->success_ev, 0, 1);
-	else
-		event_active(trans->fail_ev, 0, 1);
+	if (succeeded) {
+		if (trans->success_cb)
+			event_active(trans->success_ev, 0, 1);
+		else
+			free_transfer(trans);
+	}
+	else {
+		if (trans->fail_cb)
+			event_active(trans->fail_ev, 0, 1);
+		else
+			free_transfer(trans);
+	}
 }

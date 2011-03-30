@@ -227,8 +227,8 @@ void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)
 	dest.sin_port = htons(port);
 	dest.sin_addr.s_addr = to_v4addr(addr);
 
-	if (sendto(sock, buf, n, 0, (struct sockaddr *) &dest, sizeof(dest)) < 0)
-		weprintf("sendto failed:"); /* ignore errors for now */
+	if (sendto(sock, buf, n, 0, (struct sockaddr *)&dest, sizeof(dest)) < 0)
+		weprintf("sendto failed:");
 }
 
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)

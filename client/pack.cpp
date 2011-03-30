@@ -216,8 +216,6 @@ int dhash_unpack_push(DHash *dhash, Server *srv, uchar *data, int n, Node *from)
 	memcpy(file, data+data_len, name_len);
 	file[name_len] = '\0';
 
-	fprintf(stderr, "received push for \"%s\"\n", file);
-
 	dhash_process_push(dhash, srv, &reply_addr, reply_port, file, from);
 	return 1;
 }
