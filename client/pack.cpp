@@ -124,6 +124,10 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 												from);
 	case DHASH_PUSH:
 		return dhash_unpack_push(dhash, srv, data, pkt_len, from);
+	case DHASH_PUSH_REPLY:
+		return dhash_unpack_push_reply(dhash, srv, data, pkt_len, from);
+	default:
+		fprintf(stderr, "unknown packet type %02x\n", data[0]);
 	}
 
 	return 0;
@@ -240,5 +244,5 @@ int dhash_unpack_push_reply(DHash *dhash, Server *srv, uchar *data, int n,
 	memcpy(file, data + data_len, name_len);
 	file[name_len] = '\0';
 
-	return 1;//dhash_process_push_reply(dhash, srv, file, from);
+	return dhash_process_push_reply(dhash, srv, file, from);
 }

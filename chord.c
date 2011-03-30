@@ -186,12 +186,6 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 	Node from;
 	byte buf[BUFSIZE];
 
-	/* if this is a chord packet, the first 4 bytes should be 1111; otherwise
-	   it's a UDT packet and we hand it back to be processed in this rather
-	   inelegant fashion */
-	if (recv(sock, buf, 2, MSG_PEEK) == 2 && *(unsigned short *)buf != 0xFFFF)
-		return;
-
 	if (srv->is_v6) {
 		struct sockaddr_in6 from_sa;
 		from_len = sizeof(from_sa);
@@ -221,7 +215,7 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);
-	dispatch(srv, packet_len-2, buf+2, &from);
+	dispatch(srv, packet_len, buf, &from);
 	return;
 }
 

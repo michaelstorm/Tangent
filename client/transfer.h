@@ -12,9 +12,9 @@ typedef void (*transfer_event_fn)(Transfer *trans, void *arg);
 
 enum
 {
-	TRANSFER_SEND = 0x1,
-	TRANSFER_RECEIVE = 0x2,
-	TRANSFER_PUSH = 0x4,
+	TRANSFER_IDLE = 0,
+	TRANSFER_SEND,
+	TRANSFER_RECEIVE,
 };
 
 struct Transfer
@@ -40,9 +40,8 @@ struct Transfer
 	pthread_t thread;
 };
 
-Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
-					   int type, const char *dir,
-					   transfer_event_fn success_cb,
+Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
+					   const char *dir, transfer_event_fn success_cb,
 					   transfer_event_fn fail_cb, void *func_arg,
 					   struct event_base *ev_base);
 void free_transfer(Transfer *trans);

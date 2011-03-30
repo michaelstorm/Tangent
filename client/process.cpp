@@ -27,9 +27,9 @@ int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
 		dhash_send_query_reply_success(dhash, srv, reply_addr, reply_port,
 									   file);
 
-		Transfer *trans = new_transfer(srv->sock, reply_addr, reply_port,
-									   TRANSFER_SEND, dhash->files_path, 0,
-									   0, 0, 0);
+		Transfer *trans = new_transfer(srv->node.port+1, reply_addr,
+									   reply_port+1, dhash->files_path, 0, 0, 0,
+									   0);
 		transfer_start_sending(trans);
 	}
 	else {
@@ -60,6 +60,7 @@ static void receive_success(Transfer *trans, void *arg)
 {
 	DHash *dhash = (DHash *)arg;
 	dhash_send_control_query_success(dhash, trans->file);
+	dhash_send_push(dhash, trans->file);
 	free_transfer(trans);
 }
 
@@ -73,13 +74,12 @@ static void receive_fail(Transfer *trans, void *arg)
 int dhash_process_query_reply_success(DHash *dhash, Server *srv,
 									  const char *file, Node *from)
 {
-	fprintf(stderr, "receiving transfer of \"%s\" from [%s]:%d\n",
-			file, v6addr_to_str(&from->addr), from->port);
+	fprintf(stderr, "receiving transfer of \"%s\" from [%s]:%d\n", file,
+			v6addr_to_str(&from->addr), from->port);
 
-	Transfer *trans = new_transfer(srv->sock, &from->addr, from->port,
-								   TRANSFER_RECEIVE, dhash->files_path,
-								   receive_success, receive_fail, dhash,
-								   dhash->ev_base);
+	Transfer *trans = new_transfer(srv->node.port+1, &from->addr, from->port+1,
+								   dhash->files_path, receive_success,
+								   receive_fail, dhash, dhash->ev_base);
 	transfer_start_receiving(trans, file);
 	return 0;
 }
@@ -97,12 +97,20 @@ int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
 	fprintf(stderr, "received push for \"%s\"\n", file);
 	dhash_send_push_reply(dhash, srv, reply_addr, reply_port, file);
 
-	Transfer *trans = new_transfer(srv->sock, reply_addr, reply_port,
-								   TRANSFER_RECEIVE, dhash->files_path,
-								   receive_success, receive_fail, dhash,
-								   dhash->ev_base);
+	Transfer *trans = new_transfer(srv->node.port+1, reply_addr, reply_port+1,
+								   dhash->files_path, 0, 0, 0, 0);
 	transfer_start_receiving(trans, file);
 	return 0;
+}
+
+int dhash_process_push_reply(DHash *dhash, Server *srv, const char *file,
+							 Node *from)
+{
+	fprintf(stderr, "received push reply for \"%s\"\n", file);
+
+	Transfer *trans = new_transfer(srv->node.port+1, &from->addr, from->port+1,
+								   dhash->files_path, 0, 0, 0, 0);
+	transfer_start_sending(trans);
 }
 
 int dhash_process_client_query(DHash *dhash, const char *file)

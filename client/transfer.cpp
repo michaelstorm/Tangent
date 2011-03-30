@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <udt>
-#include <unistd.h>
 #include "chord.h"
 #include "dhash.h"
 #include "transfer.h"
@@ -25,9 +24,8 @@ static void call_fail_cb(evutil_socket_t sock, short what, void *arg)
 	trans->fail_cb(trans, trans->cb_arg);
 }
 
-Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
-					   int type, const char *dir,
-					   transfer_event_fn success_cb,
+Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
+					   const char *dir, transfer_event_fn success_cb,
 					   transfer_event_fn fail_cb, void *cb_arg,
 					   struct event_base *ev_base)
 {
@@ -52,7 +50,7 @@ Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
 		trans->fail_ev = event_new(ev_base, -1, EV_TIMEOUT, call_fail_cb,
 								   trans);
 
-	trans->type = type;
+	trans->type = TRANSFER_IDLE;
 
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
@@ -60,15 +58,14 @@ Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
 	int yes = true;
 	UDT::setsockopt(trans->udt_sock, 0, UDT_RENDEZVOUS, &yes, sizeof(yes));
 
-	/* duplicate the socket that Chord uses, since UDT is going to close it when
-	   the transfer is complete */
-	int dup_sock = dup(chord_sock);
-	if (dup_sock == -1) {
-		weprintf("dup failed:");
-		return NULL;
-	}
+	sockaddr_in local_addr;
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_port = htons(local_port);
+	local_addr.sin_addr.s_addr = INADDR_ANY;
+	memset(&local_addr.sin_zero, '\0', 8);
 
-	if (UDT::ERROR == UDT::bind(trans->udt_sock, dup_sock)) {
+	if (UDT::ERROR == UDT::bind(trans->udt_sock, (struct sockaddr *)&local_addr,
+								sizeof(local_addr))) {
 		fprintf(stderr, "bind error: %s\n",
 				UDT::getlasterror().getErrorMessage());
 		return NULL;
@@ -80,6 +77,9 @@ Transfer *new_transfer(int chord_sock, const in6_addr *addr, ushort port,
 void free_transfer(Transfer *trans)
 {
 	if (trans) {
+		if (UDT::ERROR == UDT::close(trans->udt_sock))
+			cerr << "close: " << UDT::getlasterror().getErrorMessage();
+
 		if (trans->success_cb)
 			event_free(trans->success_ev);
 		if (trans->fail_cb)
@@ -95,11 +95,13 @@ void transfer_start_receiving(Transfer *trans, const char *file)
 	trans->file = (char *)malloc(strlen(file)+1);
 	strcpy(trans->file, file);
 
+	trans->type = TRANSFER_RECEIVE;
 	pthread_create(&trans->thread, NULL, transfer_connect, trans);
 }
 
 void transfer_start_sending(Transfer *trans)
 {
+	trans->type = TRANSFER_SEND;
 	pthread_create(&trans->thread, NULL, transfer_connect, trans);
 }
 
@@ -166,8 +168,7 @@ static int transfer_receive(Transfer *trans)
 		return 0;
 	}
 
-	if (UDT::ERROR == UDT::close(trans->udt_sock))
-		cerr << "close: " << UDT::getlasterror().getErrorMessage();
+	fprintf(stderr, "received file\n");
 
 	return 1;
 }
@@ -213,8 +214,7 @@ static int transfer_send(Transfer *trans)
 		return 0;
 	}
 
-	if (UDT::ERROR == UDT::close(trans->udt_sock))
-		cerr << "close: " << UDT::getlasterror().getErrorMessage();
+	fprintf(stderr, "sent file\n");
 
 	return 1;
 }
@@ -254,11 +254,14 @@ void *transfer_connect(void *arg)
 	}
 
 	int succeeded;
-	if (trans->type & TRANSFER_RECEIVE)
+	switch (trans->type) {
+	case TRANSFER_RECEIVE:
 		succeeded = transfer_receive(trans);
-	else if (trans->type & TRANSFER_SEND)
+		break;
+	case TRANSFER_SEND:
 		succeeded = transfer_send(trans);
-	else {
+		break;
+	default:
 		fprintf(stderr, "invalid transfer type %02x\n", trans->type);
 		succeeded = 0;
 	}

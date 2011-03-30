@@ -58,7 +58,8 @@ int main(int argc, char **argv)
 
 #define ROW_RATIO ((long double).5)
 		struct grid *g = new_grid(diam, diam*ROW_RATIO+1);
-		struct circle *c = new_circle((diam-1)/2, (diam-1)/2, diam-1, PI, ROW_RATIO, 10);
+		struct circle *c = new_circle((diam-1)/2, (diam-1)/2, diam-1, PI,
+									  ROW_RATIO, 10);
 		draw_butterfly(g, c, '*', 0, 24*PI);
 		print_grid(stdout, g);
 		return 0;
