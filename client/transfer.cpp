@@ -54,6 +54,11 @@ Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
 
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
+	if (trans->udt_sock == UDT::INVALID_SOCK) {
+		fprintf(stderr, "UDT::bind error: %s\n",
+				UDT::getlasterror().getErrorMessage());
+		return NULL;
+	}
 
 	int yes = true;
 	UDT::setsockopt(trans->udt_sock, 0, UDT_RENDEZVOUS, &yes, sizeof(yes));
@@ -66,7 +71,7 @@ Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
 
 	if (UDT::ERROR == UDT::bind(trans->udt_sock, (struct sockaddr *)&local_addr,
 								sizeof(local_addr))) {
-		fprintf(stderr, "bind error: %s\n",
+		fprintf(stderr, "UDT::bind error: %s\n",
 				UDT::getlasterror().getErrorMessage());
 		return NULL;
 	}
@@ -78,7 +83,7 @@ void free_transfer(Transfer *trans)
 {
 	if (trans) {
 		if (UDT::ERROR == UDT::close(trans->udt_sock))
-			cerr << "close: " << UDT::getlasterror().getErrorMessage();
+			cerr << "UDT::close: " << UDT::getlasterror().getErrorMessage();
 
 		if (trans->success_cb)
 			event_free(trans->success_ev);
@@ -111,7 +116,7 @@ static int blocking_recv_buf(Transfer *trans, uchar *buf, int size)
 	while (received < size) {
 		n = UDT::recv(trans->udt_sock, (char *)buf, size-received, 0);
 		if (n == UDT::ERROR) {
-			cerr << "recv: " << UDT::getlasterror().getErrorMessage();
+			cerr << "UDT::recv: " << UDT::getlasterror().getErrorMessage();
 			return 0;
 		}
 
@@ -126,7 +131,7 @@ static int blocking_send_buf(Transfer *trans, const uchar *buf, int size)
 	while (sent < size) {
 		n = UDT::send(trans->udt_sock, (const char *)buf, size, 0);
 		if (n == UDT::ERROR) {
-			cerr << "send: " << UDT::getlasterror().getErrorMessage();
+			cerr << "UDT::send: " << UDT::getlasterror().getErrorMessage();
 			return 0;
 		}
 
@@ -164,7 +169,7 @@ static int transfer_receive(Transfer *trans)
 	// receive file
 	int64_t zero = 0;
 	if (UDT::ERROR == UDT::recvfile(trans->udt_sock, ofs, zero, size)) {
-		cerr << "recvfile: " << UDT::getlasterror().getErrorMessage();
+		cerr << "UDT::recvfile: " << UDT::getlasterror().getErrorMessage();
 		return 0;
 	}
 
@@ -210,7 +215,7 @@ static int transfer_send(Transfer *trans)
 	// send file
 	int64_t zero = 0;
 	if (UDT::ERROR == UDT::sendfile(trans->udt_sock, ifs, zero, size)) {
-		cerr << "sendfile: " << UDT::getlasterror().getErrorMessage();
+		cerr << "UDT::sendfile: " << UDT::getlasterror().getErrorMessage();
 		return 0;
 	}
 
@@ -245,7 +250,8 @@ void *transfer_connect(void *arg)
 	}
 
 	if (err == UDT::ERROR) {
-		fprintf(stderr, "connect: %s\n", UDT::getlasterror().getErrorMessage());
+		fprintf(stderr, "UDT::connect: %s\n",
+				UDT::getlasterror().getErrorMessage());
 		return NULL;
 	}
 

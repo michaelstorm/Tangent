@@ -92,6 +92,14 @@ int dhash_unpack_query_reply_failure(DHash *dhash, Server *srv, uchar *data,
 	return dhash_process_query_reply_failure(dhash, srv, file, from);
 }
 
+static int (*chord_unpack_fn[])(DHash *, Server *, uchar *, int, Node *) = {
+	dhash_unpack_query,
+	dhash_unpack_query_reply_success,
+	dhash_unpack_query_reply_failure,
+	dhash_unpack_push,
+	dhash_unpack_push_reply
+};
+
 int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 							  Node *from)
 {
@@ -112,24 +120,12 @@ int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
 	assert(type == CHORD_ROUTE || type == CHORD_ROUTE_LAST);
 
 	uchar *data = buf+len;
+	uchar dhash_type = data[0];
 
-	switch (data[0]) {
-	case DHASH_QUERY:
-		return dhash_unpack_query(dhash, srv, data, pkt_len, from);
-	case DHASH_QUERY_REPLY_SUCCESS:
-		return dhash_unpack_query_reply_success(dhash, srv, data, pkt_len,
-												from);
-	case DHASH_QUERY_REPLY_FAILURE:
-		return dhash_unpack_query_reply_failure(dhash, srv, data, pkt_len,
-												from);
-	case DHASH_PUSH:
-		return dhash_unpack_push(dhash, srv, data, pkt_len, from);
-	case DHASH_PUSH_REPLY:
-		return dhash_unpack_push_reply(dhash, srv, data, pkt_len, from);
-	default:
-		fprintf(stderr, "unknown packet type %02x\n", data[0]);
-	}
+	if (dhash_type < NELEMS(chord_unpack_fn))
+		return chord_unpack_fn[dhash_type](dhash, srv, data, pkt_len, from);
 
+	fprintf(stderr, "unknown packet type %02x\n", dhash_type);
 	return 0;
 }
 

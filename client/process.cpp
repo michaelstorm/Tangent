@@ -95,6 +95,12 @@ int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
 					   ushort reply_port, const char *file, Node *from)
 {
 	fprintf(stderr, "received push for \"%s\"\n", file);
+	if (dhash_local_file_exists(dhash, file)) {
+		fprintf(stderr, "but we already have the file, so not replying\n");
+		return 0;
+	}
+	fprintf(stderr, "and sending push reply\n", file);
+
 	dhash_send_push_reply(dhash, srv, reply_addr, reply_port, file);
 
 	Transfer *trans = new_transfer(srv->node.port+1, reply_addr, reply_port+1,
