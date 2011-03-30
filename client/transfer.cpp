@@ -25,11 +25,10 @@ static void call_fail_cb(evutil_socket_t sock, short what, void *arg)
 }
 
 Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
-					   const char *dir, transfer_event_fn success_cb,
-					   transfer_event_fn fail_cb, void *cb_arg,
-					   struct event_base *ev_base)
+					   const char *dir)
 {
-	Transfer *trans = (Transfer *)malloc(sizeof(Transfer));
+	Transfer *trans = (Transfer *)calloc(1, sizeof(Transfer));
+	trans->type = TRANSFER_IDLE;
 	trans->file = NULL;
 
 	trans->dir = (char *)malloc(strlen(dir)+1);
@@ -37,20 +36,6 @@ Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
 
 	v6_addr_copy(&trans->remote_addr, addr);
 	trans->remote_port = port;
-
-	trans->success_cb = success_cb;
-	trans->fail_cb = fail_cb;
-	trans->cb_arg = cb_arg;
-
-	if (success_cb)
-		trans->success_ev = event_new(ev_base, -1, EV_TIMEOUT, call_success_cb,
-									  trans);
-
-	if (fail_cb)
-		trans->fail_ev = event_new(ev_base, -1, EV_TIMEOUT, call_fail_cb,
-								   trans);
-
-	trans->type = TRANSFER_IDLE;
 
 	trans->udt_sock = UDT::socket(V4_MAPPED(addr) ? AF_INET : AF_INET6,
 								  SOCK_STREAM, 0);
@@ -93,6 +78,31 @@ void free_transfer(Transfer *trans)
 		free(trans->file);
 		free(trans);
 	}
+}
+
+void transfer_set_callbacks(Transfer *trans, transfer_event_fn success_cb,
+							transfer_event_fn fail_cb, void *cb_arg,
+							struct event_base *ev_base)
+{
+	if (trans->success_ev)
+		event_free(trans->success_ev);
+
+	if (trans->fail_ev)
+		event_free(trans->fail_ev);
+
+	if (success_cb)
+		trans->success_ev = event_new(ev_base, -1, 0, call_success_cb, trans);
+	else
+		trans->success_ev = NULL;
+
+	if (fail_cb)
+		trans->fail_ev = event_new(ev_base, -1, 0, call_fail_cb, trans);
+	else
+		trans->fail_ev = NULL;
+
+	trans->success_cb = success_cb;
+	trans->fail_cb = fail_cb;
+	trans->cb_arg = cb_arg;
 }
 
 void transfer_start_receiving(Transfer *trans, const char *file)

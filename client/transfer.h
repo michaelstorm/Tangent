@@ -19,6 +19,7 @@ enum
 
 struct Transfer
 {
+	int type;
 	char *dir;
 	char *file;
 
@@ -35,17 +36,17 @@ struct Transfer
 	unsigned short remote_port;
 	unsigned short chord_port;
 
-	int type;
-
 	pthread_t thread;
 };
 
 Transfer *new_transfer(int local_port, const in6_addr *addr, ushort port,
-					   const char *dir, transfer_event_fn success_cb,
-					   transfer_event_fn fail_cb, void *func_arg,
-					   struct event_base *ev_base);
+					   const char *dir);
 void free_transfer(Transfer *trans);
 
+
+void transfer_set_callbacks(Transfer *trans, transfer_event_fn success_cb,
+							transfer_event_fn fail_cb, void *cb_arg,
+							struct event_base *ev_base);
 void transfer_start_receiving(Transfer *trans, const char *file);
 void transfer_start_sending(Transfer *trans);
 void *transfer_connect(void *arg);
