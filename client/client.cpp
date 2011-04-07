@@ -47,6 +47,15 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 	}
 }
 
+struct test
+{
+	uchar i;
+	uchar len;
+	uchar buf[5];
+	uchar x;
+} __attribute__((__packed__));
+
+#include <stdlib.h>
 int main(int argc, char **argv)
 {
 	if (strcmp(argv[1], "--butterfly") == 0) {

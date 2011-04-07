@@ -14,14 +14,14 @@ void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port)
 	send_packet(srv, to_addr, to_port, pack_addr_discover(buf, ticket), buf);
 }
 
-void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
+void send_addr_discover_reply(Server *srv, uchar *ticket, in6_addr *to_addr,
 							 ushort to_port)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_addr_discover_repl", 0, to_addr,
 							  to_port));
-	send_packet(srv, to_addr, to_port, pack_addr_discover_repl(buf, ticket,
+	send_packet(srv, to_addr, to_port, pack_addr_discover_reply(buf, ticket,
 															   to_addr),
 				buf);
 }
@@ -65,13 +65,13 @@ void send_fs_forward(Server *srv, uchar *ticket, uchar ttl, in6_addr *to_addr,
 
 /**********************************************************************/
 
-void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
+void send_fs_reply(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 				  in6_addr *addr, ushort port)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs_repl", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs_repl(buf, ticket, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs_reply(buf, ticket, addr, port),
 				buf);
 }
 
@@ -88,13 +88,13 @@ void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 
 /**********************************************************************/
 
-void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port,
+void send_stab_reply(Server *srv, in6_addr *to_addr, ushort to_port,
 					in6_addr *addr, ushort port)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_stab_repl", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_stab_repl(buf, addr, port), buf);
+	send_packet(srv, to_addr, to_port, pack_stab_reply(buf, addr, port), buf);
 }
 
 /**********************************************************************/
@@ -133,65 +133,6 @@ void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 							  to_port));
 	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, time), buf);
 }
-
-
-/**********************************************************************/
-
-void send_fingers_get(Server *srv, in6_addr *to_addr, ushort to_port,
-					  in6_addr *addr, ushort port, chordID *key)
-{
-	uchar buf[BUFSIZE];
-	uchar ticket[TICKET_LEN];
-
-	pack_ticket(&srv->ticket_key, ticket, "c6s", CHORD_FINGERS_GET, to_addr,
-				to_port);
-
-	CHORD_DEBUG(5, print_send(srv, "send_fingers_get", NULL, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fingers_get(buf, ticket, addr, port,
-													 key), buf);
-}
-
-/**********************************************************************/
-
-void send_fingers_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
-					   ushort to_port)
-{
-	uchar buf[BUFSIZE];
-
-	CHORD_DEBUG(5, print_send(srv, "send_fingers_repl", &srv->node.id, to_addr,
-							to_port));
-	send_packet(srv, to_addr, to_port, pack_fingers_repl(buf, srv, ticket),
-				buf);
-}
-
-/**********************************************************************/
-
-void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, uchar ttl,
-					 uchar hops)
-{
-	CHORD_DEBUG(5, print_send(srv, "send_traceroute", &srv->node.id, NULL, -1));
-	send_packet(srv, &f->node.addr, f->node.port, pack_traceroute(buf, srv, f,
-															   type, ttl, hops),
-			 buf);
-}
-
-/**********************************************************************/
-
-void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
-						  int one_hop)
-{
-	/*in6_addr *to_addr;
-	ushort to_port;
-
-	CHORD_DEBUG(5, print_send(srv, "send_traceroute_repl", &srv->node.id, NULL,
-							-1));
-	send_packet(srv, to_addr, to_port,
-				pack_traceroute_repl(buf, srv, ttl, hops, to_addr, &to_port,
-									 one_hop),
-				buf);*/
-}
-
-/**********************************************************************/
 
 /* send_packet: send datagram to remote addr:port */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n, uchar *buf)

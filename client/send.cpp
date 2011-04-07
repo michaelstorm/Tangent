@@ -156,7 +156,7 @@ void dhash_send_control_query_failure(DHash *dhash, const char *file)
 void dhash_client_send_request(int sock, const char *file)
 {
 	short size = strlen(file);
-	uchar buf[sizeof_fmt("s") + size];
+	uchar buf[sizeof_packed_fmt("s") + size];
 
 	int n = pack(buf, "cs", DHASH_CLIENT_QUERY, size);
 	memcpy(buf + n, file, size);

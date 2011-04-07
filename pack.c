@@ -4,143 +4,319 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include "chord.h"
+#include "ctype.h"
+#include "messages.pb-c.h"
 
-/* pack: pack binary items into buf, return length */
-
-int pack(uchar *buf, const char *fmt, ...)
+static int sizeof_packed_single(char **fmt)
 {
-	va_list args;
-	const char *p;
-	uchar *bp;
+	int len;
+	switch (**fmt) {
+	case 'c': (*fmt)++; return sizeof(uint8_t);
+	case 's': (*fmt)++; return sizeof(uint16_t);
+	case 'l': (*fmt)++; return sizeof(uint32_t);
+	case 'x': (*fmt)++; return CHORD_ID_LEN;
+	case 't': (*fmt)++; return TICKET_LEN;
+	case '6': (*fmt)++; return 16;
+	case '0': case '*': (*fmt)++; return sizeof_packed_single(fmt);
+	case '<':
+		if (isdigit(*((*fmt)+1))) {
+			sscanf(*fmt, "<%d>", &len);
+			*fmt = strchr(*fmt, '>')+1;
+		}
+		else {
+			(*fmt)++;
+			len = sizeof_packed_single(fmt);
+			(*fmt)++;
+		}
+		return len;
+	}
+
+	assert(0);
+	return -1;
+}
+
+static int sizeof_unpacked_single(char **fmt)
+{
+	int len;
+	switch (**fmt) {
+	case 'c': (*fmt)++; return sizeof(uint8_t);
+	case 's': (*fmt)++; return sizeof(uint16_t);
+	case 'l': (*fmt)++; return sizeof(uint32_t);
+	case 'x': (*fmt)++; return sizeof(chordID);
+	case 't': (*fmt)++; return TICKET_LEN;
+	case '6': (*fmt)++; return sizeof(in6_addr);
+	case '0': case '*': (*fmt)++; return sizeof_unpacked_single(fmt);
+	case '<':
+		if (isdigit(*((*fmt)+1))) {
+			sscanf(*fmt, "<%d>", &len);
+			*fmt = strchr(*fmt, '>')+1;
+		}
+		else {
+			(*fmt)++;
+			len = sizeof_unpacked_single(fmt);
+			(*fmt)++;
+		}
+		return len;
+	}
+
+	assert(0);
+	return -1;
+}
+
+static int pack_single(uchar *bp, char **fmt, void *arg)
+{
 	chordID *id;
 	ushort s;
 	ulong l;
 	uchar *t;
 	in6_addr *v6addr;
-	int zero_len;
+	int len;
 
-	bp = buf;
+	switch (**fmt) {
+	case 'c':	 /* char */
+		*bp = *(uchar *)arg;
+		(*fmt)++;
+		return sizeof(uchar);
+	case 's':	 /* short */
+		s = *(ushort *)arg;
+		s = htons(s);
+		memmove(bp, (char *)&s, sizeof(uint16_t));
+		(*fmt)++;
+		return sizeof(ushort);
+	case 'l':	 /* long */
+		l = *(ulong *)arg;
+		l = htonl(l);
+		memmove(bp, (char *)&l, sizeof(uint32_t));
+		(*fmt)++;
+		return sizeof(ulong);
+	case 'x':	 /* id */
+		id = (chordID *)arg;
+		memmove(bp, id->x, CHORD_ID_LEN);
+		(*fmt)++;
+		return CHORD_ID_LEN;
+	case 't':	 /* ticket */
+		t = (uchar *)arg;
+		memmove(bp, t, TICKET_LEN);
+		(*fmt)++;
+		return TICKET_LEN;
+	case '6':
+		v6addr = (in6_addr *)arg;
+		memmove(bp, v6addr->s6_addr, 16);
+		(*fmt)++;
+		return 16;
+	case '<':
+		t = (uchar *)arg;
+		sscanf(*fmt, "<%d>", &len);
+		memmove(bp, t, len);
+		*fmt = strchr(*fmt, '>')+1;
+		return len;
+	case '*':
+		(*fmt)++;
+		len = sizeof_packed_single(fmt);
+		return len;
+	case '0':
+		(*fmt)++;
+		len = sizeof_packed_single(fmt);
+		bzero(bp, len);
+		return len;
+	}
+
+	return -1;
+}
+
+/* pack: pack binary items into buf, return length */
+int pack(uchar *buf, const char *fmt, ...)
+{
+	//uchar *orig_buf = buf;
+	//buf += 2048;
+
+	va_list args;
+	char *p;
+	void *arg;
+
+	uchar *bp = buf;
 	va_start(args, fmt);
-	for (p = fmt; *p != '\0'; p++) {
+	for (p = (char *)fmt; *p != '\0';) {
 		switch (*p) {
-		case 'c':	 /* char */
-			*bp++ = va_arg(args, int);
+		case 'c': case 's': case 'l':
+		{
+			ulong l = va_arg(args, uint32_t);
+			arg = &l;
 			break;
-		case 's':	 /* short */
-			s = va_arg(args, int);
-			s = htons(s);
-			memmove(bp, (char *)&s, sizeof(uint16_t));
-			bp += sizeof(ushort);
+		}
+
+		case 'x': case 't': case '6':
+			arg = va_arg(args, void *);
 			break;
-		case 'l':	 /* long */
-			l = va_arg(args, ulong);
-			l = htonl(l);
-			memmove(bp, (char *)&l, sizeof(uint32_t));
-			bp += sizeof(ulong);
-			break;
-		case 'x':	 /* id */
-			id = va_arg(args, chordID *);
-			memmove(bp, id->x, CHORD_ID_LEN);
-			bp += CHORD_ID_LEN;
-			break;
-		case 't':	 /* ticket */
-			t = va_arg(args, uchar *);
-			memmove(bp, t, TICKET_LEN);
-			bp += TICKET_LEN;
-			break;
-		case '6':
-			v6addr = va_arg(args, in6_addr *);
-			memmove(bp, v6addr->s6_addr, 16);
-			bp += 16;
-			break;
-		case '0':    /* zero/skip */
-		case '*':
-			switch (*(++p)) {
-			case 'c': zero_len = sizeof(uint8_t); break;
-			case 's': zero_len = sizeof(uint16_t); break;
-			case 'l': zero_len = sizeof(uint32_t); break;
-			case 'x': zero_len = CHORD_ID_LEN; break;
-			case 't': zero_len = TICKET_LEN; break;
-			case '6': zero_len = 16; break;
-			default: va_end(args); return CHORD_PACK_ERROR;
+
+		case '*': case '0':
+			if (*(p+1) == '<' && !isdigit(*(p+2))) {
+				ulong l = va_arg(args, uint32_t); // length is the next argument
+				arg = &l;
+				p += 2; // skip the * or 0 and the opening bracket
+				bp += pack_single(bp, &p, arg);
+				p++; // skip the closing bracket
+
+				if (*(p-4) == '0')
+					bzero(bp, l);
+				bp += l;
+				continue;
 			}
-			if (*(p-1) == '0')
-				bzero(bp, zero_len);
-			bp += zero_len;
-			break;
-		default:	 /* illegal type character */
+			else {
+				arg = NULL;
+				break;
+			}
+
+		case '<':
+		{
+			// if length is specified in the format, just write the data
+			if (isdigit(*(p+1))) {
+				arg = va_arg(args, void *);
+				break;
+			}
+			else {
+				// otherwise, length is the next argument
+				ulong l = va_arg(args, uint32_t);
+				arg = &l;
+				p++; // skip the opening bracket
+				bp += pack_single(bp, &p, arg);
+				p++; // skip the closing bracket
+
+				// write the data
+				uchar *data = va_arg(args, uchar *);
+				memcpy(bp, data, l);
+				bp += l;
+				continue;
+			}
+		}
+
+		default:
 			va_end(args);
 			return CHORD_PACK_ERROR;
 		}
+
+		bp += pack_single(bp, &p, arg);
 	}
 	va_end(args);
+
 	return bp - buf;
 }
 
 /**********************************************************************/
+
+static void unpack_single(uchar **bp, uchar **op, char **fmt)
+{
+	int len;
+	switch (**fmt) {
+	case 'c':	 /* char */
+		**op = **bp;
+		(*op)++;
+		(*bp)++;
+		(*fmt)++;
+		break;
+	case 's':	 /* short */
+		**(ushort **)op = ntohs(**(ushort **)bp);
+		*bp += sizeof(uint16_t);
+		*op += sizeof(uint16_t);
+		(*fmt)++;
+		break;
+	case 'l':	 /* long */
+		**(ulong **)op = ntohl(**(ulong **)bp);
+		*bp += sizeof(uint32_t);
+		*op += sizeof(uint32_t);
+		(*fmt)++;
+		break;
+	case 'x':	 /* id */
+		memmove((*(chordID **)op)->x, *bp, CHORD_ID_LEN);
+		*bp += CHORD_ID_LEN;
+		*op += sizeof(chordID);
+		(*fmt)++;
+		break;
+	case 't':	 /* ticket */
+		memmove(*op, *bp, TICKET_LEN);
+		*bp += TICKET_LEN;
+		*op += TICKET_LEN;
+		(*fmt)++;
+		break;
+	case '6':
+		memmove((*(in6_addr **)op)->s6_addr, *bp, 16);
+		*bp += 16;
+		*op += sizeof(in6_addr);
+		(*fmt)++;
+		break;
+	case '<':
+		sscanf(*fmt, "<%d>", &len);
+		memmove(*op, *bp, len);
+		*bp += len;
+		*op += len;
+		*fmt = strchr(*fmt, '>')+1;
+		break;
+	case '0':    /* skip */
+		(*fmt)++;
+		len = sizeof_unpacked_single(fmt);
+		bzero(*op, len);
+		*bp += len;
+		break;
+	case '*':
+		(*fmt)++;
+		*bp += sizeof_unpacked_single(fmt);
+		break;
+	}
+}
 
 /* unpack: unpack binary items from buf, return length */
 int unpack(uchar *buf, const char *fmt, ...)
 {
 	va_list args;
-	const char *p;
-	uchar *bp, *pc;
-	chordID *id;
-	ushort *ps;
-	ulong *pl;
-	in6_addr *v6addr;
-	int zero_len;
 
-	bp = buf;
 	va_start(args, fmt);
-	for (p = fmt; *p != '\0'; p++) {
+	char *p = (char *)fmt;
+	void *arg;
+
+	uchar *bp = buf;
+	while (*p != '\0') {
 		switch (*p) {
-		case 'c':	 /* char */
-			pc = va_arg(args, uchar*);
-			*pc = *bp++;
+		case 'c': case 's': case 'l':
+			arg = va_arg(args, uint32_t *);
 			break;
-		case 's':	 /* short */
-			ps = va_arg(args, ushort*);
-			*ps = ntohs(*(uint16_t*)bp);
-			bp += sizeof(uint16_t);
+
+		case 'x': case 't': case '6':
+			arg = va_arg(args, void *);
 			break;
-		case 'l':	 /* long */
-			pl = va_arg(args, ulong*);
-			*pl	= ntohl(*(uint32_t*)bp);
-			bp += sizeof(uint32_t);
+
+		case '*': case '0':
+			if (*p == '0')
+				arg = va_arg(args, void *);
+			else
+				arg = NULL;
 			break;
-		case 'x':	 /* id */
-			id = va_arg(args, chordID *);
-			memmove(id->x, bp, CHORD_ID_LEN);
-			bp += CHORD_ID_LEN;
-			break;
-		case 't':	 /* ticket */
-			pc = va_arg(args, uchar *);
-			memmove(pc, bp, TICKET_LEN);
-			bp += TICKET_LEN;
-			break;
-		case '6':
-			v6addr = va_arg(args, in6_addr *);
-			memmove(v6addr->s6_addr, bp, 16);
-			bp += 16;
-			break;
-		case '0':    /* skip */
-		case '*':
-			switch (*(++p)) {
-			case 'c': zero_len = sizeof(uint8_t); break;
-			case 's': zero_len = sizeof(uint16_t); break;
-			case 'l': zero_len = sizeof(uint32_t); break;
-			case 'x': zero_len = CHORD_ID_LEN; break;
-			case 't': zero_len = TICKET_LEN; break;
-			case '6': zero_len = 16; break;
-			default: va_end(args); return CHORD_PACK_ERROR;
+
+		case '<':
+			if (isdigit(*(p+1))) {
+				arg = va_arg(args, void *);
+				break;
 			}
-			bp += zero_len;
-			break;
-		default:	 /* illegal type character */
-			va_end(args);
-			return CHORD_PACK_ERROR;
+			else {
+				p++;
+				uchar *bp_copy = bp;
+				char *p_copy = p;
+
+				ulong len = 0;
+				ulong *len_p = &len;
+				unpack_single(&bp_copy, (uchar **)&len_p, &p_copy);
+
+				arg = va_arg(args, void *);
+				unpack_single(&bp, (uchar **)&arg, &p);
+				p++;
+
+				arg = va_arg(args, void *);
+				memmove(arg, bp, len);
+				bp += len;
+				continue;
+			}
 		}
+
+		unpack_single(&bp, (uchar **)&arg, &p);
 	}
 	va_end(args);
 	return bp - buf;
@@ -148,70 +324,48 @@ int unpack(uchar *buf, const char *fmt, ...)
 
 /**********************************************************************/
 
-int sizeof_fmt(const char *fmt)
+int sizeof_packed_fmt(const char *fmt)
 {
 	int len = 0;
-	int i;
+	char *p = (char *)fmt;
+	while (*p != '\0')
+		len += sizeof_packed_single(&p);
+	return len;
+}
 
-	for (i = 0; i < strlen(fmt); i++) {
-		switch (fmt[i]) {
-		case 'c':	 /* char */
-			len += sizeof(char);
-			break;
-		case 's':	 /* short */
-			len += sizeof(ushort);
-			break;
-		case 'l':	 /* long */
-			len += sizeof(ulong);
-			break;
-		case 'x':	 /* id */
-			len += CHORD_ID_LEN;
-			break;
-		case 't':	 /* ticket */
-			len += TICKET_LEN;
-			break;
-		case '6':
-			len += 16;
-			break;
-		case '0':	 /* zero/skip */
-		case '*':
-			switch (fmt[i+1]) {
-			case 'c': len = sizeof(uint8_t); break;
-			case 's': len = sizeof(uint16_t); break;
-			case 'l': len = sizeof(uint32_t); break;
-			case 'x': len += CHORD_ID_LEN; break;
-			case 't': len += TICKET_LEN; break;
-			default:
-				eprintf("fmt_len: illegal type character.\n");
-				return CHORD_PACK_ERROR;
-			}
-		default:
-			eprintf("fmt_len: illegal type character.\n");
-			return CHORD_PACK_ERROR;
-		}
-	}
+int sizeof_unpacked_fmt(const char *fmt)
+{
+	int len = 0;
+	char *p = (char *)fmt;
+	while (*p != '\0')
+		len += sizeof_unpacked_single(&p);
 	return len;
 }
 
 /**********************************************************************/
 
-static int (*unpackfn[])(Server *, int, uchar *, Node *) = {
-	unpack_addr_discover,
-	unpack_addr_discover_repl,
-	unpack_data,
-	unpack_data,
-	unpack_fs,
-	unpack_fs_repl,
-	unpack_stab,
-	unpack_stab_repl,
-	unpack_notify,
-	unpack_ping,
-	unpack_pong,
-	unpack_fingers_get,
-	unpack_fingers_repl,
-	unpack_traceroute,
-	unpack_traceroute,
-	unpack_traceroute_repl,
+typedef void *(*unpack_fn)(ProtobufCAllocator *, size_t, const uint8_t *);
+typedef int (*process_fn)(Server *, void *, Node *);
+
+struct packet_handler
+{
+	unpack_fn unpack;
+	process_fn process;
+};
+
+static struct packet_handler handlers[] = {
+	{(unpack_fn)addr_discover__unpack, (process_fn)process_addr_discover},
+	{(unpack_fn)addr_discover_reply__unpack,
+									(process_fn)process_addr_discover_reply},
+	{(unpack_fn)data__unpack, (process_fn)process_route},
+	{(unpack_fn)data__unpack, (process_fn)process_route_last},
+	{(unpack_fn)find_successor__unpack, (process_fn)process_fs},
+	{(unpack_fn)find_successor_reply__unpack, (process_fn)process_fs_reply},
+	{(unpack_fn)stabilize__unpack, (process_fn)process_stab},
+	{(unpack_fn)stabilize_reply__unpack, (process_fn)process_stab_reply},
+	{(unpack_fn)notify__unpack, (process_fn)process_notify},
+	{(unpack_fn)ping__unpack, (process_fn)process_ping},
+	{(unpack_fn)pong__unpack, (process_fn)process_pong},
 };
 
 /* dispatch: unpack and process packet */
@@ -221,17 +375,23 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 	int res;
 
 	type = buf[0];
-	if (type < NELEMS(unpackfn)) {
+	if (type > CHORD_ADDR_DISCOVER_REPL
+		&& IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		res = CHORD_ADDR_UNDISCOVERED;
+	else if (type < NELEMS(handlers)) {
+		void *msg = handlers[type].unpack(NULL, n-1, buf+1);
+
 		if (srv->packet_handlers[type]
-			&& (res = srv->packet_handlers[type](srv->packet_handler_ctx,
-														srv, n, buf, from)))
+			&& (res = srv->packet_handlers[type](srv->packet_handler_ctx, srv,
+												 msg, from)))
 			return res;
 
-		if (type > CHORD_ADDR_DISCOVER_REPL
-			&& IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
-			res = CHORD_ADDR_UNDISCOVERED;
-		else
-			res = (*unpackfn[type])(srv, n, buf, from);
+		if (msg == NULL) {
+			fprintf(stderr, "error unpacking packet\n");
+			return 0;
+		}
+
+		res = handlers[type].process(srv, msg, from);
 	}
 	else {
 		weprintf("bad packet type 0x%02x", type);
@@ -270,39 +430,29 @@ int dispatch(Server *srv, int n, uchar *buf, Node *from)
 
 int pack_addr_discover(uchar *buf, uchar *ticket)
 {
-	return pack(buf, "ct", CHORD_ADDR_DISCOVER, ticket);
+	AddrDiscover msg = ADDR_DISCOVER__INIT;
+	msg.ticket.len = TICKET_LEN;
+	msg.ticket.data = ticket;
+	msg.has_ticket = 1;
+	addr_discover__pack(&msg, buf+1);
+
+	buf[0] = CHORD_ADDR_DISCOVER;
+	return addr_discover__get_packed_size(&msg)+1;
 }
 
-int unpack_addr_discover(Server *srv, int n, uchar *buf, Node *from)
+int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr)
 {
-	uchar type;
-	uchar ticket[TICKET_LEN];
+	AddrDiscoverReply msg = ADDR_DISCOVER_REPLY__INIT;
+	msg.ticket.len = TICKET_LEN;
+	msg.ticket.data = ticket;
+	msg.has_ticket = 1;
 
-	if (unpack(buf, "ct", &type, ticket) != n) {
-		fprintf(stderr, "expected %d but got %d\n", n, unpack(buf, "ct", &type, ticket));
-		return CHORD_PROTOCOL_ERROR;
-	}
+	msg.addr.len = 16;
+	msg.addr.data = addr->s6_addr;
 
-	assert(type == CHORD_ADDR_DISCOVER);
-	return process_addr_discover(srv, ticket, from);
-}
-
-int pack_addr_discover_repl(uchar *buf, uchar *ticket, in6_addr *addr)
-{
-	return pack(buf, "ct6", CHORD_ADDR_DISCOVER_REPL, ticket, addr);
-}
-
-int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ticket[TICKET_LEN];
-	in6_addr addr;
-
-	if (unpack(buf, "ct6", &type, ticket, &addr) != n)
-		return CHORD_PROTOCOL_ERROR;
-
-	assert(type == CHORD_ADDR_DISCOVER_REPL);
-	return process_addr_discover_repl(srv, ticket, &addr, from);
+	addr_discover_reply__pack(&msg, buf+1);
+	buf[0] = CHORD_ADDR_DISCOVER_REPL;
+	return addr_discover_reply__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
@@ -311,32 +461,18 @@ int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from)
 int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 			  const uchar *data)
 {
-	int n;
+	Data msg = DATA__INIT;
+	msg.id.len = CHORD_ID_LEN;
+	msg.id.data = id->x;
 
-	n = pack(buf, "ccxs", type, ttl, id, len);
-	if (n >= 0) {
-		memmove(buf + n, data, len);
-		n += len;
-	}
-	return n;
-}
+	msg.ttl = ttl;
 
-/**********************************************************************/
+	msg.data.len = len;
+	msg.data.data = (uint8_t *)data;
 
-/* unpack_data: unpack and process data packet */
-int unpack_data(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ttl;
-	int len;
-	chordID id;
-	ushort pkt_len;
-
-	len = unpack(buf, "ccxs", &type, &ttl, &id, &pkt_len);
-	if (len < 0 || len + pkt_len != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_ROUTE || type == CHORD_ROUTE_LAST);
-	return process_data(srv, type, ttl, &id, pkt_len, buf + len, from);
+	data__pack(&msg, buf+1);
+	buf[0] = type;
+	return data__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
@@ -344,49 +480,41 @@ int unpack_data(Server *srv, int n, uchar *buf, Node *from)
 /* pack_fs: pack find_successor packet */
 int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port)
 {
-	return pack(buf, "ctc6s", CHORD_FS, ticket, ttl, addr, port);
-}
+	FindSuccessor msg = FIND_SUCCESSOR__INIT;
+	msg.ticket.len = TICKET_LEN;
+	msg.ticket.data = ticket;
+	msg.has_ticket = 1;
 
-/**********************************************************************/
+	msg.ttl = ttl;
+	msg.has_ttl = 1;
 
-/* unpack_fs: unpack and process find_successor packet */
-int unpack_fs(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ticket[TICKET_LEN];
-	uchar ttl;
-	in6_addr addr;
-	ushort port;
+	msg.addr.len = 16;
+	msg.addr.data = addr->s6_addr;
 
-	if (unpack(buf, "ctc6s", &type, ticket, &ttl, &addr, &port) != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_FS);
-	return process_fs(srv, ticket, ttl, &addr, port);
+	msg.port = port;
+	find_successor__pack(&msg, buf+1);
+	buf[0] = CHORD_FS;
+	return find_successor__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
 
 /* pack_fs_repl: pack find_successor reply packet */
-int pack_fs_repl(uchar *buf, uchar *ticket, in6_addr *addr,
+int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr,
 				 ushort port)
 {
-	return pack(buf, "ct6s", CHORD_FS_REPL, ticket, addr, port);
-}
+	FindSuccessorReply msg = FIND_SUCCESSOR_REPLY__INIT;
+	msg.ticket.len = TICKET_LEN;
+	msg.ticket.data = ticket;
+	msg.has_ticket = 1;
 
-/**********************************************************************/
+	msg.addr.len = 16;
+	msg.addr.data = addr->s6_addr;
 
-/* unpack_fs_repl: unpack and process find_successor reply packet */
-int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	in6_addr addr;
-	ushort port;
-	uchar ticket[TICKET_LEN];
-
-	if (unpack(buf, "ct6s", &type, ticket, &addr, &port) != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_FS_REPL);
-	return process_fs_repl(srv, ticket, &addr, port);
+	msg.port = port;
+	find_successor_reply__pack(&msg, buf+1);
+	buf[0] = CHORD_FS_REPL;
+	return find_successor_reply__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
@@ -394,45 +522,29 @@ int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from)
 /* pack_stab: pack stabilize packet */
 int pack_stab(uchar *buf, in6_addr *addr, ushort port)
 {
-	return pack(buf, "c6s", CHORD_STAB, addr, port);
-}
+	Stabilize msg = STABILIZE__INIT;
+	msg.addr.len = 16;
+	msg.addr.data = addr->s6_addr;
 
-/**********************************************************************/
-
-/* unpack_stab: unpack and process stabilize packet */
-int unpack_stab(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	in6_addr addr;
-	ushort port;
-
-	if (unpack(buf, "c6s", &type, &addr, &port) != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_STAB);
-	return process_stab(srv, &addr, port);
+	msg.port = port;
+	stabilize__pack(&msg, buf+1);
+	buf[0] = CHORD_STAB;
+	return stabilize__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
 
 /* pack_stab_repl: pack stabilize reply packet */
-int pack_stab_repl(uchar *buf, in6_addr *addr, ushort port)
+int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
 {
-	return pack(buf, "c6s", CHORD_STAB_REPL, addr, port);
-}
+	StabilizeReply msg = STABILIZE_REPLY__INIT;
+	msg.addr.len = 16;
+	msg.addr.data = addr->s6_addr;
 
-/**********************************************************************/
-
-/* unpack_stab_repl: unpack and process stabilize reply packet */
-int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	in6_addr addr;
-	ushort port;
-
-	if (unpack(buf, "c6s", &type, &addr, &port) != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_STAB_REPL);
-	return process_stab_repl(srv, &addr, port);
+	msg.port = port;
+	stabilize_reply__pack(&msg, buf+1);
+	buf[0] = CHORD_STAB_REPL;
+	return stabilize_reply__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
@@ -440,20 +552,10 @@ int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from)
 /* pack_notify: pack notify packet */
 int pack_notify(uchar *buf)
 {
-	return pack(buf, "c", CHORD_NOTIFY);
-}
-
-/**********************************************************************/
-
-/* unpack_notify: unpack notify packet */
-int unpack_notify(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-
-	if (unpack(buf, "c", &type) != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_NOTIFY);
-	return process_notify(srv, from);
+	Notify msg = NOTIFY__INIT;
+	notify__pack(&msg, buf+1);
+	buf[0] = CHORD_NOTIFY;
+	return notify__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
@@ -461,23 +563,15 @@ int unpack_notify(Server *srv, int n, uchar *buf, Node *from)
 /* pack_ping: pack ping packet */
 int pack_ping(uchar *buf, uchar *ticket, ulong time)
 {
-	return pack(buf, "ctl", CHORD_PING, ticket, time);
-}
+	Ping msg = PING__INIT;
+	msg.ticket.len = TICKET_LEN;
+	msg.ticket.data = ticket;
+	msg.has_ticket = 1;
 
-/**********************************************************************/
-
-/* unpack_ping: unpack and process ping packet */
-int unpack_ping(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ticket[TICKET_LEN];
-	ulong time;
-
-	if (unpack(buf, "ctl", &type, ticket, &time) != n)
-		return CHORD_PROTOCOL_ERROR;
-
-	assert(type == CHORD_PING);
-	return process_ping(srv, ticket, time, from);
+	msg.time = time;
+	ping__pack(&msg, buf+1);
+	buf[0] = CHORD_PING;
+	return ping__get_packed_size(&msg)+1;
 }
 
 /**********************************************************************/
@@ -485,231 +579,13 @@ int unpack_ping(Server *srv, int n, uchar *buf, Node *from)
 /* pack_pong: pack pong packet */
 int pack_pong(uchar *buf, uchar *ticket, ulong time)
 {
-	return pack(buf, "ctl", CHORD_PONG, ticket, time);
-}
+	Pong msg = PONG__INIT;
+	msg.ticket.len = TICKET_LEN;
+	msg.ticket.data = ticket;
+	msg.has_ticket = 1;
 
-/**********************************************************************/
-
-/* unpack_pong: unpack pong packet */
-int unpack_pong(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ticket[TICKET_LEN];
-	ulong time;
-
-	if (unpack(buf, "ctl", &type, ticket, &time) != n)
-		return CHORD_PROTOCOL_ERROR;
-
-	assert(type == CHORD_PONG);
-	return process_pong(srv, ticket, time, from);
-}
-
-/**********************************************************************/
-
-/* pack_fingers_get: pack get fingers packet */
-int pack_fingers_get(uchar *buf, uchar *ticket, in6_addr *addr, ushort port,
-					 chordID *key)
-{
-	return pack(buf, "ctx6s", CHORD_FINGERS_GET, ticket, key, addr, port);
-}
-
-/**********************************************************************/
-
-/* unpack_fingers_get: unpack and process fingers_get packet */
-int unpack_fingers_get(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ticket[TICKET_LEN];
-	chordID key;
-	in6_addr addr;
-	ushort port;
-
-	if (unpack(buf, "ctx6s", &type, ticket, &key, &addr, &port) != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_FINGERS_GET);
-	return process_fingers_get(srv, ticket, &addr, port, &key);
-}
-
-#define INCOMPLETE_FINGER_LIST -1
-#define END_FINGER_LIST 0
-
-/* pack_fingers_repl: pack repl fingers packet */
-int pack_fingers_repl(uchar *buf, Server *srv, uchar *ticket)
-{
-	Finger *f;
-	int len, l;
-
-	assert(srv);
-	len = pack(buf, "ctx6s", CHORD_FINGERS_REPL, ticket, &srv->node.id,
-			   &srv->node.addr, srv->node.port);
-
-	/* pack fingers */
-	for (f = srv->head_flist; f; f = f->next) {
-		l = pack(buf + len, "x6slls", &f->node.id, &f->node.addr, f->node.port,
-				 f->rtt_avg, f->rtt_dev, (short)f->npings);
-		len += l;
-		if (len + l + 1 > BUFSIZE) {
-			len += pack(buf + len, "c", INCOMPLETE_FINGER_LIST);
-			return len;
-		}
-	}
-	len += pack(buf + len, "c", END_FINGER_LIST);
-	return len;
-}
-
-
-/* unpack_fingers_repl: unpack and process fingers_repl packet */
-int unpack_fingers_repl(Server *srv, int n, uchar *buf, Node *from)
-{
-	/* this message is received by a client;
-	 * it shouldn't be received by an i3 server
-	 */
-	return process_fingers_repl(srv, 0);
-}
-
-
-/**********************************************************************/
-
-/* pack_traceroute: pack/update traceroute packet */
-/*
- * traceroute packet format:
- *		char pkt_type;
- *		char ttl; time to live, decremented at every hop.
- *							When ttl reaches 0, a traceroute_repl packet is returned.
- *		char hops; number of hops up to the current node (not including the
- *							 client). hops is inceremented at every hop along the
- *							 forward path. hops should be initialized to 0 by the clients.
- *		ID target_id;	 target ID for traceroute.
- *		Node prev_node; previous node (ie., the node which forwarded the packet)
- *		ulong rtt; rtt...
- *		ulong dev; ... and std dev frm previous node to this node (in usec)
- *		Node crt_node; this node
- *		(list of addresses/ports of the nodes along the traceroute path
- *		 up to this node)
- *		ulong addr;	address...
- *		ushort port; ... and port number of the client
- *		....
- */
-int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, uchar ttl,
-					uchar hops)
-{
-	int	 n = 0;
-
-	/* pack type, ttl and hops fields */
-	n = pack(buf+n, "ccc", type, ttl, hops);
-
-	/* skip target ID field */
-	n += sizeof_fmt("x");
-
-	/* pack prev node (for the next node, this is the current node!) */
-	n += pack(buf+n, "x6sll", &srv->node.id, &srv->node.addr, srv->node.port,
-			  f->rtt_avg, f->rtt_dev);
-
-	/* pack this node field (for next node this is the node itself!) */
-	n += pack(buf+n, "x6s", &f->node.id, &f->node.addr, f->node.port);
-
-	/* skip current list of addresses .. */
-	n += sizeof_fmt("6s")*hops;
-
-	/* add current node to the list */
-	n += pack(buf+n, "6s", &srv->node.addr, srv->node.port);
-
-	return n;
-}
-
-/**********************************************************************/
-
-/* unpack_traceroute: unpack and process trace_route packet
- * (see pack_traceroute for packet format)
- */
-int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from)
-{
-	chordID id;
-	uchar type;
-	uchar ttl;
-	uchar hops;
-
-	/* unpack following fields: type, ttl, hops, and target id */
-	if (unpack(buf, "cccx", &type, &ttl, &hops, &id) >= n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_TRACEROUTE || type == CHORD_TRACEROUTE_LAST);
-	return process_traceroute(srv, &id, buf, type, ttl, hops);
-}
-
-/**********************************************************************/
-
-/* pack_traceroute_repl: pack/update traceroute packet */
-/*
- * traceroute packet_repl format:
- *		char pkt_type;
- *		char ttl; time to live, incremented at every hop (remember, this message
- *							travls on the reverse path)
- *		char hops; number of hops from client, decremented at every
- *							 hop along the forward path. When hops reaches 0,
- *							 the packet is dropped.
- *		ID target_id;	 target ID for traceroute.
- *		Node nl_node; next-to-last hop on traceroute path
- *		ulong rtt; rtt...
- *		ulong dev; ... and std dev from next-to-last hop to the last hop
- *		Node l_node; last node of traceroute path
- *		(list of addresses/ports of the nodes along the traceroute path
- *		 up to this node, starting with the client)
- *		ulong addr;	address...
- *		ushort port; ... and port number of the client
- *		....
- */
-int pack_traceroute_repl(uchar *buf, Server *srv, uchar ttl, uchar hops,
-						 in6_addr *paddr, ushort *pport, int one_hop)
-{
-	int	 n = 0;
-
-	/* pack ttl and hops fields */
-	n += pack(buf+n, "ccc", CHORD_TRACEROUTE_REPL, (char)ttl, (char)hops);
-
-	/* skip target ID field */
-	n += sizeof_fmt("x");
-
-	if (one_hop) {
-		/* one hop path */
-		n += pack(buf+n, "x6s", &srv->node.id, &srv->node.addr, srv->node.port);
-		/* skip mean rtt, and std dev rtt fields */
-		n += sizeof_fmt("ll");
-	} else {
-		/* skip next-to-last node field, and the mean and std dev. to last
-		 * node fields
-		 */
-		n += sizeof_fmt("x6sll");
-	}
-
-	/* skip last node field */
-	n += sizeof_fmt("x6s");
-
-	/* compute source list size -- this is the number of hops plus client */
-	n += sizeof_fmt("6s")*hops;
-
-	/* get address and port number of previous node on reverse path
-	 * yes, it's ugly to unpack in a pack function, but...
-	 */
-	unpack(buf+n, "6s", paddr, pport);
-
-	return n;
-}
-
-/**********************************************************************/
-
-/*	unpack_traceroute: unpack and process trace_route packet
- * (see pack_traceroute for packet format)
- */
-int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	uchar ttl;
-	uchar hops;
-
-	/* unpack following fields: type, ttl, and hops */
-	if (unpack(buf, "ccc", &type, &ttl, &hops) >= n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_TRACEROUTE_REPL);
-
-	return process_traceroute_repl(srv, buf, ttl, hops);
+	msg.time = time;
+	pong__pack(&msg, buf+1);
+	buf[0] = CHORD_PONG;
+	return pong__get_packed_size(&msg)+1;
 }

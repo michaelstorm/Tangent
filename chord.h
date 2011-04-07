@@ -12,6 +12,7 @@
 #include "chord_api.h"
 #include "debug.h"
 #include "eprintf.h"
+#include "messages.pb-c.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +42,7 @@ enum {
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
 	ADDR_DISCOVER_INTERVAL = 1*1000000,
-	STABILIZE_PERIOD = 10*1000000,  /* in usec */
+	STABILIZE_PERIOD = 3*1000000,  /* in usec */
 	BUFSIZE      = 65535,          /* buffer for packets */
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
 									*  (read from configuration file)
@@ -69,11 +70,6 @@ enum {
 	CHORD_NOTIFY,      /* notify (predecessor) */
 	CHORD_PING,        /* are you alive? */
 	CHORD_PONG,        /* yes, I am */
-	CHORD_FINGERS_GET, /* get your finger list */
-	CHORD_FINGERS_REPL,/* .. here is my finger list */
-	CHORD_TRACEROUTE,  /* traceroute */
-	CHORD_TRACEROUTE_LAST,
-	CHORD_TRACEROUTE_REPL,/* traceroute repl */
 };
 
 enum {
@@ -88,7 +84,7 @@ enum {
 	CHORD_EVENT_UPDATE_RANGE = 0,
 };
 
-typedef int (*chord_packet_handler)(void *ctx, Server *srv, int n, uchar *buf,
+typedef int (*chord_packet_handler)(void *ctx, Server *srv, void *msg,
 									Node *from);
 
 struct Node
@@ -157,7 +153,7 @@ struct Server
 
 	BF_KEY ticket_key;
 
-	chord_packet_handler packet_handlers[CHORD_TRACEROUTE_REPL];
+	chord_packet_handler packet_handlers[CHORD_PONG+1];
 	void *packet_handler_ctx;
 };
 
@@ -216,7 +212,8 @@ void join(Server *srv, FILE *fp);
 int dispatch(Server *srv, int n, uchar *buf, Node *from);
 int pack(uchar *buf, const char *fmt, ...);
 int unpack(uchar *buf, const char *fmt, ...);
-int sizeof_fmt(const char *fmt);
+int sizeof_packed_fmt(const char *fmt);
+int sizeof_unpacked_fmt(const char *fmt);
 
 #ifdef CCURED
 // These are the kinds of arguments that we pass to pack
@@ -234,61 +231,33 @@ struct unpack_args {
 #pragma ccuredvararg("unpack", sizeof(struct unpack_args))
 #endif
 
+int pack_addr_discover(uchar *buf, uchar *ticket);
+int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr);
 int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 			  const uchar *data);
-int unpack_data(Server *srv, int n, uchar *buf, Node *from);
 int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port);
-int unpack_fs(Server *srv, int n, uchar *buf, Node *from);
-int pack_fs_repl(uchar *buf, uchar *ticket, in6_addr *addr, ushort port);
-int unpack_fs_repl(Server *srv, int n, uchar *buf, Node *from);
+int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr, ushort port);
 int pack_stab(uchar *buf, in6_addr *addr, ushort port);
-int unpack_stab(Server *srv, int n, uchar *buf, Node *from);
-int pack_stab_repl(uchar *buf, in6_addr *addr, ushort port);
-int unpack_stab_repl(Server *srv, int n, uchar *buf, Node *from);
+int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port);
 int pack_notify(uchar *buf);
-int unpack_notify(Server *srv, int n, uchar *buf, Node *from);
 int pack_ping(uchar *buf, uchar *ticket, ulong time);
-int unpack_ping(Server *srv, int n, uchar *buf, Node *from);
 int pack_pong(uchar *buf, uchar *ticket, ulong time);
-int unpack_pong(Server *srv, int n, uchar *buf, Node *from);
-int pack_fingers_get(uchar *buf, uchar *ticket, in6_addr *addr, ushort port,
-					 chordID *key);
-int unpack_fingers_get(Server *srv, int n, uchar *buf, Node *from);
-int pack_fingers_repl(uchar *buf, Server *srv, uchar *ticket);
-int unpack_fingers_repl(Server *null, int n, uchar *buf, Node *from);
-int pack_traceroute(uchar *buf, Server *srv, Finger *f, uchar type, uchar ttl,
-					uchar hops);
-int unpack_traceroute(Server *srv, int n, uchar *buf, Node *from);
-int pack_traceroute_repl(uchar *buf, Server *srv, uchar ttl, uchar hops,
-						 in6_addr *paddr, ushort *pport, int one_hop);
-int unpack_traceroute_repl(Server *srv, int n, uchar *buf, Node *from);
-int pack_addr_discover(uchar *buf, uchar *ticket);
-int unpack_addr_discover(Server *srv, int n, uchar *buf, Node *from);
-int pack_addr_discover_repl(uchar *buf, uchar *ticket, in6_addr *addr);
-int unpack_addr_discover_repl(Server *srv, int n, uchar *buf, Node *from);
 
 /* process.c */
 Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 					  uchar *route_type);
-int process_data(Server *srv, uchar type, uchar ttl, chordID *id, ushort len,
-				 uchar *data, Node *from);
-int process_fs(Server *srv, uchar *ticket, uchar ttl, in6_addr *addr,
-			   ushort port);
-int process_fs_repl(Server *srv, uchar *ticket, in6_addr *addr, ushort port);
-int process_stab(Server *srv, in6_addr *addr, ushort port);
-int process_stab_repl(Server *srv, in6_addr *addr, ushort port);
-int process_notify(Server *srv, Node *from);
-int process_ping(Server *srv, uchar *ticket, ulong time, Node *from);
-int process_pong(Server *srv, uchar *ticket, ulong time, Node *from);
-int process_fingers_get(Server *srv, uchar *ticket, in6_addr *addr, ushort port,
-						chordID *key);
-int process_fingers_repl(Server *srv, uchar ret_code);
-int process_traceroute(Server *srv, chordID *id, uchar *buf, uchar type,
-					   uchar ttl, uchar hops);
-int process_traceroute_repl(Server *srv, uchar *buf, uchar ttl, uchar hops);
-int process_addr_discover(Server *srv, uchar *ticket, Node *from);
-int process_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *addr,
-							   Node *from);
+int process_addr_discover(Server *srv, AddrDiscover *msg, Node *from);
+int process_addr_discover_reply(Server *srv, AddrDiscoverReply *msg,
+								Node *from);
+int process_route(Server *srv, Data *msg, Node *from);
+int process_route_last(Server *srv, Data *msg, Node *from);
+int process_fs(Server *srv, FindSuccessor *msg, Node *from);
+int process_fs_reply(Server *srv, FindSuccessorReply *msg, Node *from);
+int process_stab(Server *srv, Stabilize *msg, Node *from);
+int process_stab_reply(Server *srv, StabilizeReply *msg, Node *from);
+int process_notify(Server *srv, Notify *msg, Node *from);
+int process_ping(Server *srv, Ping *msg, Node *from);
+int process_pong(Server *srv, Pong *msg, Node *from);
 
 /* sendpkt.c */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,
@@ -301,26 +270,18 @@ void send_fs(Server *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port);
 void send_fs_forward(Server *srv, uchar *ticket, uchar ttl, in6_addr *to_addr,
 					 ushort to_port, in6_addr *addr, ushort port);
-void send_fs_repl(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
+void send_fs_reply(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 				  in6_addr *addr, ushort port);
 void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 			   ushort port);
-void send_stab_repl(Server *srv, in6_addr *to_addr, ushort to_port,
+void send_stab_reply(Server *srv, in6_addr *to_addr, ushort to_port,
 					in6_addr *addr, ushort port);
 void send_notify(Server *srv, in6_addr *to_addr, ushort to_port);
 void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time);
 void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
 			   ulong time);
-void send_fingers_get(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
-					  ushort port, chordID *key);
-void send_fingers_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
-					   ushort to_port);
-void send_traceroute(Server *srv, Finger *f, uchar *buf, uchar type, uchar ttl,
-					 uchar hops);
-void send_traceroute_repl(Server *srv, uchar *buf, int ttl, int hops,
-						  int one_hop);
 void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port);
-void send_addr_discover_repl(Server *srv, uchar *ticket, in6_addr *to_addr,
+void send_addr_discover_reply(Server *srv, uchar *ticket, in6_addr *to_addr,
 							 ushort to_port);
 
 /* stabilize.c */
@@ -370,6 +331,7 @@ void print_current_time(char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2);
 void v6_addr_copy(in6_addr *dest, const in6_addr *src);
+void v6_addr_set(in6_addr *dest, const uchar *src);
 
 int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...);
 int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...);

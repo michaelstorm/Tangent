@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include "chord.h"
 #include "dhash.h"
+#include "messages.pb-c.h"
 #include "pack.h"
 #include "process.h"
 #include "send.h"
@@ -100,30 +101,13 @@ static int (*chord_unpack_fn[])(DHash *, Server *, uchar *, int, Node *) = {
 	dhash_unpack_push_reply
 };
 
-int dhash_unpack_chord_packet(DHash *dhash, Server *srv, int n, uchar *buf,
-							  Node *from)
+int dhash_unpack_chord_packet(DHash *dhash, Server *srv, _Data *msg, Node *from)
 {
-	chordID id;
-	unpack(buf, "*c*cx", &id);
-
-	fprintf(stderr, "received routing packet to id ");
-	print_chordID(&id);
-	fprintf(stderr, "\n");
-
-	uchar type;
-	uchar ttl;
-	ushort pkt_len;
-	int len = unpack(buf, "cc*xs", &type, &ttl, &pkt_len);
-
-	if (len < 0 || len + pkt_len != n)
-		return CHORD_PROTOCOL_ERROR;
-	assert(type == CHORD_ROUTE || type == CHORD_ROUTE_LAST);
-
-	uchar *data = buf+len;
-	uchar dhash_type = data[0];
-
+	fprintf(stderr, "received routing packet\n");
+	uchar dhash_type = msg->data.data[0];
 	if (dhash_type < NELEMS(chord_unpack_fn))
-		return chord_unpack_fn[dhash_type](dhash, srv, data, pkt_len, from);
+		return chord_unpack_fn[dhash_type](dhash, srv, msg->data.data,
+										   msg->data.len, from);
 
 	fprintf(stderr, "unknown packet type %02x\n", dhash_type);
 	return 0;

@@ -504,3 +504,8 @@ void v6_addr_copy(in6_addr *dest, const in6_addr *src)
 {
 	memcpy(dest->s6_addr, src->s6_addr, 16);
 }
+
+void v6_addr_set(in6_addr *dest, const uchar *src)
+{
+	memcpy(dest->s6_addr, src, 16);
+}

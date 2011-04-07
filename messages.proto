@@ -1,0 +1,79 @@
+message AddrDiscover
+{
+	optional bytes ticket = 1;
+
+	extensions 100 to max;
+}
+
+message AddrDiscoverReply
+{
+	optional bytes ticket = 1;
+	required bytes addr = 2;
+
+	extensions 100 to max;
+}
+
+message Data
+{
+	required bytes id = 1;
+	optional uint32 ttl = 2 [default = 32];
+	required bytes data = 3;
+
+	extensions 100 to max;
+}
+
+message FindSuccessor
+{
+	optional bytes ticket = 1;
+	optional uint32 ttl = 2;
+	required bytes addr = 3;
+	required uint32 port = 4;
+
+	extensions 100 to max;
+}
+
+message FindSuccessorReply
+{
+	optional bytes ticket = 1;
+	required bytes addr = 2;
+	required uint32 port = 3;
+
+	extensions 100 to max;
+}
+
+message Stabilize
+{
+	required bytes addr = 1;
+	required uint32 port = 2;
+
+	extensions 100 to max;
+}
+
+message StabilizeReply
+{
+	required bytes addr = 1;
+	required uint32 port = 2;
+
+	extensions 100 to max;
+}
+
+message Notify
+{
+	extensions 100 to max;
+}
+
+message Ping
+{
+	optional bytes ticket = 1;
+	required fixed32 time = 2;
+
+	extensions 100 to max;
+}
+
+message Pong
+{
+	optional bytes ticket = 1;
+	required fixed32 time = 2;
+
+	extensions 100 to max;
+}
