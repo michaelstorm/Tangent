@@ -73,15 +73,13 @@ enum {
 };
 
 enum {
-	CHORD_PROTOCOL_ERROR = -1,
-	CHORD_TTL_EXPIRED = -2,
-	CHORD_INVALID_TICKET = -3,
-	CHORD_PACK_ERROR = -4,
-	CHORD_ADDR_UNDISCOVERED = -5,
-};
-
-enum {
-	CHORD_EVENT_UPDATE_RANGE = 0,
+	CHORD_NO_ERROR = 0,
+	CHORD_PROTOCOL_ERROR,
+	CHORD_TTL_EXPIRED,
+	CHORD_INVALID_TICKET,
+	CHORD_ADDR_UNDISCOVERED,
+	CHORD_SELF_ORIGINATOR,
+	CHORD_FINGER_ERROR,
 };
 
 typedef int (*chord_packet_handler)(void *ctx, Server *srv, void *msg,
@@ -155,6 +153,8 @@ struct Server
 
 	chord_packet_handler packet_handlers[CHORD_PONG+1];
 	void *packet_handler_ctx;
+
+	struct Dispatcher *dispatcher;
 };
 
 #define PRED(srv) (srv->tail_flist)
@@ -209,7 +209,6 @@ void discover_addr(evutil_socket_t sock, short what, void *arg);
 void join(Server *srv, FILE *fp);
 
 /* pack.c */
-int dispatch(Server *srv, int n, uchar *buf, Node *from);
 int pack(uchar *buf, const char *fmt, ...);
 int unpack(uchar *buf, const char *fmt, ...);
 int sizeof_packed_fmt(const char *fmt);
@@ -244,20 +243,31 @@ int pack_ping(uchar *buf, uchar *ticket, ulong time);
 int pack_pong(uchar *buf, uchar *ticket, ulong time);
 
 /* process.c */
+struct ChordPacketArgs
+{
+	int type;
+	const char *name;
+	Server *srv;
+} __attribute__((__packed__));
+typedef struct ChordPacketArgs ChordPacketArgs;
+
 Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 					  uchar *route_type);
-int process_addr_discover(Server *srv, AddrDiscover *msg, Node *from);
-int process_addr_discover_reply(Server *srv, AddrDiscoverReply *msg,
+int process_addr_discover(ChordPacketArgs *args, AddrDiscover *msg, Node *from);
+int process_addr_discover_reply(ChordPacketArgs *args, AddrDiscoverReply *msg,
 								Node *from);
-int process_route(Server *srv, Data *msg, Node *from);
-int process_route_last(Server *srv, Data *msg, Node *from);
-int process_fs(Server *srv, FindSuccessor *msg, Node *from);
-int process_fs_reply(Server *srv, FindSuccessorReply *msg, Node *from);
-int process_stab(Server *srv, Stabilize *msg, Node *from);
-int process_stab_reply(Server *srv, StabilizeReply *msg, Node *from);
-int process_notify(Server *srv, Notify *msg, Node *from);
-int process_ping(Server *srv, Ping *msg, Node *from);
-int process_pong(Server *srv, Pong *msg, Node *from);
+int process_data(ChordPacketArgs *args, int type, Data *msg, Node *from);
+int process_route(ChordPacketArgs *args, Data *msg, Node *from);
+int process_route_last(ChordPacketArgs *args, Data *msg, Node *from);
+int process_fs(ChordPacketArgs *args, FindSuccessor *msg, Node *from);
+int process_fs_reply(ChordPacketArgs *args, FindSuccessorReply *msg,
+					 Node *from);
+int process_stab(ChordPacketArgs *args, Stabilize *msg, Node *from);
+int process_stab_reply(ChordPacketArgs *args, StabilizeReply *msg, Node *from);
+int process_notify(ChordPacketArgs *args, Notify *msg, Node *from);
+int process_ping(ChordPacketArgs *args, Ping *msg, Node *from);
+int process_pong(ChordPacketArgs *args, Pong *msg, Node *from);
+void process_error(ChordPacketArgs *args, int error, void *msg, Node *from);
 
 /* sendpkt.c */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,

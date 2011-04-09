@@ -74,15 +74,16 @@ function(PROTOBUF_C_GENERATE_C SRCS HDRS)
   foreach(FIL ${ARGN})
     get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
     get_filename_component(FIL_WE ${FIL} NAME_WE)
+    get_filename_component(FIL_PATH ${FIL} PATH)
     
-    list(APPEND ${SRCS} "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb-c.c")
-    list(APPEND ${HDRS} "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb-c.h")
+    list(APPEND ${SRCS} "${FIL_PATH}/${FIL_WE}.pb-c.c")
+    list(APPEND ${HDRS} "${FIL_PATH}/${FIL_WE}.pb-c.h")
 
     add_custom_command(
-      OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb-c.c"
-             "${CMAKE_CURRENT_BINARY_DIR}/${FIL_WE}.pb-c.h"
+      OUTPUT "${FIL_PATH}/${FIL_WE}.pb-c.c"
+             "${FIL_PATH}/${FIL_WE}.pb-c.h"
       COMMAND  ${PROTOBUF_C_PROTOC_EXECUTABLE}
-      ARGS --c_out=${CMAKE_CURRENT_BINARY_DIR} --proto_path=${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
+      ARGS --c_out=${CMAKE_CURRENT_SOURCE_DIR} --proto_path=${CMAKE_CURRENT_SOURCE_DIR} ${ABS_FIL}
       DEPENDS ${ABS_FIL}
       COMMENT "Running C protocol buffer compiler on ${FIL}"
       VERBATIM )

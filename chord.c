@@ -18,6 +18,7 @@
 #include <sys/time.h>
 #include <openssl/rand.h>
 #include "chord.h"
+#include "dispatcher.h"
 #include "grid.h"
 #include "gen_utils.h"
 
@@ -41,6 +42,34 @@ Server *new_server(struct event_base *ev_base, int tunnel_sock)
 	srv->discover_addr_event = event_new(srv->ev_base, -1,
 										 EV_TIMEOUT|EV_PERSIST, discover_addr,
 										 srv);
+
+	srv->dispatcher = new_dispatcher(CHORD_PONG+1);
+	dispatcher_set_error_handlers(srv->dispatcher, NULL,
+								  (process_error_fn)process_error);
+
+	dispatcher_set_packet(srv->dispatcher, CHORD_ADDR_DISCOVER, srv,
+						  addr_discover__unpack, process_addr_discover);
+	dispatcher_set_packet(srv->dispatcher, CHORD_ADDR_DISCOVER_REPL, srv,
+						  addr_discover_reply__unpack,
+						  process_addr_discover_reply);
+	dispatcher_set_packet(srv->dispatcher, CHORD_ROUTE, srv,
+						  data__unpack, process_route);
+	dispatcher_set_packet(srv->dispatcher, CHORD_ROUTE_LAST, srv,
+						  data__unpack, process_route_last);
+	dispatcher_set_packet(srv->dispatcher, CHORD_FS, srv,
+						  find_successor__unpack, process_fs);
+	dispatcher_set_packet(srv->dispatcher, CHORD_FS_REPL, srv,
+						  find_successor_reply__unpack, process_fs_reply);
+	dispatcher_set_packet(srv->dispatcher, CHORD_STAB, srv,
+						  stabilize__unpack, process_stab);
+	dispatcher_set_packet(srv->dispatcher, CHORD_STAB_REPL, srv,
+						  stabilize_reply__unpack, process_stab_reply);
+	dispatcher_set_packet(srv->dispatcher, CHORD_NOTIFY, srv,
+						  notify__unpack, process_notify);
+	dispatcher_set_packet(srv->dispatcher, CHORD_PING, srv,
+						  ping__unpack, process_ping);
+	dispatcher_set_packet(srv->dispatcher, CHORD_PONG, srv,
+						  pong__unpack, process_pong);
 
 	return srv;
 }
@@ -215,8 +244,9 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 	}
 
 	get_address_id(&from.id, &from.addr, from.port);
-	dispatch(srv, packet_len, buf, &from);
-	return;
+
+	if (!dispatch_packet(srv->dispatcher, buf, packet_len, &from))
+		weprintf("dropped unknown packet type 0x%02x", buf[0]);
 }
 
 /**********************************************************************/

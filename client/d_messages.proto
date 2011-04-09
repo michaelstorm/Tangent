@@ -1,0 +1,4 @@
+message ClientRequest
+{
+	required string name = 1;
+}

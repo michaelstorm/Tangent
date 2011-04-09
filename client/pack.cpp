@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include "chord.h"
 #include "dhash.h"
-#include "messages.pb-c.h"
+#include "d_messages.pb-c.h"
 #include "pack.h"
 #include "process.h"
 #include "send.h"
@@ -15,25 +15,18 @@ void dhash_unpack_control_packet(evutil_socket_t sock, short what, void *arg)
 	DHash *dhash = (DHash *)arg;
 	uchar buf[1024];
 	int n;
-	char file[1024];
-	short size;
-	uchar type;
 
 	if ((n = read(sock, buf, 1024)) < 0)
 		perror("reading control packet");
 
-	int len = unpack(buf, "cs", &type, &size);
-	if (n != len + size) {
-		fprintf(stderr, "handle_control_packet: packet size error\n");
-		return;
-	}
-	memcpy(file, buf + len, size);
-	file[size] = '\0';
-
+	uchar type = buf[0];
 	switch (type) {
 	case DHASH_CLIENT_QUERY:
-		dhash_process_client_query(dhash, file);
+	{
+		ClientRequest *msg = client_request__unpack(NULL, n-1, buf+1);
+		dhash_process_client_request(dhash, msg);
 		break;
+	}
 	}
 
 	return;
@@ -101,16 +94,37 @@ static int (*chord_unpack_fn[])(DHash *, Server *, uchar *, int, Node *) = {
 	dhash_unpack_push_reply
 };
 
-int dhash_unpack_chord_packet(DHash *dhash, Server *srv, _Data *msg, Node *from)
+static int dhash_unpack_chord_packet(DHashPacketArgs *args, int type, Data *msg,
+									 Node *from)
 {
+	Server *srv = args->chord_args.srv;
+	DHash *dhash = args->dhash;
+
 	fprintf(stderr, "received routing packet\n");
 	uchar dhash_type = msg->data.data[0];
-	if (dhash_type < NELEMS(chord_unpack_fn))
-		return chord_unpack_fn[dhash_type](dhash, srv, msg->data.data,
-										   msg->data.len, from);
+	if (dhash_type < NELEMS(chord_unpack_fn)) {
+		int ret = chord_unpack_fn[dhash_type](dhash, srv, msg->data.data,
+											  msg->data.len, from);
 
-	fprintf(stderr, "unknown packet type %02x\n", dhash_type);
+		// remove this, should use dispatcher and each dhash_process_* should
+		// call process_data individually
+		if (!ret)
+			process_data((ChordPacketArgs *)args, type, msg, from);
+	}
+	else
+		fprintf(stderr, "unknown packet type %02x\n", dhash_type);
+
 	return 0;
+}
+
+int dhash_unpack_chord_route(DHashPacketArgs *args, Data *msg, Node *from)
+{
+	return dhash_unpack_chord_packet(args, CHORD_ROUTE, msg, from);
+}
+
+int dhash_unpack_chord_route_last(DHashPacketArgs *args, Data *msg, Node *from)
+{
+	return dhash_unpack_chord_packet(args, CHORD_ROUTE_LAST, msg, from);
 }
 
 /* Clients are likely to have different event loops and not particularly
@@ -225,4 +239,13 @@ int dhash_unpack_push_reply(DHash *dhash, Server *srv, uchar *data, int n,
 	file[name_len] = '\0';
 
 	return dhash_process_push_reply(dhash, srv, file, from);
+}
+
+int dhash_pack_client_request(uchar *buf, const char *name)
+{
+	ClientRequest msg = CLIENT_REQUEST__INIT;
+	msg.name = (char *)name;
+	client_request__pack(&msg, buf+1);
+	buf[0] = DHASH_CLIENT_QUERY;
+	return client_request__get_packed_size(&msg)+1;
 }

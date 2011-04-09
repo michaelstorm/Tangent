@@ -6,17 +6,20 @@
 #include "chord.h"
 #include "messages.pb-c.h"
 
-int process_addr_discover(Server *srv, AddrDiscover *msg, Node *from)
+int process_addr_discover(ChordPacketArgs *args, AddrDiscover *msg, Node *from)
 {
+	Server *srv = args->srv;
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover", &from->id,
 								 &from->addr, from->port));
 
 	send_addr_discover_reply(srv, msg->ticket.data, &from->addr, from->port);
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-int process_addr_discover_reply(Server *srv, AddrDiscoverReply *msg, Node *from)
+int process_addr_discover_reply(ChordPacketArgs *args, AddrDiscoverReply *msg,
+								Node *from)
 {
+	Server *srv = args->srv;
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
 								 &from->addr, from->port));
 
@@ -44,7 +47,7 @@ int process_addr_discover_reply(Server *srv, AddrDiscoverReply *msg, Node *from)
 		event_add(srv->stab_event, &timeout);
 		event_active(srv->stab_event, EV_TIMEOUT, 1);
 	}
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
 Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
@@ -78,10 +81,14 @@ Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 	return closest_preceding_node(srv, id, FALSE);
 }
 
-static int process_data(Server *srv, int type, Data *msg, Node *from)
+int process_data(ChordPacketArgs *args, int type, Data *msg, Node *from)
 {
+	Server *srv = args->srv;
 	chordID id;
 	memcpy(id.x, msg->id.data, CHORD_ID_LEN);
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	CHORD_DEBUG(3, print_process(srv, "process_data", &id, NULL, -1));
 
@@ -103,27 +110,29 @@ static int process_data(Server *srv, int type, Data *msg, Node *from)
 		send_data(srv, route_type, msg->ttl, np, &id, msg->data.len,
 				  msg->data.data);
 	}
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-int process_route(Server *srv, Data *msg, Node *from)
+int process_route(ChordPacketArgs *args, Data *msg, Node *from)
 {
-	return process_data(srv, CHORD_ROUTE, msg, from);
+	return process_data(args, CHORD_ROUTE, msg, from);
 }
 
-int process_route_last(Server *srv, Data *msg, Node *from)
+int process_route_last(ChordPacketArgs *args, Data *msg, Node *from)
 {
-	return process_data(srv, CHORD_ROUTE_LAST, msg, from);
+	return process_data(args, CHORD_ROUTE_LAST, msg, from);
 }
 
-/**********************************************************************/
-
-int process_fs(Server *srv, FindSuccessor *msg, Node *from)
+int process_fs(ChordPacketArgs *args, FindSuccessor *msg, Node *from)
 {
+	Server *srv = args->srv;
 	Node *succ, *np;
 	chordID reply_id;
 	in6_addr reply_addr;
 	ushort reply_port = msg->port;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	v6_addr_set(&reply_addr, msg->addr.data);
 	get_address_id(&reply_id, &reply_addr, reply_port);
@@ -139,14 +148,14 @@ int process_fs(Server *srv, FindSuccessor *msg, Node *from)
 
 	if (v6_addr_equals(&srv->node.addr, &reply_addr)
 		&& srv->node.port == reply_port)
-		return 1;
+		return CHORD_NO_ERROR;
 
 	if (succ_finger(srv) == NULL) {
 		send_fs_reply(srv, msg->ticket.data, &reply_addr, reply_port,
 					  &srv->node.addr, srv->node.port);
-		return 1;
+		return CHORD_NO_ERROR;
 	}
-	succ = &(succ_finger(srv)->node);
+	succ = &succ_finger(srv)->node;
 
 	if (is_between(&reply_id, &srv->node.id, &succ->id) || equals(&reply_id,
 																  &succ->id)) {
@@ -158,15 +167,17 @@ int process_fs(Server *srv, FindSuccessor *msg, Node *from)
 		send_fs_forward(srv, msg->ticket.data, msg->ttl, &np->addr, np->port,
 						&reply_addr, reply_port);
 	}
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-/**********************************************************************/
-
-int process_fs_reply(Server *srv, FindSuccessorReply *msg, Node *from)
+int process_fs_reply(ChordPacketArgs *args, FindSuccessorReply *msg, Node *from)
 {
+	Server *srv = args->srv;
 	int fnew;
 	chordID id;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	in6_addr addr;
 	memcpy(addr.s6_addr, msg->addr.data, 16);
@@ -177,7 +188,7 @@ int process_fs_reply(Server *srv, FindSuccessorReply *msg, Node *from)
 		return CHORD_INVALID_TICKET;
 
 	if (v6_addr_equals(&srv->node.addr, &addr) && srv->node.port == msg->port)
-		return 1;
+		return CHORD_NO_ERROR;
 
 	CHORD_DEBUG(5, print_process(srv, "process_fs_repl", &id, &from->addr,
 								 from->port));
@@ -186,16 +197,18 @@ int process_fs_reply(Server *srv, FindSuccessorReply *msg, Node *from)
 	if (fnew == TRUE)
 		send_ping(srv, &addr, msg->port, get_current_time());
 
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-/**********************************************************************/
-
-int process_stab(Server *srv, Stabilize *msg, Node *from)
+int process_stab(ChordPacketArgs *args, Stabilize *msg, Node *from)
 {
+	Server *srv = args->srv;
 	Finger *pred = pred_finger(srv);
 	int		 fnew;
 	chordID id;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	in6_addr addr;
 	memcpy(addr.s6_addr, msg->addr.data, 16);
@@ -210,16 +223,18 @@ int process_stab(Server *srv, Stabilize *msg, Node *from)
 	if (pred)
 		send_stab_reply(srv, &addr, msg->port, &pred->node.addr,
 						pred->node.port);
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-/**********************************************************************/
-
-int process_stab_reply(Server *srv, StabilizeReply *msg, Node *from)
+int process_stab_reply(ChordPacketArgs *args, StabilizeReply *msg, Node *from)
 {
+	Server *srv = args->srv;
 	Finger *succ;
 	int fnew;
 	chordID id;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	in6_addr addr;
 	memcpy(addr.s6_addr, msg->addr.data, 16);
@@ -230,7 +245,7 @@ int process_stab_reply(Server *srv, StabilizeReply *msg, Node *from)
 
 	// If we are our successor's predecessor, everything is fine, so do nothing.
 	if (v6_addr_equals(&srv->node.addr, &addr) && srv->node.port == msg->port)
-		return 1;
+		return CHORD_NO_ERROR;
 
 	// Otherwise, there is a better successor in between us and our current
 	// successor. So we notify the in-between node that we should be its
@@ -240,14 +255,16 @@ int process_stab_reply(Server *srv, StabilizeReply *msg, Node *from)
 	send_notify(srv, &succ->node.addr, succ->node.port);
 	if (fnew == TRUE)
 		send_ping(srv, &addr, msg->port, get_current_time());
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-/**********************************************************************/
-
-int process_notify(Server *srv, Notify *msg, Node *from)
+int process_notify(ChordPacketArgs *args, Notify *msg, Node *from)
 {
+	Server *srv = args->srv;
 	int fnew;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	CHORD_DEBUG(5, print_process(srv, "process_notify", &from->id, &from->addr,
 								 from->port));
@@ -256,15 +273,17 @@ int process_notify(Server *srv, Notify *msg, Node *from)
 	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
 	if (fnew == TRUE)
 		send_ping(srv, &from->addr, from->port, get_current_time());
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-/**********************************************************************/
-
-int process_ping(Server *srv, Ping *msg, Node *from)
+int process_ping(ChordPacketArgs *args, Ping *msg, Node *from)
 {
+	Server *srv = args->srv;
 	int fnew;
 	Finger *pred;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	CHORD_DEBUG(5, print_process(srv, "process_ping", &from->id, &from->addr,
 								 from->port));
@@ -280,26 +299,26 @@ int process_ping(Server *srv, Ping *msg, Node *from)
 
 	send_pong(srv, msg->ticket.data, &from->addr, from->port, msg->time);
 
-	return 1;
+	return CHORD_NO_ERROR;
 }
 
-/**********************************************************************/
-
-int process_pong(Server *srv, Pong *msg, Node *from)
+int process_pong(ChordPacketArgs *args, Pong *msg, Node *from)
 {
+	Server *srv = args->srv;
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;
 	int		 fnew;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
+		return CHORD_ADDR_UNDISCOVERED;
 
 	if (!verify_ticket(&srv->ticket_key, msg->ticket.data, "c6sl", CHORD_PING,
 					   &from->addr, from->port, msg->time))
 		return CHORD_INVALID_TICKET;
 
 	f = insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
-	if (!f) {
-		fprintf(stderr, "dropping pong\n");
-		return 0;
-	}
+	if (!f)
+		return CHORD_FINGER_ERROR;
 
 	CHORD_DEBUG(5, print_process(srv, "process_pong", &from->id, &from->addr,
 								 from->port));
@@ -317,5 +336,39 @@ int process_pong(Server *srv, Pong *msg, Node *from)
 	if (pred != newpred)
 		chord_update_range(srv, &newpred->node.id, &srv->node.id);
 
-	return 1;
+	return CHORD_NO_ERROR;
+}
+
+void process_error(ChordPacketArgs *args, int error, void *msg, Node *from)
+{
+	char *err_str;
+	switch (error) {
+	case CHORD_NO_ERROR:
+		err_str = "no error";
+		break;
+	case CHORD_PROTOCOL_ERROR:
+		err_str = "protocol error";
+		break;
+	case CHORD_TTL_EXPIRED:
+		err_str = "time-to-live expired";
+		break;
+	case CHORD_INVALID_TICKET:
+		err_str = "invalid ticket";
+		break;
+	case CHORD_ADDR_UNDISCOVERED:
+		err_str = "received routing packet before address discovery";
+		break;
+	case CHORD_SELF_ORIGINATOR:
+		err_str = "received packet from self";
+		break;
+	case CHORD_FINGER_ERROR:
+		err_str = "finger error";
+		break;
+	default:
+		err_str = "unknown error";
+		break;
+	}
+
+	weprintf("dropping packet [type 0x%02x: %s] from %s:%hu (%s)", args->type,
+			 args->name, v6addr_to_str(&from->addr), from->port, err_str);
 }

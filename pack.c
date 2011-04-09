@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include "chord.h"
 #include "ctype.h"
+#include "dispatcher.h"
 #include "messages.pb-c.h"
 
 static int sizeof_packed_single(char **fmt)
@@ -192,7 +193,7 @@ int pack(uchar *buf, const char *fmt, ...)
 
 		default:
 			va_end(args);
-			return CHORD_PACK_ERROR;
+			return 0;
 		}
 
 		bp += pack_single(bp, &p, arg);
@@ -201,8 +202,6 @@ int pack(uchar *buf, const char *fmt, ...)
 
 	return bp - buf;
 }
-
-/**********************************************************************/
 
 static void unpack_single(uchar **bp, uchar **op, char **fmt)
 {
@@ -322,8 +321,6 @@ int unpack(uchar *buf, const char *fmt, ...)
 	return bp - buf;
 }
 
-/**********************************************************************/
-
 int sizeof_packed_fmt(const char *fmt)
 {
 	int len = 0;
@@ -340,92 +337,6 @@ int sizeof_unpacked_fmt(const char *fmt)
 	while (*p != '\0')
 		len += sizeof_unpacked_single(&p);
 	return len;
-}
-
-/**********************************************************************/
-
-typedef void *(*unpack_fn)(ProtobufCAllocator *, size_t, const uint8_t *);
-typedef int (*process_fn)(Server *, void *, Node *);
-
-struct packet_handler
-{
-	unpack_fn unpack;
-	process_fn process;
-};
-
-static struct packet_handler handlers[] = {
-	{(unpack_fn)addr_discover__unpack, (process_fn)process_addr_discover},
-	{(unpack_fn)addr_discover_reply__unpack,
-									(process_fn)process_addr_discover_reply},
-	{(unpack_fn)data__unpack, (process_fn)process_route},
-	{(unpack_fn)data__unpack, (process_fn)process_route_last},
-	{(unpack_fn)find_successor__unpack, (process_fn)process_fs},
-	{(unpack_fn)find_successor_reply__unpack, (process_fn)process_fs_reply},
-	{(unpack_fn)stabilize__unpack, (process_fn)process_stab},
-	{(unpack_fn)stabilize_reply__unpack, (process_fn)process_stab_reply},
-	{(unpack_fn)notify__unpack, (process_fn)process_notify},
-	{(unpack_fn)ping__unpack, (process_fn)process_ping},
-	{(unpack_fn)pong__unpack, (process_fn)process_pong},
-};
-
-/* dispatch: unpack and process packet */
-int dispatch(Server *srv, int n, uchar *buf, Node *from)
-{
-	uchar type;
-	int res;
-
-	type = buf[0];
-	if (type > CHORD_ADDR_DISCOVER_REPL
-		&& IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
-		res = CHORD_ADDR_UNDISCOVERED;
-	else if (type < NELEMS(handlers)) {
-		void *msg = handlers[type].unpack(NULL, n-1, buf+1);
-
-		if (srv->packet_handlers[type]
-			&& (res = srv->packet_handlers[type](srv->packet_handler_ctx, srv,
-												 msg, from)))
-			return res;
-
-		if (msg == NULL) {
-			fprintf(stderr, "error unpacking packet\n");
-			return 0;
-		}
-
-		res = handlers[type].process(srv, msg, from);
-	}
-	else {
-		weprintf("bad packet type 0x%02x", type);
-		res = CHORD_PROTOCOL_ERROR;
-	}
-
-	if (res < 0) {
-		char *err_str;
-		switch (res) {
-		case CHORD_PROTOCOL_ERROR:
-			err_str = "protocol error";
-			break;
-		case CHORD_TTL_EXPIRED:
-			err_str = "time-to-live expired";
-			break;
-		case CHORD_INVALID_TICKET:
-			err_str = "invalid ticket";
-			break;
-		case CHORD_PACK_ERROR:
-			err_str = "internal packing error";
-			break;
-		case CHORD_ADDR_UNDISCOVERED:
-			err_str = "received routing packet before address discovery";
-			break;
-		default:
-			err_str = "unknown error";
-			break;
-		}
-
-		weprintf("dropping packet [type 0x%02x size %d] from %s:%hu (%s)", type,
-				 n, v6addr_to_str(&from->addr), from->port, err_str);
-	}
-
-	return res;
 }
 
 int pack_addr_discover(uchar *buf, uchar *ticket)
@@ -455,9 +366,6 @@ int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr)
 	return addr_discover_reply__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_data: pack data packet */
 int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 			  const uchar *data)
 {
@@ -475,9 +383,6 @@ int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 	return data__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_fs: pack find_successor packet */
 int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port)
 {
 	FindSuccessor msg = FIND_SUCCESSOR__INIT;
@@ -497,9 +402,6 @@ int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port)
 	return find_successor__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_fs_repl: pack find_successor reply packet */
 int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr,
 				 ushort port)
 {
@@ -517,9 +419,6 @@ int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr,
 	return find_successor_reply__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_stab: pack stabilize packet */
 int pack_stab(uchar *buf, in6_addr *addr, ushort port)
 {
 	Stabilize msg = STABILIZE__INIT;
@@ -532,9 +431,6 @@ int pack_stab(uchar *buf, in6_addr *addr, ushort port)
 	return stabilize__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_stab_repl: pack stabilize reply packet */
 int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
 {
 	StabilizeReply msg = STABILIZE_REPLY__INIT;
@@ -547,9 +443,6 @@ int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
 	return stabilize_reply__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_notify: pack notify packet */
 int pack_notify(uchar *buf)
 {
 	Notify msg = NOTIFY__INIT;
@@ -558,9 +451,6 @@ int pack_notify(uchar *buf)
 	return notify__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_ping: pack ping packet */
 int pack_ping(uchar *buf, uchar *ticket, ulong time)
 {
 	Ping msg = PING__INIT;
@@ -574,9 +464,6 @@ int pack_ping(uchar *buf, uchar *ticket, ulong time)
 	return ping__get_packed_size(&msg)+1;
 }
 
-/**********************************************************************/
-
-/* pack_pong: pack pong packet */
 int pack_pong(uchar *buf, uchar *ticket, ulong time)
 {
 	Pong msg = PONG__INIT;

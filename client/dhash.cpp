@@ -12,6 +12,7 @@
 #include <event2/thread.h>
 #include "chord.h"
 #include "dhash.h"
+#include "dispatcher.h"
 #include "pack.h"
 #include "send.h"
 #include "transfer.h"
@@ -91,11 +92,17 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 
-		chord_set_packet_handler(srv, CHORD_ROUTE,
-								 (chord_packet_handler)dhash_unpack_chord_packet);
-		chord_set_packet_handler(srv, CHORD_ROUTE_LAST,
-								 (chord_packet_handler)dhash_unpack_chord_packet);
-		chord_set_packet_handler_ctx(srv, dhash);
+		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_ROUTE,
+									   (unpack_fn)data__unpack,
+									   (process_fn)dhash_unpack_chord_route);
+		dispatcher_register_arg(srv->dispatcher, CHORD_ROUTE,
+								dhash);
+
+		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_ROUTE_LAST,
+									   (unpack_fn)data__unpack,
+									   (process_fn)dhash_unpack_chord_route_last);
+		dispatcher_register_arg(srv->dispatcher, CHORD_ROUTE_LAST,
+								dhash);
 
 		server_start(srv);
 	}
