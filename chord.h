@@ -230,6 +230,7 @@ struct unpack_args {
 #pragma ccuredvararg("unpack", sizeof(struct unpack_args))
 #endif
 
+int pack_header(uchar *buf, int type, uchar *payload, int n);
 int pack_addr_discover(uchar *buf, uchar *ticket);
 int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr);
 int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
@@ -245,29 +246,35 @@ int pack_pong(uchar *buf, uchar *ticket, ulong time);
 /* process.c */
 struct ChordPacketArgs
 {
-	int type;
-	const char *name;
 	Server *srv;
 } __attribute__((__packed__));
 typedef struct ChordPacketArgs ChordPacketArgs;
 
 Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 					  uchar *route_type);
-int process_addr_discover(ChordPacketArgs *args, AddrDiscover *msg, Node *from);
-int process_addr_discover_reply(ChordPacketArgs *args, AddrDiscoverReply *msg,
-								Node *from);
-int process_data(ChordPacketArgs *args, int type, Data *msg, Node *from);
-int process_route(ChordPacketArgs *args, Data *msg, Node *from);
-int process_route_last(ChordPacketArgs *args, Data *msg, Node *from);
-int process_fs(ChordPacketArgs *args, FindSuccessor *msg, Node *from);
-int process_fs_reply(ChordPacketArgs *args, FindSuccessorReply *msg,
-					 Node *from);
-int process_stab(ChordPacketArgs *args, Stabilize *msg, Node *from);
-int process_stab_reply(ChordPacketArgs *args, StabilizeReply *msg, Node *from);
-int process_notify(ChordPacketArgs *args, Notify *msg, Node *from);
-int process_ping(ChordPacketArgs *args, Ping *msg, Node *from);
-int process_pong(ChordPacketArgs *args, Pong *msg, Node *from);
-void process_error(ChordPacketArgs *args, int error, void *msg, Node *from);
+int process_addr_discover(Header *header, ChordPacketArgs *args,
+						  AddrDiscover *msg, Node *from);
+int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
+								AddrDiscoverReply *msg, Node *from);
+int process_data(Header *header, ChordPacketArgs *args, int type, Data *msg,
+				 Node *from);
+int process_route(Header *header, ChordPacketArgs *args, Data *msg, Node *from);
+int process_route_last(Header *header, ChordPacketArgs *args, Data *msg,
+					   Node *from);
+int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
+			   Node *from);
+int process_fs_reply(Header *header, ChordPacketArgs *args,
+					 FindSuccessorReply *msg, Node *from);
+int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
+				 Node *from);
+int process_stab_reply(Header *header, ChordPacketArgs *args,
+					   StabilizeReply *msg, Node *from);
+int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
+				   Node *from);
+int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from);
+int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from);
+void process_error(Header *header, ChordPacketArgs *args, void *msg, Node *from,
+				   int error);
 
 /* sendpkt.c */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,

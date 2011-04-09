@@ -24,6 +24,8 @@ DHash *new_dhash(const char *files_path)
 	dhash->nservers = 0;
 	dhash->trans_head = NULL;
 
+	dhash->control_dispatcher = new_dispatcher(DHASH_CLIENT_QUERY+1);
+
 	dhash->files_path = (char *)malloc(strlen(files_path)+1);
 	strcpy(dhash->files_path, files_path);
 	return dhash;

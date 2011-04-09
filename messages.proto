@@ -1,6 +1,15 @@
+message Header
+{
+	required uint32 type = 1;
+	required bytes payload = 1024;
+
+	extensions 100 to 1023;
+	extensions 1025 to max;
+}
+
 message AddrDiscover
 {
-	optional bytes ticket = 1;
+	optional bytes ticket = 2;
 
 	extensions 100 to max;
 }

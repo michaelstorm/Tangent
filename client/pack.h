@@ -17,8 +17,10 @@ int dhash_unpack_query(DHash *dhash, Server *srv, uchar *data, int n,
 					   Node *from);
 int dhash_unpack_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 									  int n, Node *from);
-int dhash_unpack_chord_route(DHashPacketArgs *args, Data *msg, Node *from);
-int dhash_unpack_chord_route_last(DHashPacketArgs *args, Data *msg, Node *from);
+int dhash_unpack_chord_route(Header *header, DHashPacketArgs *args, Data *msg,
+							 Node *from);
+int dhash_unpack_chord_route_last(Header *header, DHashPacketArgs *args,
+								  Data *msg, Node *from);
 
 int dhash_client_unpack_request_reply(int sock, void *ctx,
 									  dhash_request_reply_handler handler);

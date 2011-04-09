@@ -94,8 +94,8 @@ static int (*chord_unpack_fn[])(DHash *, Server *, uchar *, int, Node *) = {
 	dhash_unpack_push_reply
 };
 
-static int dhash_unpack_chord_packet(DHashPacketArgs *args, int type, Data *msg,
-									 Node *from)
+static int dhash_unpack_chord_packet(Header *header, DHashPacketArgs *args,
+									 int type, Data *msg, Node *from)
 {
 	Server *srv = args->chord_args.srv;
 	DHash *dhash = args->dhash;
@@ -109,7 +109,7 @@ static int dhash_unpack_chord_packet(DHashPacketArgs *args, int type, Data *msg,
 		// remove this, should use dispatcher and each dhash_process_* should
 		// call process_data individually
 		if (!ret)
-			process_data((ChordPacketArgs *)args, type, msg, from);
+			process_data(header, (ChordPacketArgs *)args, type, msg, from);
 	}
 	else
 		fprintf(stderr, "unknown packet type %02x\n", dhash_type);
@@ -117,14 +117,16 @@ static int dhash_unpack_chord_packet(DHashPacketArgs *args, int type, Data *msg,
 	return 0;
 }
 
-int dhash_unpack_chord_route(DHashPacketArgs *args, Data *msg, Node *from)
+int dhash_unpack_chord_route(Header *header, DHashPacketArgs *args, Data *msg,
+							 Node *from)
 {
-	return dhash_unpack_chord_packet(args, CHORD_ROUTE, msg, from);
+	return dhash_unpack_chord_packet(header, args, CHORD_ROUTE, msg, from);
 }
 
-int dhash_unpack_chord_route_last(DHashPacketArgs *args, Data *msg, Node *from)
+int dhash_unpack_chord_route_last(Header *header, DHashPacketArgs *args,
+								  Data *msg, Node *from)
 {
-	return dhash_unpack_chord_packet(args, CHORD_ROUTE_LAST, msg, from);
+	return dhash_unpack_chord_packet(header, args, CHORD_ROUTE_LAST, msg, from);
 }
 
 /* Clients are likely to have different event loops and not particularly

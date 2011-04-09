@@ -3,17 +3,10 @@
 #include "chord.h"
 #include "dispatcher.h"
 
-struct packet_args
-{
-	int type;
-	char *name;
-	void *args[0];
-} __attribute__((__packed__));
-
 struct packet_handler
 {
 	char *name;
-	struct packet_args *process_args;
+	void **process_args;
 	int nargs;
 
 	unpack_fn unpack;
@@ -84,6 +77,15 @@ static struct packet_handler *get_handler(Dispatcher *d, int value)
 	return 0;
 }
 
+const char *dispatcher_get_packet_name(Dispatcher *d, int value)
+{
+	struct packet_handler *handler;
+	if ((handler = get_handler(d, value)))
+		return handler->name;
+	else
+		return NULL;
+}
+
 void dispatcher_set_error_handlers(Dispatcher *d, unpack_error_fn u_err,
 								   process_error_fn p_err)
 {
@@ -97,10 +99,8 @@ static void init_handler(struct packet_handler *handler, int value, char *name,
 	handler->name = malloc(strlen(name)+1);
 	strcpy(handler->name, name);
 
-	handler->process_args = malloc(sizeof(struct packet_args) + sizeof(void *));
-	handler->process_args->type = value;
-	handler->process_args->name = handler->name;
-	handler->process_args->args[0] = arg;
+	handler->process_args = malloc(sizeof(void *));
+	handler->process_args[0] = arg;
 	handler->nargs = 1;
 
 	handler->unpack = unpack;
@@ -175,34 +175,37 @@ int dispatcher_register_arg(Dispatcher *d, int value, void *arg)
 		return 0;
 
 	handler->process_args = realloc(handler->process_args,
-									sizeof(struct packet_args)
-									+ sizeof(void *)*(++handler->nargs));
-	handler->process_args->args[handler->nargs-1] = arg;
+									sizeof(void *)*(++handler->nargs));
+	handler->process_args[handler->nargs-1] = arg;
 	return 1;
 }
 
 int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from)
 {
-	int type = buf[0];
-	struct packet_handler *handler = get_handler(d, type);
+	Header *header = header__unpack(NULL, n, buf);
+
+	struct packet_handler *handler = get_handler(d, header->type);
 	if (!handler)
 		return 0;
 
-	void *msg = handler->unpack(NULL, n-1, buf+1);
+	void *msg = handler->unpack(NULL, header->payload.len,
+								header->payload.data);
 	if (!msg) {
 		if (d->unpack_error)
-			d->unpack_error(handler->process_args, type, buf, n, from);
+			d->unpack_error(handler->process_args, header->type,
+							header->payload.data, header->payload.len, from);
 		return 1;
 	}
 
-	handler->process_args->type = type;
-	handler->process_args->name = handler->name;
-	int ret = handler->process(handler->process_args, msg, from);
+	int ret = handler->process(header, handler->process_args, msg, from);
 	if (ret) {
 		if (d->process_error)
-			d->process_error(handler->process_args, ret, msg, from);
+			d->process_error(header, handler->process_args, msg, from, ret);
 		return 1;
 	}
+
+	protobuf_c_message_free_unpacked((ProtobufCMessage *)msg, NULL);
+	header__free_unpacked(header, NULL);
 
 	return 1;
 }

@@ -6,6 +6,7 @@
 typedef void (*dhash_request_reply_handler)(void *ctx, char code,
 											const char *file);
 
+struct Dispatcher;
 struct event;
 struct event_base;
 struct Server;
@@ -25,6 +26,8 @@ struct DHash
 
 	struct event_base *ev_base;
 	struct event *control_sock_event;
+
+	struct Dispatcher *control_dispatcher;
 };
 
 enum

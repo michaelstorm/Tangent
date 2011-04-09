@@ -15,10 +15,11 @@ struct Server;
 struct _ProtobufCAllocator;
 typedef void *(*unpack_fn)(struct _ProtobufCAllocator *, size_t,
 						   const uint8_t *);
-typedef int (*process_fn)(void *, void *, struct Node *);
+typedef int (*process_fn)(Header *, void **, void *, struct Node *);
 typedef void (*unpack_error_fn)(void *, int, unsigned char *, int,
 								struct Node *from);
-typedef void (*process_error_fn)(void *, int, void *, struct Node *from);
+typedef void (*process_error_fn)(Header *, void **, void *, struct Node *from,
+								 int error);
 
 struct packet_handler;
 struct odd_packet_handler;
@@ -35,6 +36,8 @@ struct Dispatcher
 
 Dispatcher *new_dispatcher(int size);
 void free_dispatcher(Dispatcher *d);
+
+const char *dispatcher_get_packet_name(Dispatcher *d, int value);
 
 void dispatcher_set_error_handlers(Dispatcher *d, unpack_error_fn u_err,
 								   process_error_fn p_err);

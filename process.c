@@ -4,9 +4,11 @@
 #include <string.h>
 #include <netinet/in.h>
 #include "chord.h"
+#include "dispatcher.h"
 #include "messages.pb-c.h"
 
-int process_addr_discover(ChordPacketArgs *args, AddrDiscover *msg, Node *from)
+int process_addr_discover(Header *header, ChordPacketArgs *args,
+						  AddrDiscover *msg, Node *from)
 {
 	Server *srv = args->srv;
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover", &from->id,
@@ -16,8 +18,8 @@ int process_addr_discover(ChordPacketArgs *args, AddrDiscover *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_addr_discover_reply(ChordPacketArgs *args, AddrDiscoverReply *msg,
-								Node *from)
+int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
+								AddrDiscoverReply *msg, Node *from)
 {
 	Server *srv = args->srv;
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
@@ -81,7 +83,8 @@ Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 	return closest_preceding_node(srv, id, FALSE);
 }
 
-int process_data(ChordPacketArgs *args, int type, Data *msg, Node *from)
+int process_data(Header *header, ChordPacketArgs *args, int type, Data *msg,
+				 Node *from)
 {
 	Server *srv = args->srv;
 	chordID id;
@@ -113,17 +116,19 @@ int process_data(ChordPacketArgs *args, int type, Data *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_route(ChordPacketArgs *args, Data *msg, Node *from)
+int process_route(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 {
-	return process_data(args, CHORD_ROUTE, msg, from);
+	return process_data(header, args, CHORD_ROUTE, msg, from);
 }
 
-int process_route_last(ChordPacketArgs *args, Data *msg, Node *from)
+int process_route_last(Header *header, ChordPacketArgs *args, Data *msg,
+					   Node *from)
 {
-	return process_data(args, CHORD_ROUTE_LAST, msg, from);
+	return process_data(header, args, CHORD_ROUTE_LAST, msg, from);
 }
 
-int process_fs(ChordPacketArgs *args, FindSuccessor *msg, Node *from)
+int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
+			   Node *from)
 {
 	Server *srv = args->srv;
 	Node *succ, *np;
@@ -170,7 +175,8 @@ int process_fs(ChordPacketArgs *args, FindSuccessor *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_fs_reply(ChordPacketArgs *args, FindSuccessorReply *msg, Node *from)
+int process_fs_reply(Header *header, ChordPacketArgs *args,
+					 FindSuccessorReply *msg, Node *from)
 {
 	Server *srv = args->srv;
 	int fnew;
@@ -200,7 +206,8 @@ int process_fs_reply(ChordPacketArgs *args, FindSuccessorReply *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_stab(ChordPacketArgs *args, Stabilize *msg, Node *from)
+int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
+				 Node *from)
 {
 	Server *srv = args->srv;
 	Finger *pred = pred_finger(srv);
@@ -226,7 +233,8 @@ int process_stab(ChordPacketArgs *args, Stabilize *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_stab_reply(ChordPacketArgs *args, StabilizeReply *msg, Node *from)
+int process_stab_reply(Header *header, ChordPacketArgs *args,
+					   StabilizeReply *msg, Node *from)
 {
 	Server *srv = args->srv;
 	Finger *succ;
@@ -258,7 +266,8 @@ int process_stab_reply(ChordPacketArgs *args, StabilizeReply *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_notify(ChordPacketArgs *args, Notify *msg, Node *from)
+int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
+				   Node *from)
 {
 	Server *srv = args->srv;
 	int fnew;
@@ -276,7 +285,7 @@ int process_notify(ChordPacketArgs *args, Notify *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_ping(ChordPacketArgs *args, Ping *msg, Node *from)
+int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 {
 	Server *srv = args->srv;
 	int fnew;
@@ -302,7 +311,7 @@ int process_ping(ChordPacketArgs *args, Ping *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-int process_pong(ChordPacketArgs *args, Pong *msg, Node *from)
+int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from)
 {
 	Server *srv = args->srv;
 	Finger *f, *pred, *newpred;
@@ -339,7 +348,8 @@ int process_pong(ChordPacketArgs *args, Pong *msg, Node *from)
 	return CHORD_NO_ERROR;
 }
 
-void process_error(ChordPacketArgs *args, int error, void *msg, Node *from)
+void process_error(Header *header, ChordPacketArgs *args, void *msg, Node *from,
+				   int error)
 {
 	char *err_str;
 	switch (error) {
@@ -369,6 +379,7 @@ void process_error(ChordPacketArgs *args, int error, void *msg, Node *from)
 		break;
 	}
 
-	weprintf("dropping packet [type 0x%02x: %s] from %s:%hu (%s)", args->type,
-			 args->name, v6addr_to_str(&from->addr), from->port, err_str);
+	weprintf("dropping packet [type 0x%02x: %s] from %s:%hu (%s)", header->type,
+			 dispatcher_get_packet_name(args->srv->dispatcher, header->type),
+			 v6addr_to_str(&from->addr), from->port, err_str);
 }
