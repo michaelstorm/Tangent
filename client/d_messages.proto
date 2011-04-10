@@ -2,3 +2,9 @@ message ClientRequest
 {
 	required string name = 1;
 }
+
+message ClientRequestReply
+{
+	required string name = 1;
+	required uint32 code = 2;
+}

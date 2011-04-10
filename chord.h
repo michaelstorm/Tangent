@@ -61,8 +61,7 @@ enum {
 enum {
 	CHORD_ADDR_DISCOVER = 0,
 	CHORD_ADDR_DISCOVER_REPL,
-	CHORD_ROUTE,   /* data packet */
-	CHORD_ROUTE_LAST,
+	CHORD_DATA,   /* data packet */
 	CHORD_FS,          /* find_successor */
 	CHORD_FS_REPL,     /* find_successor reply */
 	CHORD_STAB,        /* get predecessor */
@@ -233,7 +232,7 @@ struct unpack_args {
 int pack_header(uchar *buf, int type, uchar *payload, int n);
 int pack_addr_discover(uchar *buf, uchar *ticket);
 int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr);
-int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
+int pack_data(uchar *buf, int last, uchar ttl, chordID *id, ushort len,
 			  const uchar *data);
 int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port);
 int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr, ushort port);
@@ -250,17 +249,12 @@ struct ChordPacketArgs
 } __attribute__((__packed__));
 typedef struct ChordPacketArgs ChordPacketArgs;
 
-Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
-					  uchar *route_type);
+Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last);
 int process_addr_discover(Header *header, ChordPacketArgs *args,
 						  AddrDiscover *msg, Node *from);
 int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 								AddrDiscoverReply *msg, Node *from);
-int process_data(Header *header, ChordPacketArgs *args, int type, Data *msg,
-				 Node *from);
-int process_route(Header *header, ChordPacketArgs *args, Data *msg, Node *from);
-int process_route_last(Header *header, ChordPacketArgs *args, Data *msg,
-					   Node *from);
+int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from);
 int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 			   Node *from);
 int process_fs_reply(Header *header, ChordPacketArgs *args,
@@ -281,7 +275,7 @@ void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n,
 				 uchar *buf);
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
-void send_data(Server *srv, uchar type, uchar ttl, Node *np, chordID *id,
+void send_data(Server *srv, int last, uchar ttl, Node *np, chordID *id,
 			   ushort n, const uchar *data);
 void send_fs(Server *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port);

@@ -52,7 +52,7 @@ int dispatcher_register_arg(Dispatcher *d, int value, void *arg);
 int dispatch_packet(Dispatcher *d, uchar *buf, int n, struct Node *from);
 
 #define dispatcher_set_packet(d, value, arg, unpack, process) \
-	dispatcher_set_packet_body(d, value, #value, arg, (unpack_fn)unpack, \
+	dispatcher_set_packet_body(d, value, (char *)#value, arg, (unpack_fn)unpack, \
 							   (process_fn)process)
 
 #endif

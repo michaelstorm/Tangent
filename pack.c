@@ -339,7 +339,7 @@ int sizeof_unpacked_fmt(const char *fmt)
 	return len;
 }
 
-uchar msg_buf[65535];
+uchar msg_buf[BUFSIZE];
 
 int pack_header(uchar *buf, int type, uchar *payload, int n)
 {
@@ -347,8 +347,7 @@ int pack_header(uchar *buf, int type, uchar *payload, int n)
 	header.type = type;
 	header.payload.len = n;
 	header.payload.data = payload;
-	header__pack(&header, buf);
-	return header__get_packed_size(&header);
+	return header__pack(&header, buf);
 }
 
 int pack_addr_discover(uchar *buf, uchar *ticket)
@@ -357,9 +356,8 @@ int pack_addr_discover(uchar *buf, uchar *ticket)
 	msg.ticket.len = TICKET_LEN;
 	msg.ticket.data = ticket;
 	msg.has_ticket = 1;
-	addr_discover__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_ADDR_DISCOVER, msg_buf,
-					   addr_discover__get_packed_size(&msg));
+	int n = addr_discover__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_ADDR_DISCOVER, msg_buf, n);
 }
 
 int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr)
@@ -372,12 +370,11 @@ int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr)
 	msg.addr.len = 16;
 	msg.addr.data = addr->s6_addr;
 
-	addr_discover_reply__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_ADDR_DISCOVER_REPL, msg_buf,
-					   addr_discover_reply__get_packed_size(&msg));
+	int n = addr_discover_reply__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_ADDR_DISCOVER_REPL, msg_buf, n);
 }
 
-int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
+int pack_data(uchar *buf, int last, uchar ttl, chordID *id, ushort len,
 			  const uchar *data)
 {
 	Data msg = DATA__INIT;
@@ -385,12 +382,15 @@ int pack_data(uchar *buf, uchar type, uchar ttl, chordID *id, ushort len,
 	msg.id.data = id->x;
 
 	msg.ttl = ttl;
+	msg.has_ttl = 1;
+	msg.last = last;
+	msg.has_last = 1;
 
 	msg.data.len = len;
 	msg.data.data = (uint8_t *)data;
 
-	data__pack(&msg, msg_buf);
-	return pack_header(buf, type, msg_buf, data__get_packed_size(&msg));
+	int n = data__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_DATA, msg_buf, n);
 }
 
 int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port)
@@ -407,9 +407,8 @@ int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port)
 	msg.addr.data = addr->s6_addr;
 
 	msg.port = port;
-	find_successor__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_FS, msg_buf,
-					   find_successor__get_packed_size(&msg));
+	int n = find_successor__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_FS, msg_buf, n);
 }
 
 int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr,
@@ -424,9 +423,8 @@ int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr,
 	msg.addr.data = addr->s6_addr;
 
 	msg.port = port;
-	find_successor_reply__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_FS_REPL, msg_buf,
-					   find_successor_reply__get_packed_size(&msg));
+	int n = find_successor_reply__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_FS_REPL, msg_buf, n);
 }
 
 int pack_stab(uchar *buf, in6_addr *addr, ushort port)
@@ -436,9 +434,8 @@ int pack_stab(uchar *buf, in6_addr *addr, ushort port)
 	msg.addr.data = addr->s6_addr;
 
 	msg.port = port;
-	stabilize__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_STAB, msg_buf,
-					   stabilize__get_packed_size(&msg));
+	int n = stabilize__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_STAB, msg_buf, n);
 }
 
 int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
@@ -448,17 +445,15 @@ int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
 	msg.addr.data = addr->s6_addr;
 
 	msg.port = port;
-	stabilize_reply__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_STAB_REPL, msg_buf,
-					   stabilize_reply__get_packed_size(&msg));
+	int n = stabilize_reply__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_STAB_REPL, msg_buf, n);
 }
 
 int pack_notify(uchar *buf)
 {
 	Notify msg = NOTIFY__INIT;
-	notify__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_NOTIFY, msg_buf,
-					   notify__get_packed_size(&msg));
+	int n = notify__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_NOTIFY, msg_buf, n);
 }
 
 int pack_ping(uchar *buf, uchar *ticket, ulong time)
@@ -469,8 +464,8 @@ int pack_ping(uchar *buf, uchar *ticket, ulong time)
 	msg.has_ticket = 1;
 
 	msg.time = time;
-	ping__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_PING, msg_buf, ping__get_packed_size(&msg));
+	int n = ping__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_PING, msg_buf, n);
 }
 
 int pack_pong(uchar *buf, uchar *ticket, ulong time)
@@ -481,6 +476,6 @@ int pack_pong(uchar *buf, uchar *ticket, ulong time)
 	msg.has_ticket = 1;
 
 	msg.time = time;
-	pong__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_PONG, msg_buf, pong__get_packed_size(&msg));
+	int n = pong__pack(&msg, msg_buf);
+	return pack_header(buf, CHORD_PONG, msg_buf, n);
 }

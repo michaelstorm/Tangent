@@ -26,13 +26,13 @@ void send_addr_discover_reply(Server *srv, uchar *ticket, in6_addr *to_addr,
 				buf);
 }
 
-void send_data(Server *srv, uchar type, uchar ttl, Node *np, chordID *id,
+void send_data(Server *srv, int last, uchar ttl, Node *np, chordID *id,
 			   ushort n, const uchar *data)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(3, print_send(srv, "send_data", id, &np->addr, np->port));
-	send_packet(srv, &np->addr, np->port, pack_data(buf, type, ttl, id, n,
+	send_packet(srv, &np->addr, np->port, pack_data(buf, last, ttl, id, n,
 													data), buf);
 }
 

@@ -120,8 +120,10 @@ int dhash_process_push_reply(DHash *dhash, Server *srv, const char *file,
 	transfer_start_sending(trans);
 }
 
-int dhash_process_client_request(DHash *dhash, ClientRequest *msg)
+int dhash_process_client_request(Header *header, ControlPacketArgs *args,
+								 ClientRequest *msg, Node *from)
 {
+	DHash *dhash = args->dhash;
 	if (dhash_local_file_exists(dhash, msg->name))
 		dhash_send_control_packet(dhash, DHASH_CLIENT_REPLY_LOCAL, msg->name);
 	else

@@ -26,7 +26,8 @@ message Data
 {
 	required bytes id = 1;
 	optional uint32 ttl = 2 [default = 32];
-	required bytes data = 3;
+	optional bool last = 3 [default = false];
+	required bytes data = 4;
 
 	extensions 100 to max;
 }

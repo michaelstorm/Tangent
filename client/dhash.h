@@ -32,7 +32,8 @@ struct DHash
 
 enum
 {
-	DHASH_CLIENT_QUERY = 0,
+	DHASH_CLIENT_REQUEST = 0,
+	DHASH_CLIENT_REQUEST_REPLY,
 };
 
 enum

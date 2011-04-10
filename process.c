@@ -52,18 +52,17 @@ int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 	return CHORD_NO_ERROR;
 }
 
-Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
-					  uchar *route_type)
+Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last)
 {
 	Finger *pf, *sf;
 
-	if ((pkt_type == CHORD_ROUTE_LAST) && ((pf = pred_finger(srv)) != NULL)) {
+	if (last && ((pf = pred_finger(srv)) != NULL)) {
 		/* the previous hop N believes we are responsible for id,
 		 * but we aren't. This means that our predecessor is
 		 * a better successor for N. Just pass the packet to our
 		 * predecessor. Note that ttl takes care of loops!
 		 */
-		*route_type = CHORD_ROUTE_LAST;
+		*next_is_last = 1;
 		return &pf->node;
 	}
 
@@ -73,18 +72,17 @@ Node *next_route_node(Server *srv, chordID *id, uchar pkt_type,
 			/* according to our info the successor should be responsible
 				 * for id; send the packet to the successor.
 			 */
-			*route_type = CHORD_ROUTE_LAST;
+			*next_is_last = 1;
 			return &sf->node;
 		}
 	}
 
 	/* send packet to the closest active predecessor (that we know about) */
-	*route_type = CHORD_ROUTE;
+	*next_is_last = 0;
 	return closest_preceding_node(srv, id, FALSE);
 }
 
-int process_data(Header *header, ChordPacketArgs *args, int type, Data *msg,
-				 Node *from)
+int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 {
 	Server *srv = args->srv;
 	chordID id;
@@ -108,23 +106,12 @@ int process_data(Header *header, ChordPacketArgs *args, int type, Data *msg,
 		//chord_deliver(len, data, from);
 	}
 	else {
-		uchar route_type;
-		Node *np = next_route_node(srv, &id, type, &route_type);
-		send_data(srv, route_type, msg->ttl, np, &id, msg->data.len,
+		int next_is_last;
+		Node *np = next_route_node(srv, &id, msg->last, &next_is_last);
+		send_data(srv, next_is_last, msg->ttl, np, &id, msg->data.len,
 				  msg->data.data);
 	}
 	return CHORD_NO_ERROR;
-}
-
-int process_route(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
-{
-	return process_data(header, args, CHORD_ROUTE, msg, from);
-}
-
-int process_route_last(Header *header, ChordPacketArgs *args, Data *msg,
-					   Node *from)
-{
-	return process_data(header, args, CHORD_ROUTE_LAST, msg, from);
 }
 
 int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,

@@ -13,7 +13,9 @@
 #include "chord.h"
 #include "dhash.h"
 #include "dispatcher.h"
+#include "d_messages.pb-c.h"
 #include "pack.h"
+#include "process.h"
 #include "send.h"
 #include "transfer.h"
 
@@ -24,7 +26,10 @@ DHash *new_dhash(const char *files_path)
 	dhash->nservers = 0;
 	dhash->trans_head = NULL;
 
-	dhash->control_dispatcher = new_dispatcher(DHASH_CLIENT_QUERY+1);
+	dhash->control_dispatcher = new_dispatcher(DHASH_CLIENT_REQUEST+1);
+	dispatcher_set_packet(dhash->control_dispatcher, DHASH_CLIENT_REQUEST,
+						  dhash, client_request__unpack,
+						  dhash_process_client_request);
 
 	dhash->files_path = (char *)malloc(strlen(files_path)+1);
 	strcpy(dhash->files_path, files_path);
@@ -94,17 +99,10 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 
-		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_ROUTE,
+		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_DATA,
 									   (unpack_fn)data__unpack,
-									   (process_fn)dhash_unpack_chord_route);
-		dispatcher_register_arg(srv->dispatcher, CHORD_ROUTE,
-								dhash);
-
-		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_ROUTE_LAST,
-									   (unpack_fn)data__unpack,
-									   (process_fn)dhash_unpack_chord_route_last);
-		dispatcher_register_arg(srv->dispatcher, CHORD_ROUTE_LAST,
-								dhash);
+									   (process_fn)dhash_unpack_chord_data);
+		dispatcher_register_arg(srv->dispatcher, CHORD_DATA, dhash);
 
 		server_start(srv);
 	}

@@ -27,10 +27,10 @@ void dhash_send_push(DHash *dhash, const char *name)
 
 		/* send it ourselves rather than tunneling, to avoid having it echoed
 		   back to us */
-		uchar route_type;
-		Node *next = next_route_node(srv, &id, CHORD_ROUTE, &route_type);
+		int next_is_last;
+		Node *next = next_route_node(srv, &id, 0, &next_is_last);
 		if (!IN6_IS_ADDR_UNSPECIFIED(&next->addr))
-			send_data(srv, route_type, 10, next, &id, n, buf);
+			send_data(srv, next_is_last, 10, next, &id, n, buf);
 	}
 }
 
@@ -64,10 +64,10 @@ void dhash_send_query(DHash *dhash, const char *file)
 
 		/* send it ourselves rather than tunneling, to avoid having it echoed
 		   back to us */
-		uchar route_type;
-		Node *next = next_route_node(srv, &id, CHORD_ROUTE, &route_type);
+		int next_is_last;
+		Node *next = next_route_node(srv, &id, 0, &next_is_last);
 		if (!IN6_IS_ADDR_UNSPECIFIED(&next->addr))
-			send_data(srv, route_type, 10, next, &id, n, buf);
+			send_data(srv, next_is_last, 10, next, &id, n, buf);
 	}
 }
 
@@ -85,7 +85,7 @@ static void send_chord_pkt_directly(Server *srv, in6_addr *addr, ushort port,
 	Node node;
 	v6_addr_copy(&node.addr, addr);
 	node.port = port;
-	send_data(srv, CHORD_ROUTE, 10, &node, &id, n, data);
+	send_data(srv, 0, 10, &node, &id, n, data);
 }
 
 /* Notify the requesting node that we have the file.
