@@ -1,32 +1,35 @@
 #ifndef DHASH_PROCESS_H
 #define DHASH_PROCESS_H
 
+#include "d_messages.pb-c.h"
+
+struct Server;
+
+struct ChordDataPacketArgs
+{
+	DHash *dhash;
+	struct Server *srv;
+} __attribute__((__packed__));
+
 struct ControlPacketArgs
 {
 	DHash *dhash;
 } __attribute__((__packed__));
 
+typedef struct ChordDataPacketArgs ChordDataPacketArgs;
 typedef struct ControlPacketArgs ControlPacketArgs;
 
-struct ControlPacketArgs;
-struct _ClientRequest;
-struct _Header;
-
-int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
-						ushort reply_port, const uchar *name, int name_len,
+int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 						Node *from);
-int dhash_process_query_reply_success(DHash *dhash, Server *srv,
-									  const uchar *name, int name_len,
-									  Node *from);
-int dhash_process_query_reply_failure(DHash *dhash, Server *srv,
-									  const uchar *name, int name_len,
-									  Node *from);
-int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
-					   ushort reply_port, const uchar *name, int name_len,
+int dhash_process_query_reply_success(Header *header, ChordDataPacketArgs *args,
+									  QueryReplySuccess *msg, Node *from);
+int dhash_process_query_reply_failure(Header *header, ChordDataPacketArgs *args,
+									  QueryReplyFailure *msg, Node *from);
+int dhash_process_push(Header *header, ChordDataPacketArgs *args, Push *msg,
 					   Node *from);
-int dhash_process_push_reply(DHash *dhash, Server *srv, const uchar *name,
-							 int name_len, Node *from);
-int dhash_process_client_request(Header *header, ControlPacketArgs *dhash,
+int dhash_process_push_reply(Header *header, ChordDataPacketArgs *args,
+							 PushReply *msg, Node *from);
+int dhash_process_client_request(Header *header, ControlPacketArgs *args,
 								 ClientRequest *msg, Node *from);
 
 #endif

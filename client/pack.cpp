@@ -9,7 +9,7 @@
 #include "process.h"
 #include "send.h"
 
-uchar msg_buf[BUFSIZE];
+static uchar msg_buf[BUFSIZE];
 
 void dhash_unpack_control_packet(evutil_socket_t sock, short what, void *arg)
 {
@@ -22,82 +22,27 @@ void dhash_unpack_control_packet(evutil_socket_t sock, short what, void *arg)
 	if ((n = read(sock, buf, 1024)) < 0)
 		perror("reading control packet");
 
-	dispatch_packet(dhash->control_dispatcher, buf, n, NULL);
+	dispatch_packet(dhash->control_dispatcher, buf, n, NULL, NULL);
 }
-
-int dhash_unpack_query(DHash *dhash, Server *srv, uchar *data, int n,
-					   Node *from)
-{
-	uchar query_type;
-	in6_addr reply_addr;
-	ushort reply_port;
-	ushort name_len;
-
-	int data_len = unpack(data, "c6ss", &query_type, &reply_addr, &reply_port,
-						  &name_len);
-
-	assert(query_type == DHASH_QUERY);
-	if (data_len + name_len != n)
-		weprintf("bad packet length");
-
-	uchar *name = data+data_len;
-	return dhash_process_query(dhash, srv, &reply_addr, reply_port, name,
-							   name_len, from);
-}
-
-int dhash_unpack_query_reply_success(DHash *dhash, Server *srv, uchar *data,
-									  int n, Node *from)
-{
-	uchar code;
-	ushort name_len;
-
-	int data_len = unpack(data, "cs", &code, &name_len);
-	assert(code == DHASH_QUERY_REPLY_SUCCESS);
-
-	uchar *name = data+data_len;
-	return dhash_process_query_reply_success(dhash, srv, name, name_len, from);
-}
-
-int dhash_unpack_query_reply_failure(DHash *dhash, Server *srv, uchar *data,
-									 int n, Node *from)
-{
-	uchar code;
-	ushort name_len;
-
-	int data_len = unpack(data, "cs", &code, &name_len);
-	assert(code == DHASH_QUERY_REPLY_FAILURE);
-
-	uchar *name = data+data_len;
-	return dhash_process_query_reply_failure(dhash, srv, name, name_len, from);
-}
-
-static int (*chord_unpack_fn[])(DHash *, Server *, uchar *, int, Node *) = {
-	dhash_unpack_query,
-	dhash_unpack_query_reply_success,
-	dhash_unpack_query_reply_failure,
-	dhash_unpack_push,
-	dhash_unpack_push_reply
-};
 
 int dhash_unpack_chord_data(Header *header, DHashPacketArgs *args, Data *msg,
 							Node *from)
 {
+	fprintf(stderr, "received routing packet\n");
 	Server *srv = args->chord_args.srv;
 	DHash *dhash = args->dhash;
 
-	fprintf(stderr, "received routing packet\n");
-	uchar dhash_type = msg->data.data[0];
-	if (dhash_type < NELEMS(chord_unpack_fn)) {
-		int ret = chord_unpack_fn[dhash_type](dhash, srv, msg->data.data,
-											  msg->data.len, from);
+	int type = dispatcher_get_type(msg->data.data, msg->data.len);
+	dispatcher_push_arg(dhash->chord_dispatcher, type, srv);
 
-		// remove this, should use dispatcher and each dhash_process_* should
-		// call process_data individually
-		if (!ret)
-			process_data(header, (ChordPacketArgs *)args, msg, from);
-	}
-	else
-		fprintf(stderr, "unknown packet type %02x\n", dhash_type);
+	int process_ret;
+	int ret = dispatch_packet(dhash->chord_dispatcher, msg->data.data,
+							  msg->data.len, from, &process_ret);
+
+	dispatcher_pop_arg(dhash->chord_dispatcher, type);
+
+	if (!ret || process_ret)
+		process_data(header, (ChordPacketArgs *)args, msg, from);
 
 	return 0;
 }
@@ -135,72 +80,59 @@ int dhash_pack_control_request_reply(uchar *buf, int code, const uchar *name,
 int dhash_pack_query(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
 					 int name_len)
 {
-	int n = pack(buf, "c6ss", DHASH_QUERY, addr, port, name_len);
-	memcpy(buf + n, name, name_len);
-	return n + name_len;
+	Query msg = QUERY__INIT;
+	msg.reply_addr.len = 16;
+	msg.reply_addr.data = addr->s6_addr;
+
+	msg.reply_port = port;
+
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
+	int n = query__pack(&msg, msg_buf);
+	return pack_header(buf, DHASH_QUERY, msg_buf, n);
 }
 
 int dhash_pack_query_reply_success(uchar *buf, const uchar *name,
 								   int name_len)
 {
-	int n = pack(buf, "cs", DHASH_QUERY_REPLY_SUCCESS, name_len);
-	memcpy(buf + n, name, name_len);
-	return n + name_len;
+	QueryReplySuccess msg = QUERY_REPLY_SUCCESS__INIT;
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
+	int n = query_reply_success__pack(&msg, msg_buf);
+	return pack_header(buf, DHASH_QUERY_REPLY_SUCCESS, msg_buf, n);
 }
 
 int dhash_pack_query_reply_failure(uchar *buf, const uchar *name, int name_len)
 {
-	int n = pack(buf, "cs", DHASH_QUERY_REPLY_FAILURE, name_len);
-	memcpy(buf + n, name, name_len);
-	return n + name_len;
+	QueryReplyFailure msg = QUERY_REPLY_FAILURE__INIT;
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
+	int n = query_reply_failure__pack(&msg, msg_buf);
+	return pack_header(buf, DHASH_QUERY_REPLY_FAILURE, msg_buf, n);
 }
 
 int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
 					int name_len)
 {
-	int n = pack(buf, "c6ss", DHASH_PUSH, addr, port, name_len);
-	memcpy(buf + n, name, name_len);
-	return n + name_len;
-}
+	Push msg = PUSH__INIT;
+	msg.reply_addr.len = 16;
+	msg.reply_addr.data = addr->s6_addr;
 
-int dhash_unpack_push(DHash *dhash, Server *srv, uchar *data, int n, Node *from)
-{
-	uchar query_type;
-	in6_addr reply_addr;
-	ushort reply_port;
-	ushort name_len;
+	msg.reply_port = port;
 
-	int data_len = unpack(data, "c6ss", &query_type, &reply_addr, &reply_port,
-						  &name_len);
-
-	assert(query_type == DHASH_PUSH);
-	if (data_len + name_len != n)
-		weprintf("bad packet length");
-
-	uchar *name = data+data_len;
-	dhash_process_push(dhash, srv, &reply_addr, reply_port, name, name_len,
-					   from);
-	return 1;
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
+	int n = push__pack(&msg, msg_buf);
+	return pack_header(buf, DHASH_PUSH, msg_buf, n);
 }
 
 int dhash_pack_push_reply(uchar *buf, const uchar *name, int name_len)
 {
-	int n = pack(buf, "cs", DHASH_PUSH_REPLY, name_len);
-	memcpy(buf + n, name, name_len);
-	return n + name_len;
-}
-
-int dhash_unpack_push_reply(DHash *dhash, Server *srv, uchar *data, int n,
-							Node *from)
-{
-	uchar code;
-	ushort name_len;
-
-	int data_len = unpack(data, "cs", &code, &name_len);
-	assert(code == DHASH_PUSH_REPLY);
-
-	uchar *name = data+data_len;
-	return dhash_process_push_reply(dhash, srv, name, name_len, from);
+	PushReply msg = PUSH_REPLY__INIT;
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
+	int n = push_reply__pack(&msg, msg_buf);
+	return pack_header(buf, DHASH_PUSH_REPLY, msg_buf, n);
 }
 
 int dhash_pack_client_request(uchar *buf, const uchar *name, int name_len)

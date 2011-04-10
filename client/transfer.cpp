@@ -213,6 +213,10 @@ static int transfer_send(Transfer *trans)
 
 	// open file, get file size
 	fstream ifs(path, ios_base::in);
+	if (ifs.fail()) {
+		fprintf(stderr, "could not open file \"%s\"\n", path);
+		return 0;
+	}
 	ifs.seekg(0, ios::end);
 	int size = ifs.tellg();
 	ifs.seekg(0, ios::beg);

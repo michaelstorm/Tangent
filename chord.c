@@ -243,7 +243,7 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 
 	get_address_id(&from.id, &from.addr, from.port);
 
-	if (!dispatch_packet(srv->dispatcher, buf, packet_len, &from))
+	if (!dispatch_packet(srv->dispatcher, buf, packet_len, &from, NULL))
 		weprintf("dropped unknown packet type 0x%02x", buf[0]);
 }
 

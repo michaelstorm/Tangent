@@ -1,59 +1,68 @@
 #include <assert.h>
 #include <string.h>
 #include "chord.h"
-#include "d_messages.pb-c.h"
 #include "dhash.h"
 #include "process.h"
 #include "send.h"
 #include "transfer.h"
 
-int dhash_process_query(DHash *dhash, Server *srv, in6_addr *reply_addr,
-						ushort reply_port, const uchar *name, int name_len,
+int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 						Node *from)
 {
-	if (name_len == 0) {
+	DHash *dhash = args->dhash;
+	Server *srv = args->srv;
+
+	in6_addr reply_addr;
+	v6_addr_set(&reply_addr, msg->reply_addr.data);
+
+	if (msg->name.len == 0) {
 		fprintf(stderr, "dropping query for zero-length name from [%s]:%d ",
 				v6addr_to_str(&from->addr), from->port);
-		fprintf(stderr, "(reply addr [%s]:%d)\n", v6addr_to_str(reply_addr),
-				reply_port);
-		return 1;
+		fprintf(stderr, "(reply addr [%s]:%d)\n", v6addr_to_str(&reply_addr),
+				msg->reply_port);
+		return 0;
 	}
 
 	fprintf(stderr, "received query from [%s]:%d for %s\n",
-			v6addr_to_str(reply_addr), reply_port, buf_to_str(name, name_len));
+			v6addr_to_str(&reply_addr), msg->reply_port,
+			buf_to_str(msg->name.data, msg->name.len));
 
 	/* if we have the file, notify the requesting node */
-	if (dhash_local_file_exists(dhash, name, name_len)) {
-		fprintf(stderr, "we have %s\n", buf_to_str(name, name_len));
-		dhash_send_query_reply_success(dhash, srv, reply_addr, reply_port,
-									   name, name_len);
+	if (dhash_local_file_exists(dhash, msg->name.data, msg->name.len)) {
+		fprintf(stderr, "we have %s\n", buf_to_str(msg->name.data,
+												   msg->name.len));
+		dhash_send_query_reply_success(dhash, srv, &reply_addr,
+									   msg->reply_port, msg->name.data,
+									   msg->name.len);
 
-		Transfer *trans = new_transfer(srv->node.port+1, reply_addr,
-									   reply_port+1, dhash->files_path);
+		Transfer *trans = new_transfer(srv->node.port+1, &reply_addr,
+									   msg->reply_port+1, dhash->files_path);
 		transfer_start_sending(trans);
 	}
 	else {
-		fprintf(stderr, "we don't have %s\n", buf_to_str(name, name_len));
+		fprintf(stderr, "we don't have %s\n", buf_to_str(msg->name.data,
+														 msg->name.len));
 		chordID id;
-		get_data_id(&id, (const uchar *)name, name_len);
+		get_data_id(&id, msg->name.data, msg->name.len);
 
 		/* if we should have the file, as its successor, but don't, also notify
 		   the requesting node */
 		if (chord_is_local(srv, &id)) {
 			fprintf(stderr, "but we should, so we're replying\n");
-			dhash_send_query_reply_failure(dhash, srv, reply_addr, reply_port,
-										   name, name_len);
+			dhash_send_query_reply_failure(dhash, srv, &reply_addr,
+										   msg->reply_port, msg->name.data,
+										   msg->name.len);
 			fprintf(stderr, "and listening on port %d\n", srv->node.port);
 		}
 		/* otherwise, forward the request to the closest finger */
 		else {
 			fprintf(stderr, "so we're forwarding the query\n");
-			return 0;
+			return 1;
 		}
 	}
 
 	fprintf(stderr, "and we're dropping the routing packet\n");
-	return 1;
+	return 0;
 }
 
 static void receive_success(Transfer *trans, void *arg)
@@ -73,57 +82,71 @@ static void receive_fail(Transfer *trans, void *arg)
 	free_transfer(trans);
 }
 
-int dhash_process_query_reply_success(DHash *dhash, Server *srv,
-									  const uchar *name, int name_len,
-									  Node *from)
+int dhash_process_query_reply_success(Header *header, ChordDataPacketArgs *args,
+									  QueryReplySuccess *msg, Node *from)
 {
+	DHash *dhash = args->dhash;
+	Server *srv = args->srv;
+
 	fprintf(stderr, "receiving transfer of \"%s\" from [%s]:%d\n",
-			buf_to_str(name, name_len), v6addr_to_str(&from->addr), from->port);
+			buf_to_str(msg->name.data, msg->name.len),
+			v6addr_to_str(&from->addr), from->port);
 
 	Transfer *trans = new_transfer(srv->node.port+1, &from->addr, from->port+1,
 								   dhash->files_path);
 	transfer_set_callbacks(trans, receive_success, receive_fail, dhash,
 						   dhash->ev_base);
-	transfer_start_receiving(trans, buf_to_str(name, name_len));
+	transfer_start_receiving(trans, buf_to_str(msg->name.data, msg->name.len));
 	return 0;
 }
 
-int dhash_process_query_reply_failure(DHash *dhash, Server *srv,
-									  const uchar *name, int name_len,
-									  Node *from)
+int dhash_process_query_reply_failure(Header *header, ChordDataPacketArgs *args,
+									  QueryReplyFailure *msg, Node *from)
 {
-	dhash_send_control_query_failure(dhash, name, name_len);
+	DHash *dhash = args->dhash;
+	dhash_send_control_query_failure(dhash, msg->name.data, msg->name.len);
 	return 0;
 }
 
-int dhash_process_push(DHash *dhash, Server *srv, in6_addr *reply_addr,
-					   ushort reply_port, const uchar *name, int name_len,
+int dhash_process_push(Header *header, ChordDataPacketArgs *args, Push *msg,
 					   Node *from)
 {
-	fprintf(stderr, "received push for \"%s\"\n", buf_to_str(name, name_len));
-	if (dhash_local_file_exists(dhash, name, name_len)) {
+	DHash *dhash = args->dhash;
+	Server *srv = args->srv;
+
+	in6_addr reply_addr;
+	v6_addr_set(&reply_addr, msg->reply_addr.data);
+
+	fprintf(stderr, "received push for \"%s\"\n", buf_to_str(msg->name.data,
+															 msg->name.len));
+	if (dhash_local_file_exists(dhash, msg->name.data, msg->name.len)) {
 		fprintf(stderr, "but we already have the file, so not replying\n");
 		return 0;
 	}
 	fprintf(stderr, "and sending push reply\n");
 
-	dhash_send_push_reply(dhash, srv, reply_addr, reply_port, name, name_len);
+	dhash_send_push_reply(dhash, srv, &reply_addr, msg->reply_port,
+						  msg->name.data, msg->name.len);
 
-	Transfer *trans = new_transfer(srv->node.port+1, reply_addr, reply_port+1,
-								   dhash->files_path);
-	transfer_start_receiving(trans, buf_to_str(name, name_len));
+	Transfer *trans = new_transfer(srv->node.port+1, &reply_addr,
+								   msg->reply_port+1, dhash->files_path);
+	transfer_start_receiving(trans, buf_to_str(msg->name.data, msg->name.len));
 	return 0;
 }
 
-int dhash_process_push_reply(DHash *dhash, Server *srv, const uchar *name,
-							 int name_len, Node *from)
+int dhash_process_push_reply(Header *header, ChordDataPacketArgs *args,
+							 PushReply *msg, Node *from)
 {
-	fprintf(stderr, "received push reply for \"%s\"\n", buf_to_str(name,
-																   name_len));
+	DHash *dhash = args->dhash;
+	Server *srv = args->srv;
+
+	fprintf(stderr, "received push reply for \"%s\"\n",
+			buf_to_str(msg->name.data, msg->name.len));
 
 	Transfer *trans = new_transfer(srv->node.port+1, &from->addr, from->port+1,
 								   dhash->files_path);
 	transfer_start_sending(trans);
+	return 0;
 }
 
 int dhash_process_client_request(Header *header, ControlPacketArgs *args,

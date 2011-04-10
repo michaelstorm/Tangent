@@ -12,6 +12,7 @@ struct event_base;
 struct Server;
 struct Transfer;
 typedef struct DHash DHash;
+typedef struct DHashPacketArgs DHashPacketArgs;
 
 struct DHash
 {
@@ -28,7 +29,14 @@ struct DHash
 	struct event *control_sock_event;
 
 	struct Dispatcher *control_dispatcher;
+	struct Dispatcher *chord_dispatcher;
 };
+
+struct DHashPacketArgs
+{
+	ChordPacketArgs chord_args;
+	DHash *dhash;
+} __attribute__((__packed__));
 
 enum
 {

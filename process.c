@@ -91,7 +91,8 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return CHORD_ADDR_UNDISCOVERED;
 
-	CHORD_DEBUG(3, print_process(srv, "process_data", &id, NULL, -1));
+	CHORD_DEBUG(3, print_process(srv, "process_data", &id, &from->addr,
+								 from->port));
 
 	if (--msg->ttl == 0) {
 		print_two_chordIDs("TTL expired: data packet ", &id,

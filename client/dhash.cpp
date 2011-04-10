@@ -31,6 +31,20 @@ DHash *new_dhash(const char *files_path)
 						  dhash, client_request__unpack,
 						  dhash_process_client_request);
 
+	dhash->chord_dispatcher = new_dispatcher(DHASH_PUSH_REPLY+1);
+	dispatcher_set_packet(dhash->chord_dispatcher, DHASH_QUERY, dhash,
+						  query__unpack, dhash_process_query);
+	dispatcher_set_packet(dhash->chord_dispatcher, DHASH_QUERY_REPLY_SUCCESS,
+						  dhash, query_reply_success__unpack,
+						  dhash_process_query_reply_success);
+	dispatcher_set_packet(dhash->chord_dispatcher, DHASH_QUERY_REPLY_FAILURE,
+						  dhash, query_reply_failure__unpack,
+						  dhash_process_query_reply_failure);
+	dispatcher_set_packet(dhash->chord_dispatcher, DHASH_PUSH, dhash,
+						  push__unpack, dhash_process_push);
+	dispatcher_set_packet(dhash->chord_dispatcher, DHASH_PUSH_REPLY, dhash,
+						  push_reply__unpack, dhash_process_push_reply);
+
 	dhash->files_path = (char *)malloc(strlen(files_path)+1);
 	strcpy(dhash->files_path, files_path);
 	return dhash;
@@ -44,7 +58,7 @@ int dhash_stat_local_file(DHash *dhash, const uchar *file, int file_len,
 	strcpy(abs_file_path, dhash->files_path);
 	strcpy(abs_file_path + strlen(dhash->files_path), "/");
 	memcpy(abs_file_path + strlen(dhash->files_path)+1, file, file_len);
-	abs_file_path[sizeof(abs_file_path)-1] = '\0';
+	abs_file_path[sizeof(abs_file_path)] = '\0';
 
 	return stat(abs_file_path, stat_buf);
 }
@@ -104,7 +118,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_DATA,
 									   (unpack_fn)data__unpack,
 									   (process_fn)dhash_unpack_chord_data);
-		dispatcher_register_arg(srv->dispatcher, CHORD_DATA, dhash);
+		dispatcher_push_arg(srv->dispatcher, CHORD_DATA, dhash);
 
 		server_start(srv);
 	}

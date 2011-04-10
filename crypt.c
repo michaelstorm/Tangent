@@ -115,18 +115,19 @@ int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...)
 	va_end(args);
 
 	// pack the 32-bit epoch time and 32-bit hash into a buffer
-	uchar ticket_value[TICKET_LEN];
-	if (pack(ticket_value, "lcccc", epoch_time, md_value[0], md_value[1],
-			 md_value[2], md_value[3]) < 0) {
-		fprintf(stderr, "error packing ticket packet\n");
-		return 0;
-	}
+	struct {
+		uint32_t time;
+		uchar md[4];
+	} __attribute__((__packed__)) ticket_value;
+
+	ticket_value.time = epoch_time;
+	memcpy(ticket_value.md, md_value, 4);
 
 	// and encrypt it using our secret function, which happens to be a single-
 	// block blowfish cipher (note that the EVP_CIPHER_CTX* functions still
 	// generate extraneous padding, even if we turn it off, so we'll call the
 	// blowfish encryption function manually)
-	BF_ecb_encrypt(ticket_value, (uchar *)out, key, BF_ENCRYPT);
+	BF_ecb_encrypt((uchar *)&ticket_value, (uchar *)out, key, BF_ENCRYPT);
 
 #ifdef C_DEBUG_ON
 	fprintf(stderr, "ticket: ");
@@ -148,7 +149,7 @@ int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...)
 	va_list args;
 	uchar ticket[TICKET_LEN];
 	uchar md_value[EVP_MAX_MD_SIZE];
-	uchar ticket_md[4];
+	uchar *ticket_md;
 	uint32_t ticket_time;
 
 	// decrypt the ticket
@@ -169,8 +170,13 @@ int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...)
 	fprintf(stderr, "\n");
 #endif
 
-	unpack(ticket, "lcccc", &ticket_time, &ticket_md[0], &ticket_md[1],
-		   &ticket_md[2], &ticket_md[3]);
+	struct {
+		uint32_t time;
+		uchar md[4];
+	} __attribute__((__packed__)) *ticket_value = ticket;
+
+	ticket_time = ticket_value->time;
+	ticket_md = ticket_value->md;
 
 	if (ticket_time < time(NULL)-TICKET_TIMEOUT)
 		return 0;

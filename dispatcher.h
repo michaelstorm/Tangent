@@ -48,8 +48,11 @@ int dispatcher_set_packet_handlers(Dispatcher *d, int value, unpack_fn unpack,
 								   process_fn process);
 void dispatcher_create_handler(Dispatcher *d, int value, char *name, void *arg,
 							   unpack_fn unpack, process_fn process);
-int dispatcher_register_arg(Dispatcher *d, int value, void *arg);
-int dispatch_packet(Dispatcher *d, uchar *buf, int n, struct Node *from);
+int dispatcher_push_arg(Dispatcher *d, int value, void *arg);
+void *dispatcher_pop_arg(Dispatcher *d, int value);
+int dispatcher_get_type(uchar *buf, int n);
+int dispatch_packet(Dispatcher *d, uchar *buf, int n, struct Node *from,
+					int *process_ret);
 
 #define dispatcher_set_packet(d, value, arg, unpack, process) \
 	dispatcher_set_packet_body(d, value, (char *)#value, arg, (unpack_fn)unpack, \

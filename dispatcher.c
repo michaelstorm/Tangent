@@ -168,7 +168,7 @@ void dispatcher_create_handler(Dispatcher *d, int value, char *name, void *arg,
 	}
 }
 
-int dispatcher_register_arg(Dispatcher *d, int value, void *arg)
+int dispatcher_push_arg(Dispatcher *d, int value, void *arg)
 {
 	struct packet_handler *handler;
 	if (!(handler = get_handler(d, value)))
@@ -180,7 +180,23 @@ int dispatcher_register_arg(Dispatcher *d, int value, void *arg)
 	return 1;
 }
 
-int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from)
+void *dispatcher_pop_arg(Dispatcher *d, int value)
+{
+	struct packet_handler *handler;
+	if (!(handler = get_handler(d, value)))
+		return 0;
+
+	return handler->process_args[--handler->nargs];
+}
+
+int dispatcher_get_type(uchar *buf, int n)
+{
+	Header *header = header__unpack(NULL, n, buf);
+	return header->type;
+}
+
+int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from,
+					int *process_ret)
 {
 	Header *header = header__unpack(NULL, n, buf);
 
@@ -198,6 +214,9 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from)
 	}
 
 	int ret = handler->process(header, handler->process_args, msg, from);
+	if (process_ret)
+		*process_ret = ret;
+
 	if (ret) {
 		if (d->process_error)
 			d->process_error(header, handler->process_args, msg, from, ret);

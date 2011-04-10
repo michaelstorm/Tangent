@@ -208,27 +208,6 @@ void discover_addr(evutil_socket_t sock, short what, void *arg);
 void join(Server *srv, FILE *fp);
 
 /* pack.c */
-int pack(uchar *buf, const char *fmt, ...);
-int unpack(uchar *buf, const char *fmt, ...);
-int sizeof_packed_fmt(const char *fmt);
-int sizeof_unpacked_fmt(const char *fmt);
-
-#ifdef CCURED
-// These are the kinds of arguments that we pass to pack
-struct pack_args {
-  int f1;
-  chordID * f2;
-};
-#pragma ccuredvararg("pack", sizeof(struct pack_args))
-struct unpack_args {
-  ushort * f1;
-  uchar * f2;
-  ulong * f3;
-  chordID *id;
-};
-#pragma ccuredvararg("unpack", sizeof(struct unpack_args))
-#endif
-
 int pack_header(uchar *buf, int type, uchar *payload, int n);
 int pack_addr_discover(uchar *buf, uchar *ticket);
 int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr);

@@ -15,3 +15,25 @@ message Query
 	required uint32 reply_port = 2;
 	required bytes name = 3;
 }
+
+message QueryReplySuccess
+{
+	required bytes name = 1;
+}
+
+message QueryReplyFailure
+{
+	required bytes name = 1;
+}
+
+message Push
+{
+	required bytes reply_addr = 1;
+	required uint32 reply_port = 2;
+	required bytes name = 3;
+}
+
+message PushReply
+{
+	required bytes name = 1;
+}

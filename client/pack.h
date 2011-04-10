@@ -5,13 +5,6 @@
 
 struct DHash;
 
-typedef struct DHashPacketArgs DHashPacketArgs;
-struct DHashPacketArgs
-{
-	ChordPacketArgs chord_args;
-	DHash *dhash;
-} __attribute__((__packed__));
-
 void dhash_unpack_control_packet(evutil_socket_t sock, short what, void *arg);
 int dhash_unpack_query(DHash *dhash, Server *srv, uchar *data, int n,
 					   Node *from);
