@@ -343,6 +343,7 @@ int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2);
 void v6_addr_copy(in6_addr *dest, const in6_addr *src);
 void v6_addr_set(in6_addr *dest, const uchar *src);
+const char *buf_to_str(const uchar *buf, int len);
 
 int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...);
 int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...);

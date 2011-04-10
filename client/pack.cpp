@@ -40,11 +40,9 @@ int dhash_unpack_query(DHash *dhash, Server *srv, uchar *data, int n,
 	if (data_len + name_len != n)
 		weprintf("bad packet length");
 
-	char file[name_len+1];
-	memcpy(file, data+data_len, name_len);
-	file[name_len] = '\0';
-
-	return dhash_process_query(dhash, srv, &reply_addr, reply_port, file, from);
+	uchar *name = data+data_len;
+	return dhash_process_query(dhash, srv, &reply_addr, reply_port, name,
+							   name_len, from);
 }
 
 int dhash_unpack_query_reply_success(DHash *dhash, Server *srv, uchar *data,
@@ -56,11 +54,8 @@ int dhash_unpack_query_reply_success(DHash *dhash, Server *srv, uchar *data,
 	int data_len = unpack(data, "cs", &code, &name_len);
 	assert(code == DHASH_QUERY_REPLY_SUCCESS);
 
-	char file[name_len+1];
-	memcpy(file, data + data_len, name_len);
-	file[name_len] = '\0';
-
-	return dhash_process_query_reply_success(dhash, srv, file, from);
+	uchar *name = data+data_len;
+	return dhash_process_query_reply_success(dhash, srv, name, name_len, from);
 }
 
 int dhash_unpack_query_reply_failure(DHash *dhash, Server *srv, uchar *data,
@@ -72,11 +67,8 @@ int dhash_unpack_query_reply_failure(DHash *dhash, Server *srv, uchar *data,
 	int data_len = unpack(data, "cs", &code, &name_len);
 	assert(code == DHASH_QUERY_REPLY_FAILURE);
 
-	char file[name_len+1];
-	memcpy(file, data + data_len, name_len);
-	file[name_len] = '\0';
-
-	return dhash_process_query_reply_failure(dhash, srv, file, from);
+	uchar *name = data+data_len;
+	return dhash_process_query_reply_failure(dhash, srv, name, name_len, from);
 }
 
 static int (*chord_unpack_fn[])(DHash *, Server *, uchar *, int, Node *) = {
@@ -115,37 +107,32 @@ int dhash_unpack_chord_data(Header *header, DHashPacketArgs *args, Data *msg,
    socket is readable, at which point it unpacks a reply from the DHash server
    and calls the handler with the response data.
  */
-int dhash_client_unpack_request_reply(int sock, void *ctx,
+int dhash_client_unpack_request_reply(uchar *buf, int n, void *ctx,
 									  dhash_request_reply_handler handler)
 {
-	uchar buf[1024];
-	int n;
-
-	if ((n = read(sock, buf, 1024)) < 0)
-		perror("reading file request reply");
-
 	ClientRequestReply *reply = client_request_reply__unpack(NULL, n, buf);
 	if (!reply) {
 		fprintf(stderr, "error unpacking client request reply\n");
 		return 1;
 	}
 
-	handler(ctx, reply->code, reply->name);
+	handler(ctx, reply->code, reply->name.data, reply->name.len);
 	client_request_reply__free_unpacked(reply, NULL);
 	return 0;
 }
 
 // don't use a header yet, since we've only implemented file requests
-int dhash_pack_control_request_reply(uchar *buf, int code, const char *name,
+int dhash_pack_control_request_reply(uchar *buf, int code, const uchar *name,
 									 int name_len)
 {
 	ClientRequestReply msg = CLIENT_REQUEST_REPLY__INIT;
-	msg.name = (char *)name;
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
 	msg.code = code;
 	return client_request_reply__pack(&msg, buf);
 }
 
-int dhash_pack_query(uchar *buf, in6_addr *addr, ushort port, const char *name,
+int dhash_pack_query(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
 					 int name_len)
 {
 	int n = pack(buf, "c6ss", DHASH_QUERY, addr, port, name_len);
@@ -153,7 +140,7 @@ int dhash_pack_query(uchar *buf, in6_addr *addr, ushort port, const char *name,
 	return n + name_len;
 }
 
-int dhash_pack_query_reply_success(uchar *buf, const char *name,
+int dhash_pack_query_reply_success(uchar *buf, const uchar *name,
 								   int name_len)
 {
 	int n = pack(buf, "cs", DHASH_QUERY_REPLY_SUCCESS, name_len);
@@ -161,14 +148,14 @@ int dhash_pack_query_reply_success(uchar *buf, const char *name,
 	return n + name_len;
 }
 
-int dhash_pack_query_reply_failure(uchar *buf, const char *name, int name_len)
+int dhash_pack_query_reply_failure(uchar *buf, const uchar *name, int name_len)
 {
 	int n = pack(buf, "cs", DHASH_QUERY_REPLY_FAILURE, name_len);
 	memcpy(buf + n, name, name_len);
 	return n + name_len;
 }
 
-int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const char *name,
+int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
 					int name_len)
 {
 	int n = pack(buf, "c6ss", DHASH_PUSH, addr, port, name_len);
@@ -190,15 +177,13 @@ int dhash_unpack_push(DHash *dhash, Server *srv, uchar *data, int n, Node *from)
 	if (data_len + name_len != n)
 		weprintf("bad packet length");
 
-	char file[name_len+1];
-	memcpy(file, data+data_len, name_len);
-	file[name_len] = '\0';
-
-	dhash_process_push(dhash, srv, &reply_addr, reply_port, file, from);
+	uchar *name = data+data_len;
+	dhash_process_push(dhash, srv, &reply_addr, reply_port, name, name_len,
+					   from);
 	return 1;
 }
 
-int dhash_pack_push_reply(uchar *buf, const char *name, int name_len)
+int dhash_pack_push_reply(uchar *buf, const uchar *name, int name_len)
 {
 	int n = pack(buf, "cs", DHASH_PUSH_REPLY, name_len);
 	memcpy(buf + n, name, name_len);
@@ -214,17 +199,15 @@ int dhash_unpack_push_reply(DHash *dhash, Server *srv, uchar *data, int n,
 	int data_len = unpack(data, "cs", &code, &name_len);
 	assert(code == DHASH_PUSH_REPLY);
 
-	char file[name_len+1];
-	memcpy(file, data + data_len, name_len);
-	file[name_len] = '\0';
-
-	return dhash_process_push_reply(dhash, srv, file, from);
+	uchar *name = data+data_len;
+	return dhash_process_push_reply(dhash, srv, name, name_len, from);
 }
 
-int dhash_pack_client_request(uchar *buf, const char *name)
+int dhash_pack_client_request(uchar *buf, const uchar *name, int name_len)
 {
 	ClientRequest msg = CLIENT_REQUEST__INIT;
-	msg.name = (char *)name;
+	msg.name.len = name_len;
+	msg.name.data = (uint8_t *)name;
 	client_request__pack(&msg, msg_buf);
 	return pack_header(buf, DHASH_CLIENT_REQUEST, msg_buf,
 					   client_request__get_packed_size(&msg));

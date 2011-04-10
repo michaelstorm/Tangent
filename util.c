@@ -509,3 +509,11 @@ void v6_addr_set(in6_addr *dest, const uchar *src)
 {
 	memcpy(dest->s6_addr, src, 16);
 }
+
+const char *buf_to_str(const uchar *buf, int len)
+{
+	static char str[1024];
+	memcpy(str, buf, len);
+	str[len] = '\0';
+	return str;
+}

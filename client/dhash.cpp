@@ -36,27 +36,29 @@ DHash *new_dhash(const char *files_path)
 	return dhash;
 }
 
-int dhash_stat_local_file(DHash *dhash, const char *file, struct stat *stat_buf)
+int dhash_stat_local_file(DHash *dhash, const uchar *file, int file_len,
+						  struct stat *stat_buf)
 {
-	char abs_file_path[strlen(dhash->files_path) + strlen(file) + 1];
+	char abs_file_path[strlen(dhash->files_path) + file_len + 1];
 
 	strcpy(abs_file_path, dhash->files_path);
 	strcpy(abs_file_path + strlen(dhash->files_path), "/");
-	strcpy(abs_file_path + strlen(dhash->files_path)+1, file);
+	memcpy(abs_file_path + strlen(dhash->files_path)+1, file, file_len);
+	abs_file_path[sizeof(abs_file_path)-1] = '\0';
 
 	return stat(abs_file_path, stat_buf);
 }
 
-int dhash_local_file_exists(DHash *dhash, const char *file)
+int dhash_local_file_exists(DHash *dhash, const uchar *file, int file_len)
 {
 	struct stat stat_buf;
-	return dhash_stat_local_file(dhash, file, &stat_buf) == 0;
+	return dhash_stat_local_file(dhash, file, file_len, &stat_buf) == 0;
 }
 
-int dhash_local_file_size(DHash *dhash, const char *file)
+int dhash_local_file_size(DHash *dhash, const uchar *file, int file_len)
 {
 	struct stat stat_buf;
-	assert(dhash_stat_local_file(dhash, file, &stat_buf) == 0);
+	assert(dhash_stat_local_file(dhash, file, file_len, &stat_buf) == 0);
 	return stat_buf.st_size;
 }
 

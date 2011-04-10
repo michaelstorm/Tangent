@@ -1,10 +1,17 @@
 message ClientRequest
 {
-	required string name = 1;
+	required bytes name = 1;
 }
 
 message ClientRequestReply
 {
-	required string name = 1;
+	required bytes name = 1;
 	required uint32 code = 2;
+}
+
+message Query
+{
+	required bytes reply_addr = 1;
+	required uint32 reply_port = 2;
+	required bytes name = 3;
 }

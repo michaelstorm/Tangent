@@ -10,17 +10,17 @@
 
 static int control_sock;
 
-void process_reply(void *ctx, char code, const char *file)
+void process_reply(void *ctx, int code, const uchar *name, int name_len)
 {
 	switch (code) {
 	case DHASH_CLIENT_REPLY_LOCAL:
-		printf("%s is local\n", file);
+		printf("%s is local\n", name);
 		break;
 	case DHASH_CLIENT_REPLY_SUCCESS:
-		printf("%s retrieved successfully\n", file);
+		printf("%s retrieved successfully\n", name);
 		break;
 	case DHASH_CLIENT_REPLY_FAILURE:
-		printf("%s retrieval failed\n", file);
+		printf("%s retrieval failed\n", name);
 		break;
 	default:
 		printf("unknown code\n");
@@ -30,21 +30,25 @@ void process_reply(void *ctx, char code, const char *file)
 
 void handle_reply(evutil_socket_t sock, short what, void *arg)
 {
-	dhash_client_unpack_request_reply(sock, arg, process_reply);
+	uchar buf[1024];
+	int n;
+
+	if ((n = read(sock, buf, 1024)) < 0)
+		perror("reading file request reply");
+
+	dhash_client_unpack_request_reply(buf, n, arg, process_reply);
 }
 
 void handle_request(evutil_socket_t sock, short what, void *arg)
 {
 	int n;
-	char file[128];
+	uchar file[128];
 
 	if ((n = read(sock, file, sizeof(file)-1)) < 0)
 		perror("reading file request reply");
 
-	if (n > 0) {
-		file[n-1] = '\0'; // overwrite newline
-		dhash_client_send_request(control_sock, file);
-	}
+	if (n > 0)
+		dhash_client_send_request(control_sock, file, n-1); // skip newline
 }
 
 int main(int argc, char **argv)

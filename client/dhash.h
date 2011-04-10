@@ -3,8 +3,8 @@
 
 #include <netinet/in.h>
 
-typedef void (*dhash_request_reply_handler)(void *ctx, char code,
-											const char *file);
+typedef void (*dhash_request_reply_handler)(void *ctx, int code,
+											const uchar *name, int name_len);
 
 struct Dispatcher;
 struct event;
@@ -53,17 +53,18 @@ enum
 };
 
 // in send.cpp
-extern void dhash_client_send_request(int sock, const char *file);
+extern void dhash_client_send_request(int sock, const uchar *name,
+									  int name_len);
 // in pack.cpp
-extern int dhash_client_unpack_request_reply(int sock, void *ctx,
+extern int dhash_client_unpack_request_reply(uchar *buf, int n, void *ctx,
 											 dhash_request_reply_handler handler);
 
 DHash *new_dhash(const char *files_path);
 int dhash_start(DHash *dhash, char **conf_files, int nservers);
 
-int dhash_stat_local_file(DHash *dhash, const char *file,
+int dhash_stat_local_file(DHash *dhash, const uchar *file, int file_len,
 						  struct stat *stat_buf);
-int dhash_local_file_exists(DHash *dhash, const char *file);
-int dhash_local_file_size(DHash *dhash, const char *file);
+int dhash_local_file_exists(DHash *dhash, const uchar *file, int file_len);
+int dhash_local_file_size(DHash *dhash, const uchar *file, int file_len);
 
 #endif
