@@ -336,45 +336,45 @@ static void type_name_print(const ProtobufCFieldDescriptor *field, FILE *out)
 {
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_INT32:
-		fprintf(stderr, "int32 %s", field->name); break;
+		fprintf(out, "int32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SINT32:
-		fprintf(stderr, "sint32 %s", field->name); break;
+		fprintf(out, "sint32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SFIXED32:
-		fprintf(stderr, "sfixed32 %s", field->name); break;
+		fprintf(out, "sfixed32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_INT64:
-		fprintf(stderr, "int64 %s", field->name); break;
+		fprintf(out, "int64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SINT64:
-		fprintf(stderr, "sint64 %s", field->name); break;
+		fprintf(out, "sint64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SFIXED64:
-		fprintf(stderr, "sfixed64 %s", field->name); break;
+		fprintf(out, "sfixed64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_UINT32:
-		fprintf(stderr, "uint32 %s", field->name); break;
+		fprintf(out, "uint32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_FIXED32:
-		fprintf(stderr, "fixed32 %s", field->name); break;
+		fprintf(out, "fixed32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_UINT64:
-		fprintf(stderr, "uint64 %s", field->name); break;
+		fprintf(out, "uint64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_FIXED64:
-		fprintf(stderr, "fixed64 %s", field->name); break;
+		fprintf(out, "fixed64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_FLOAT:
-		fprintf(stderr, "float %s", field->name); break;
+		fprintf(out, "float %s", field->name); break;
 	case PROTOBUF_C_TYPE_DOUBLE:
-		fprintf(stderr, "double %s", field->name); break;
+		fprintf(out, "double %s", field->name); break;
 	case PROTOBUF_C_TYPE_BOOL:
-		fprintf(stderr, "bool %s", field->name); break;
+		fprintf(out, "bool %s", field->name); break;
 	case PROTOBUF_C_TYPE_ENUM:
 		{
 			const ProtobufCEnumDescriptor *desc = field->descriptor;
-			fprintf(stderr, "%s %s", desc->name, field->name);
+			fprintf(out, "%s %s", desc->name, field->name);
 			break;
 		}
 	case PROTOBUF_C_TYPE_STRING:
-		fprintf(stderr, "string %s", field->name); break;
+		fprintf(out, "string %s", field->name); break;
 	case PROTOBUF_C_TYPE_BYTES:
-		fprintf(stderr, "bytes %s", field->name); break;
+		fprintf(out, "bytes %s", field->name); break;
 	case PROTOBUF_C_TYPE_MESSAGE:
 	{
 		const ProtobufCMessageDescriptor *desc = field->descriptor;
-		fprintf(stderr, "%s %s", desc->name, field->name);
+		fprintf(out, "%s %s", desc->name, field->name);
 		break;
 	}
 	}
