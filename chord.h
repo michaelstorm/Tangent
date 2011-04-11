@@ -3,7 +3,6 @@
 
 #include <event2/event.h>
 #include <netinet/in.h>
-#include <openssl/blowfish.h>
 #include <sys/types.h>
 #ifdef __APPLE__
 #include <inttypes.h>  // Need uint64_t
@@ -35,8 +34,9 @@ typedef struct Server Server;
 #define V4_MAPPED(x) IN6_IS_ADDR_V4MAPPED(x)
 
 enum {
-	TICKET_LEN = 8,				   /* bytes per connection ticket */
 	TICKET_TIMEOUT = 8,		   /* seconds for which a ticket is valid */
+	TICKET_HASH_LEN = 4,
+	TICKET_SALT_LEN = 16,
 	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */
 	NFINGERS     = CHORD_ID_BITS,  /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
@@ -148,7 +148,9 @@ struct Server
 	struct event *stab_event;
 	struct event *discover_addr_event;
 
-	BF_KEY ticket_key;
+	uchar *ticket_salt;
+	int ticket_salt_len;
+	int ticket_hash_len;
 
 	chord_packet_handler packet_handlers[CHORD_PONG+1];
 	void *packet_handler_ctx;
@@ -209,17 +211,21 @@ void join(Server *srv, FILE *fp);
 
 /* pack.c */
 int pack_header(uchar *buf, int type, uchar *payload, int n);
-int pack_addr_discover(uchar *buf, uchar *ticket);
-int pack_addr_discover_reply(uchar *buf, uchar *ticket, in6_addr *addr);
+int pack_addr_discover(uchar *buf, uchar *ticket, int ticket_len);
+int pack_addr_discover_reply(uchar *buf, uchar *ticket, int ticket_len,
+							 in6_addr *addr);
 int pack_data(uchar *buf, int last, uchar ttl, chordID *id, ushort len,
 			  const uchar *data);
-int pack_fs(uchar *buf, uchar *ticket, uchar ttl, in6_addr *addr, ushort port);
-int pack_fs_reply(uchar *buf, uchar *ticket, in6_addr *addr, ushort port);
+int pack_fs(uchar *buf, uchar *ticket, int ticket_len, uchar ttl,
+			in6_addr *addr, ushort port);
+int pack_fs_reply(uchar *buf, uchar *ticket, int ticket_len, in6_addr *addr,
+				  ushort port);
 int pack_stab(uchar *buf, in6_addr *addr, ushort port);
 int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port);
 int pack_notify(uchar *buf);
-int pack_ping(uchar *buf, uchar *ticket, ulong time);
-int pack_pong(uchar *buf, uchar *ticket, ulong time);
+int pack_ping(uchar *buf, uchar *ticket, int ticket_len, ulong time);
+int pack_pong(uchar *buf, uchar *ticket, int ticket_len, ulong time);
+void protobuf_c_message_print(const ProtobufCMessage *message, FILE *out);
 
 /* process.c */
 struct ChordPacketArgs
@@ -258,21 +264,23 @@ void send_data(Server *srv, int last, uchar ttl, Node *np, chordID *id,
 			   ushort n, const uchar *data);
 void send_fs(Server *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port);
-void send_fs_forward(Server *srv, uchar *ticket, uchar ttl, in6_addr *to_addr,
-					 ushort to_port, in6_addr *addr, ushort port);
-void send_fs_reply(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
-				  in6_addr *addr, ushort port);
+void send_fs_forward(Server *srv, uchar *ticket, int ticket_len, uchar ttl,
+					 in6_addr *to_addr, ushort to_port, in6_addr *addr,
+					 ushort port);
+void send_fs_reply(Server *srv, uchar *ticket, int ticket_len,
+				   in6_addr *to_addr, ushort to_port, in6_addr *addr,
+				   ushort port);
 void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 			   ushort port);
 void send_stab_reply(Server *srv, in6_addr *to_addr, ushort to_port,
 					in6_addr *addr, ushort port);
 void send_notify(Server *srv, in6_addr *to_addr, ushort to_port);
 void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time);
-void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
-			   ulong time);
+void send_pong(Server *srv, uchar *ticket, int ticket_len, in6_addr *to_addr,
+			   ushort to_port, ulong time);
 void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port);
-void send_addr_discover_reply(Server *srv, uchar *ticket, in6_addr *to_addr,
-							 ushort to_port);
+void send_addr_discover_reply(Server *srv, uchar *ticket, int ticket_len,
+							  in6_addr *to_addr, ushort to_port);
 
 /* stabilize.c */
 void stabilize(evutil_socket_t sock, short what, void *arg);
@@ -324,8 +332,11 @@ void v6_addr_copy(in6_addr *dest, const in6_addr *src);
 void v6_addr_set(in6_addr *dest, const uchar *src);
 const char *buf_to_str(const uchar *buf, int len);
 
-int pack_ticket(BF_KEY *key, const uchar *out, const char *fmt, ...);
-int verify_ticket(BF_KEY *key, const uchar *ticket_enc, const char *fmt, ...);
+int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
+				const char *fmt, ...);
+int verify_ticket(const uchar *salt, int salt_len, int hash_len,
+				  const uchar *ticket_buf, int ticket_len, const char *fmt,
+				  ...);
 
 void get_data_id(chordID *id, const uchar *buf, int n);
 void get_address_id(chordID *id, in6_addr *addr, ushort port);
