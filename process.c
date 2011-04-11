@@ -14,7 +14,7 @@ int process_addr_discover(Header *header, ChordPacketArgs *args,
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover", &from->id,
 								 &from->addr, from->port));
 
-	send_addr_discover_reply(srv, msg->ticket.data, &from->addr, from->port);
+	send_addr_discover_reply(srv, msg->ticket.data, msg->ticket.len, &from->addr, from->port);
 	return CHORD_NO_ERROR;
 }
 
@@ -25,8 +25,9 @@ int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
 								 &from->addr, from->port));
 
-	if (!verify_ticket(&srv->ticket_key, msg->ticket.data, "c6s",
-					   CHORD_ADDR_DISCOVER, &from->addr, from->port))
+	if (!verify_ticket(srv->ticket_salt, srv->ticket_salt_len,
+					   srv->ticket_hash_len, msg->ticket.data, msg->ticket.len,
+					   "c6s", CHORD_ADDR_DISCOVER, &from->addr, from->port))
 		return CHORD_INVALID_TICKET;
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr)) {
@@ -144,7 +145,7 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 		return CHORD_NO_ERROR;
 
 	if (succ_finger(srv) == NULL) {
-		send_fs_reply(srv, msg->ticket.data, &reply_addr, reply_port,
+		send_fs_reply(srv, msg->ticket.data, msg->ticket.len, &reply_addr, reply_port,
 					  &srv->node.addr, srv->node.port);
 		return CHORD_NO_ERROR;
 	}
@@ -152,12 +153,12 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 
 	if (is_between(&reply_id, &srv->node.id, &succ->id) || equals(&reply_id,
 																  &succ->id)) {
-		send_fs_reply(srv, msg->ticket.data, &reply_addr, reply_port,
+		send_fs_reply(srv, msg->ticket.data, msg->ticket.len, &reply_addr, reply_port,
 					  &succ->addr, succ->port);
 	}
 	else {
 		np = closest_preceding_node(srv, &reply_id, FALSE);
-		send_fs_forward(srv, msg->ticket.data, msg->ttl, &np->addr, np->port,
+		send_fs_forward(srv, msg->ticket.data, msg->ticket.len, msg->ttl, &np->addr, np->port,
 						&reply_addr, reply_port);
 	}
 	return CHORD_NO_ERROR;
@@ -178,7 +179,9 @@ int process_fs_reply(Header *header, ChordPacketArgs *args,
 
 	get_address_id(&id, &addr, msg->port);
 
-	if (!verify_ticket(&srv->ticket_key, msg->ticket.data, "c", CHORD_FS))
+	if (!verify_ticket(srv->ticket_salt, srv->ticket_salt_len,
+					   srv->ticket_hash_len, msg->ticket.data, msg->ticket.len,
+					   "c", CHORD_FS))
 		return CHORD_INVALID_TICKET;
 
 	if (v6_addr_equals(&srv->node.addr, &addr) && srv->node.port == msg->port)
@@ -294,7 +297,7 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 		send_ping(srv, &from->addr, from->port, get_current_time());
 	}
 
-	send_pong(srv, msg->ticket.data, &from->addr, from->port, msg->time);
+	send_pong(srv, msg->ticket.data, msg->ticket.len, &from->addr, from->port, msg->time);
 
 	return CHORD_NO_ERROR;
 }
@@ -309,8 +312,9 @@ int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from)
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return CHORD_ADDR_UNDISCOVERED;
 
-	if (!verify_ticket(&srv->ticket_key, msg->ticket.data, "c6sl", CHORD_PING,
-					   &from->addr, from->port, msg->time))
+	if (!verify_ticket(srv->ticket_salt, srv->ticket_salt_len,
+					   srv->ticket_hash_len, msg->ticket.data, msg->ticket.len,
+					   "c6sl", CHORD_PING, &from->addr, from->port, msg->time))
 		return CHORD_INVALID_TICKET;
 
 	f = insert_finger(srv, &from->id, &from->addr, from->port, &fnew);

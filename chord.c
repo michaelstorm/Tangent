@@ -193,13 +193,13 @@ static void init_ticket_key(Server *srv)
 		exit(2);
 	}
 
-	uchar key_data[16];
-	if (!RAND_bytes(key_data, sizeof(key_data))) {
+	srv->ticket_salt = malloc(TICKET_SALT_LEN);
+	srv->ticket_salt_len = TICKET_SALT_LEN;
+	srv->ticket_hash_len = TICKET_HASH_LEN;
+	if (!RAND_bytes(srv->ticket_salt, TICKET_SALT_LEN)) {
 		fprintf(stderr, "Could not generate ticket key.\n");
 		exit(2);
 	}
-
-	BF_set_key(&srv->ticket_key, sizeof(key_data), key_data);
 }
 
 /**********************************************************************/

@@ -2,27 +2,32 @@
 #include <string.h>
 #include "chord.h"
 
+static uchar ticket_buf[1024];
+
 void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port)
 {
 	uchar buf[BUFSIZE];
-	uchar ticket[TICKET_LEN];
 
-	pack_ticket(&srv->ticket_key, ticket, "c6s", CHORD_ADDR_DISCOVER, to_addr,
-				to_port);
+	int ticket_len = pack_ticket(srv->ticket_salt, srv->ticket_salt_len,
+								 srv->ticket_hash_len, ticket_buf, "c6s",
+								 CHORD_ADDR_DISCOVER, to_addr, to_port);
 
 	CHORD_DEBUG(5, print_send(srv, "send_addr_discover", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_addr_discover(buf, ticket), buf);
+	send_packet(srv, to_addr, to_port, pack_addr_discover(buf, ticket_buf,
+														  ticket_len),
+				buf);
 }
 
-void send_addr_discover_reply(Server *srv, uchar *ticket, in6_addr *to_addr,
-							 ushort to_port)
+void send_addr_discover_reply(Server *srv, uchar *ticket, int ticket_len,
+							  in6_addr *to_addr, ushort to_port)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_addr_discover_repl", 0, to_addr,
 							  to_port));
 	send_packet(srv, to_addr, to_port, pack_addr_discover_reply(buf, ticket,
-															   to_addr),
+																ticket_len,
+																to_addr),
 				buf);
 }
 
@@ -42,36 +47,42 @@ void send_fs(Server *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port)
 {
 	uchar buf[BUFSIZE];
-	uchar ticket[TICKET_LEN];
 
-	pack_ticket(&srv->ticket_key, ticket, "c", CHORD_FS);
+	int ticket_len = pack_ticket(srv->ticket_salt, srv->ticket_salt_len,
+								 srv->ticket_hash_len, ticket_buf, "c",
+								 CHORD_FS);
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket_buf, ticket_len, ttl,
+											   addr, port),
 				buf);
 }
 
 /**********************************************************************/
 
-void send_fs_forward(Server *srv, uchar *ticket, uchar ttl, in6_addr *to_addr,
-					 ushort to_port, in6_addr *addr, ushort port)
+void send_fs_forward(Server *srv, uchar *ticket, int ticket_len, uchar ttl,
+					 in6_addr *to_addr, ushort to_port, in6_addr *addr,
+					 ushort port)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ttl, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ticket_len, ttl,
+											   addr, port),
 				buf);
 }
 
 /**********************************************************************/
 
-void send_fs_reply(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
-				  in6_addr *addr, ushort port)
+void send_fs_reply(Server *srv, uchar *ticket, int ticket_len,
+				   in6_addr *to_addr, ushort to_port, in6_addr *addr,
+				   ushort port)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_fs_repl", 0, to_addr, to_port));
-	send_packet(srv, to_addr, to_port, pack_fs_reply(buf, ticket, addr, port),
+	send_packet(srv, to_addr, to_port, pack_fs_reply(buf, ticket, ticket_len,
+													 addr, port),
 				buf);
 }
 
@@ -112,26 +123,29 @@ void send_notify(Server *srv, in6_addr *to_addr, ushort to_port)
 void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time)
 {
 	uchar buf[BUFSIZE];
-	uchar ticket[TICKET_LEN];
 
-	pack_ticket(&srv->ticket_key, ticket, "c6sl", CHORD_PING, to_addr,
-				 to_port, time);
+	int ticket_len = pack_ticket(srv->ticket_salt, srv->ticket_salt_len,
+								 srv->ticket_hash_len, ticket_buf, "c6sl",
+								 CHORD_PING, to_addr, to_port, time);
 
 	CHORD_DEBUG(5, print_send(srv, "send_ping", &srv->node.id, to_addr,
 							  to_port));
-	send_packet(srv, to_addr, to_port, pack_ping(buf, ticket, time), buf);
+	send_packet(srv, to_addr, to_port, pack_ping(buf, ticket_buf, ticket_len,
+												 time),
+				buf);
 }
 
 /**********************************************************************/
 
-void send_pong(Server *srv, uchar *ticket, in6_addr *to_addr, ushort to_port,
-			   ulong time)
+void send_pong(Server *srv, uchar *ticket, int ticket_len, in6_addr *to_addr,
+			   ushort to_port, ulong time)
 {
 	uchar buf[BUFSIZE];
 
 	CHORD_DEBUG(5, print_send(srv, "send_pong", &srv->node.id, to_addr,
 							  to_port));
-	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, time), buf);
+	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, ticket_len, time),
+				buf);
 }
 
 /* send_packet: send datagram to remote addr:port */

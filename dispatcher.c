@@ -23,7 +23,7 @@ struct odd_packet_handler
 Dispatcher *new_dispatcher(int size)
 {
 	Dispatcher *d = malloc(sizeof(Dispatcher));
-	d->handlers = malloc(sizeof(struct packet_handler)*size);
+	d->handlers = calloc(1, sizeof(struct packet_handler)*size);
 	d->size = size;
 	d->odd = 0;
 
