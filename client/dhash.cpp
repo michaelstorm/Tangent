@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include <event2/event.h>
 #include <event2/thread.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
 #include "chord.h"
 #include "dhash.h"
 #include "dispatcher.h"
@@ -19,7 +21,7 @@
 #include "send.h"
 #include "transfer.h"
 
-DHash *new_dhash(const char *files_path)
+DHash *new_dhash(const char *files_path, const char *cert_path)
 {
 	DHash *dhash = (DHash *)malloc(sizeof(DHash));
 	dhash->servers = NULL;
@@ -45,8 +47,36 @@ DHash *new_dhash(const char *files_path)
 	dispatcher_set_packet(dhash->chord_dispatcher, DHASH_PUSH_REPLY, dhash,
 						  push_reply__unpack, dhash_process_push_reply);
 
+#ifdef DHASH_MESSAGE_DEBUG
+	dispatcher_set_debug(dhash->chord_dispatcher, 1);
+#endif
+
+#ifdef DHASH_CONTROL_MESSAGE_DEBUG
+	dispatcher_set_debug(dhash->control_dispatcher, 1);
+#endif
+
 	dhash->files_path = (char *)malloc(strlen(files_path)+1);
 	strcpy(dhash->files_path, files_path);
+
+	FILE *cert_fp = fopen(cert_path, "rb");
+	if (!cert_fp) {
+		eprintf("error opening signing certificate \"%s\":", cert_path);
+		return NULL;
+	}
+
+	ERR_load_crypto_strings();
+
+	X509 *cert = PEM_read_X509(cert_fp, NULL, NULL, NULL);
+	if (!cert) {
+		fprintf(stderr, "error parsing signing certificate \"%s\": %s\n",
+				cert_path, ERR_error_string(ERR_get_error(), NULL));
+		return NULL;
+	}
+	fclose(cert_fp);
+
+	dhash->cert_stack = sk_X509_new_null();
+	sk_X509_push(dhash->cert_stack, cert);
+
 	return dhash;
 }
 

@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 	}
 
 	// fork the dhash/chord process
-	DHash *dhash = new_dhash(argv[1]);
+	DHash *dhash = new_dhash(argv[1], "../../certs/stelcert.pem");
 	control_sock = dhash_start(dhash, argv+2, argc-2);
 
 	// create an event_base that works with events on file descriptors
@@ -91,6 +91,7 @@ int main(int argc, char **argv)
 	event_add(request_event, NULL);
 
 	// start event loop
+	fprintf(stderr, "starting event loop...\n");
 	event_base_dispatch(ev_base);
 	return 0;
 }

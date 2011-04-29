@@ -9,6 +9,8 @@
 #ifndef CHORD_DEBUG_H
 #define CHORD_DEBUG_H
 
+#undef CHORD_MESSAGE_DEBUG
+
 #define CHORD_DEBUG_LEVEL 3
 
 #undef CHORD_PRINT_LONG_IDS

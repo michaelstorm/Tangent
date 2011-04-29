@@ -29,6 +29,7 @@ Dispatcher *new_dispatcher(int size)
 
 	d->unpack_error = 0;
 	d->process_error = 0;
+	d->debug = 0;
 	return d;
 }
 
@@ -91,6 +92,11 @@ void dispatcher_set_error_handlers(Dispatcher *d, unpack_error_fn u_err,
 {
 	d->unpack_error = u_err;
 	d->process_error = p_err;
+}
+
+void dispatcher_set_debug(Dispatcher *d, int on)
+{
+	d->debug = on;
 }
 
 static void init_handler(struct packet_handler *handler, int value, char *name,
@@ -211,6 +217,19 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from,
 			d->unpack_error(handler->process_args, header->type,
 							header->payload.data, header->payload.len, from);
 		return 1;
+	}
+
+	if (d->debug) {
+		fprintf(stderr, "<=== ");
+		if (from) {
+			chordID id;
+			get_address_id(&id, &from->addr, from->port);
+			print_chordID(&id);
+			fprintf(stderr, " ([%s]:%d)\n", v6addr_to_str(&from->addr),
+					from->port);
+		}
+		protobuf_c_message_print(msg, stderr);
+		fprintf(stderr, "\n");
 	}
 
 	int ret = handler->process(header, handler->process_args, msg, from);

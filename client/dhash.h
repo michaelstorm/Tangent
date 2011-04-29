@@ -1,7 +1,11 @@
 #ifndef DHASH_H
 #define DHASH_H
 
+#include <openssl/x509.h>
 #include <netinet/in.h>
+
+#undef DHASH_MESSAGE_DEBUG
+#undef DHASH_CONTROL_MESSAGE_DEBUG
 
 typedef void (*dhash_request_reply_handler)(void *ctx, int code,
 											const uchar *name, int name_len);
@@ -30,6 +34,8 @@ struct DHash
 
 	struct Dispatcher *control_dispatcher;
 	struct Dispatcher *chord_dispatcher;
+
+	STACK_OF(X509) *cert_stack;
 };
 
 struct DHashPacketArgs
@@ -67,7 +73,7 @@ extern void dhash_client_send_request(int sock, const uchar *name,
 extern int dhash_client_unpack_request_reply(uchar *buf, int n, void *ctx,
 											 dhash_request_reply_handler handler);
 
-DHash *new_dhash(const char *files_path);
+DHash *new_dhash(const char *files_path, const char *cert_path);
 int dhash_start(DHash *dhash, char **conf_files, int nservers);
 
 int dhash_stat_local_file(DHash *dhash, const uchar *file, int file_len,

@@ -4,7 +4,7 @@ do
 	if [ "${node}" != "$1/0" ]
 	then
 		cd "${node}"
-		../../build/client 4.conf &
+		nohup ../../build/client 4.conf
 		cd ../..
 	fi
 done

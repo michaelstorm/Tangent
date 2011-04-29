@@ -3,7 +3,12 @@
 
 #include "chord.h"
 
+#define DHASH_WIRE_VERSION 1
+
 struct DHash;
+
+#define pack_dhash_header(buf, type, msg) \
+	pack_header(buf, DHASH_WIRE_VERSION, type, (const ProtobufCMessage *)msg)
 
 void dhash_unpack_control_packet(evutil_socket_t sock, short what, void *arg);
 int dhash_unpack_query(DHash *dhash, Server *srv, uchar *data, int n,

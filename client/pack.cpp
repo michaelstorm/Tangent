@@ -88,8 +88,7 @@ int dhash_pack_query(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
 
 	msg.name.len = name_len;
 	msg.name.data = (uint8_t *)name;
-	int n = query__pack(&msg, msg_buf);
-	return pack_header(buf, DHASH_QUERY, msg_buf, n);
+	return pack_dhash_header(buf, DHASH_QUERY, &msg);
 }
 
 int dhash_pack_query_reply_success(uchar *buf, const uchar *name,
@@ -98,8 +97,7 @@ int dhash_pack_query_reply_success(uchar *buf, const uchar *name,
 	QueryReplySuccess msg = QUERY_REPLY_SUCCESS__INIT;
 	msg.name.len = name_len;
 	msg.name.data = (uint8_t *)name;
-	int n = query_reply_success__pack(&msg, msg_buf);
-	return pack_header(buf, DHASH_QUERY_REPLY_SUCCESS, msg_buf, n);
+	return pack_dhash_header(buf, DHASH_QUERY_REPLY_SUCCESS, &msg);
 }
 
 int dhash_pack_query_reply_failure(uchar *buf, const uchar *name, int name_len)
@@ -107,8 +105,7 @@ int dhash_pack_query_reply_failure(uchar *buf, const uchar *name, int name_len)
 	QueryReplyFailure msg = QUERY_REPLY_FAILURE__INIT;
 	msg.name.len = name_len;
 	msg.name.data = (uint8_t *)name;
-	int n = query_reply_failure__pack(&msg, msg_buf);
-	return pack_header(buf, DHASH_QUERY_REPLY_FAILURE, msg_buf, n);
+	return pack_dhash_header(buf, DHASH_QUERY_REPLY_FAILURE, &msg);
 }
 
 int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
@@ -122,8 +119,7 @@ int dhash_pack_push(uchar *buf, in6_addr *addr, ushort port, const uchar *name,
 
 	msg.name.len = name_len;
 	msg.name.data = (uint8_t *)name;
-	int n = push__pack(&msg, msg_buf);
-	return pack_header(buf, DHASH_PUSH, msg_buf, n);
+	return pack_dhash_header(buf, DHASH_PUSH, &msg);
 }
 
 int dhash_pack_push_reply(uchar *buf, const uchar *name, int name_len)
@@ -131,8 +127,7 @@ int dhash_pack_push_reply(uchar *buf, const uchar *name, int name_len)
 	PushReply msg = PUSH_REPLY__INIT;
 	msg.name.len = name_len;
 	msg.name.data = (uint8_t *)name;
-	int n = push_reply__pack(&msg, msg_buf);
-	return pack_header(buf, DHASH_PUSH_REPLY, msg_buf, n);
+	return pack_dhash_header(buf, DHASH_PUSH_REPLY, &msg);
 }
 
 int dhash_pack_client_request(uchar *buf, const uchar *name, int name_len)
@@ -140,7 +135,5 @@ int dhash_pack_client_request(uchar *buf, const uchar *name, int name_len)
 	ClientRequest msg = CLIENT_REQUEST__INIT;
 	msg.name.len = name_len;
 	msg.name.data = (uint8_t *)name;
-	client_request__pack(&msg, msg_buf);
-	return pack_header(buf, DHASH_CLIENT_REQUEST, msg_buf,
-					   client_request__get_packed_size(&msg));
+	return pack_dhash_header(buf, DHASH_CLIENT_REQUEST, &msg);
 }

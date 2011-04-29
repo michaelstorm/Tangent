@@ -10,12 +10,20 @@
 
 static uchar msg_buf[BUFSIZE];
 
-int pack_header(uchar *buf, int type, uchar *payload, int n)
+int pack_header(uchar *buf, int version, int type, const ProtobufCMessage *msg)
 {
 	Header header = HEADER__INIT;
+	header.version = version;
+	header.has_version = 1;
+
+#ifdef CHORD_MESSAGE_DEBUG
+	protobuf_c_message_print(msg, stderr);
+	fprintf(stderr, "\n");
+#endif
+
 	header.type = type;
-	header.payload.len = n;
-	header.payload.data = payload;
+	header.payload.len = protobuf_c_message_pack(msg, msg_buf);
+	header.payload.data = msg_buf;
 	return header__pack(&header, buf);
 }
 
@@ -25,11 +33,11 @@ int pack_addr_discover(uchar *buf, uchar *ticket, int ticket_len)
 	msg.ticket.len = ticket_len;
 	msg.ticket.data = ticket;
 	msg.has_ticket = 1;
-	int n = addr_discover__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_ADDR_DISCOVER, msg_buf, n);
+	return pack_chord_header(buf, CHORD_ADDR_DISCOVER, &msg);
 }
 
-int pack_addr_discover_reply(uchar *buf, uchar *ticket, int ticket_len, in6_addr *addr)
+int pack_addr_discover_reply(uchar *buf, uchar *ticket, int ticket_len,
+							 in6_addr *addr)
 {
 	AddrDiscoverReply msg = ADDR_DISCOVER_REPLY__INIT;
 	msg.ticket.len = ticket_len;
@@ -38,9 +46,7 @@ int pack_addr_discover_reply(uchar *buf, uchar *ticket, int ticket_len, in6_addr
 
 	msg.addr.len = 16;
 	msg.addr.data = addr->s6_addr;
-
-	int n = addr_discover_reply__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_ADDR_DISCOVER_REPL, msg_buf, n);
+	return pack_chord_header(buf, CHORD_ADDR_DISCOVER_REPLY, &msg);
 }
 
 int pack_data(uchar *buf, int last, uchar ttl, chordID *id, ushort len,
@@ -57,12 +63,11 @@ int pack_data(uchar *buf, int last, uchar ttl, chordID *id, ushort len,
 
 	msg.data.len = len;
 	msg.data.data = (uint8_t *)data;
-
-	int n = data__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_DATA, msg_buf, n);
+	return pack_chord_header(buf, CHORD_DATA, &msg);
 }
 
-int pack_fs(uchar *buf, uchar *ticket, int ticket_len, uchar ttl, in6_addr *addr, ushort port)
+int pack_fs(uchar *buf, uchar *ticket, int ticket_len, uchar ttl,
+			in6_addr *addr, ushort port)
 {
 	FindSuccessor msg = FIND_SUCCESSOR__INIT;
 	msg.ticket.len = ticket_len;
@@ -74,10 +79,8 @@ int pack_fs(uchar *buf, uchar *ticket, int ticket_len, uchar ttl, in6_addr *addr
 
 	msg.addr.len = 16;
 	msg.addr.data = addr->s6_addr;
-
 	msg.port = port;
-	int n = find_successor__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_FS, msg_buf, n);
+	return pack_chord_header(buf, CHORD_FS, &msg);
 }
 
 int pack_fs_reply(uchar *buf, uchar *ticket, int ticket_len, in6_addr *addr,
@@ -90,10 +93,8 @@ int pack_fs_reply(uchar *buf, uchar *ticket, int ticket_len, in6_addr *addr,
 
 	msg.addr.len = 16;
 	msg.addr.data = addr->s6_addr;
-
 	msg.port = port;
-	int n = find_successor_reply__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_FS_REPL, msg_buf, n);
+	return pack_chord_header(buf, CHORD_FS_REPLY, &msg);
 }
 
 int pack_stab(uchar *buf, in6_addr *addr, ushort port)
@@ -101,10 +102,8 @@ int pack_stab(uchar *buf, in6_addr *addr, ushort port)
 	Stabilize msg = STABILIZE__INIT;
 	msg.addr.len = 16;
 	msg.addr.data = addr->s6_addr;
-
 	msg.port = port;
-	int n = stabilize__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_STAB, msg_buf, n);
+	return pack_chord_header(buf, CHORD_STAB, &msg);
 }
 
 int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
@@ -112,17 +111,14 @@ int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port)
 	StabilizeReply msg = STABILIZE_REPLY__INIT;
 	msg.addr.len = 16;
 	msg.addr.data = addr->s6_addr;
-
 	msg.port = port;
-	int n = stabilize_reply__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_STAB_REPL, msg_buf, n);
+	return pack_chord_header(buf, CHORD_STAB_REPLY, &msg);
 }
 
 int pack_notify(uchar *buf)
 {
 	Notify msg = NOTIFY__INIT;
-	int n = notify__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_NOTIFY, msg_buf, n);
+	return pack_chord_header(buf, CHORD_NOTIFY, &msg);
 }
 
 int pack_ping(uchar *buf, uchar *ticket, int ticket_len, ulong time)
@@ -131,10 +127,8 @@ int pack_ping(uchar *buf, uchar *ticket, int ticket_len, ulong time)
 	msg.ticket.len = ticket_len;
 	msg.ticket.data = ticket;
 	msg.has_ticket = 1;
-
 	msg.time = time;
-	int n = ping__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_PING, msg_buf, n);
+	return pack_chord_header(buf, CHORD_PING, &msg);
 }
 
 int pack_pong(uchar *buf, uchar *ticket, int ticket_len, ulong time)
@@ -143,10 +137,8 @@ int pack_pong(uchar *buf, uchar *ticket, int ticket_len, ulong time)
 	msg.ticket.len = ticket_len;
 	msg.ticket.data = ticket;
 	msg.has_ticket = 1;
-
 	msg.time = time;
-	int n = pong__pack(&msg, msg_buf);
-	return pack_header(buf, CHORD_PONG, msg_buf, n);
+	return pack_chord_header(buf, CHORD_PONG, &msg);
 }
 
 static inline size_t
@@ -197,7 +189,6 @@ required_field_print(const ProtobufCFieldDescriptor *field,
 	  fprintf(out, "%d", *(const int32_t *)member); break;
 	case PROTOBUF_C_TYPE_FIXED32:
 	case PROTOBUF_C_TYPE_UINT32:
-	case PROTOBUF_C_TYPE_ENUM:
 	  fprintf(out, "%u", *(const uint32_t *)member); break;
 	case PROTOBUF_C_TYPE_SFIXED64:
 	case PROTOBUF_C_TYPE_SINT64:
@@ -225,6 +216,21 @@ required_field_print(const ProtobufCFieldDescriptor *field,
 		int i;
 		for (i = 0; i < bd->len; i++)
 			fprintf(out, "%02x ", bd->data[i]);
+
+		int printable = 1;
+		for (i = 0; i < bd->len; i++) {
+			if (!isprint(bd->data[i])) {
+				printable = 0;
+				break;
+			}
+		}
+
+		if (printable && bd->len > 0) {
+			fprintf(out, "(\"");
+			for (i = 0; i < bd->len; i++)
+				fprintf(out, "%c", bd->data[i]);
+			fprintf(out, "\")");
+		}
 		break;
 	  }
 	//case PROTOBUF_C_TYPE_GROUP:          // NOT SUPPORTED
@@ -232,6 +238,15 @@ required_field_print(const ProtobufCFieldDescriptor *field,
 	  fprintf(out, "\n");
 		message_body_print(*(ProtobufCMessage * const *)member, out, tabs);
 		break;
+	case PROTOBUF_C_TYPE_ENUM:
+	{
+		uint32_t value = *(const uint32_t *)member;
+		const ProtobufCEnumDescriptor *desc = field->descriptor;
+		fprintf(out, "%u", value);
+		if (value < desc->n_values)
+			fprintf(out, " (%s)", desc->values[value].name);
+		break;
+	}
 	}
 }
 
@@ -260,7 +275,7 @@ optional_field_print(const ProtobufCFieldDescriptor *field,
 	  fprintf(out, "<none>");
 	  return;
   }
-  return required_field_print(field, member, out, tabs);
+  required_field_print(field, member, out, tabs);
 }
 
 static void print_tabs(FILE *out, int tabs)
@@ -362,11 +377,11 @@ static void type_name_print(const ProtobufCFieldDescriptor *field, FILE *out)
 	case PROTOBUF_C_TYPE_BOOL:
 		fprintf(out, "bool %s", field->name); break;
 	case PROTOBUF_C_TYPE_ENUM:
-		{
-			const ProtobufCEnumDescriptor *desc = field->descriptor;
-			fprintf(out, "%s %s", desc->name, field->name);
-			break;
-		}
+	{
+		const ProtobufCEnumDescriptor *desc = field->descriptor;
+		fprintf(out, "%s %s", desc->name, field->name);
+		break;
+	}
 	case PROTOBUF_C_TYPE_STRING:
 		fprintf(out, "string %s", field->name); break;
 	case PROTOBUF_C_TYPE_BYTES:
@@ -384,7 +399,7 @@ static void message_body_print(const ProtobufCMessage *message, FILE *out,
 							   int tabs)
 {
 	print_tabs(out, tabs);
-	fprintf(out, "{");
+	fprintf(out, "{ [%d]", message->descriptor->sizeof_message);
 	tabs++;
   unsigned i;
   for (i = 0; i < message->descriptor->n_fields; i++)
@@ -427,7 +442,7 @@ static void message_body_print(const ProtobufCMessage *message, FILE *out,
 
 void protobuf_c_message_print(const ProtobufCMessage *message, FILE *out)
 {
-	fprintf(out, "message %s\n", message->descriptor->name);
+	fprintf(out, "%s ", message->descriptor->name);
 	message_body_print(message, out, 0);
 	fprintf(out, "\n");
 }

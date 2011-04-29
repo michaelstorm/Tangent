@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <string.h>
+#include <openssl/cms.h>
+#include <openssl/err.h>
 #include "chord.h"
 #include "dhash.h"
 #include "process.h"
@@ -68,10 +70,35 @@ int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 static void receive_success(Transfer *trans, void *arg)
 {
 	DHash *dhash = (DHash *)arg;
+
+	char abs_file_path[1024];
+	sprintf(abs_file_path, "%s/%s", dhash->files_path, trans->file);
+
+	BIO *bio = BIO_new_file(abs_file_path, "rb");
+	if (!bio) {
+		fprintf(stderr, "error: could not open file \"%s\" for verification\n",
+				abs_file_path);
+		return;
+	}
+
+	CMS_ContentInfo *cms = d2i_CMS_bio(bio, NULL);
+	if (!cms) {
+		fprintf(stderr, "error parsing CMS structure in \"%s\": %s\n",
+				abs_file_path, ERR_error_string(ERR_get_error(), NULL));
+		return;
+	}
+
+	if (!CMS_verify(cms, dhash->cert_stack, NULL, NULL, NULL, CMS_NOINTERN)) {
+		fprintf(stderr, "error: signature in \"%s\" is invalid\n",
+				abs_file_path);
+		return;
+	}
+
 	dhash_send_control_query_success(dhash, (uchar *)trans->file,
 									 strlen(trans->file));
 	dhash_send_push(dhash, (uchar *)trans->file, strlen(trans->file));
 	free_transfer(trans);
+
 }
 
 static void receive_fail(Transfer *trans, void *arg)

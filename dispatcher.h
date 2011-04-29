@@ -32,6 +32,7 @@ struct Dispatcher
 
 	unpack_error_fn unpack_error;
 	process_error_fn process_error;
+	int debug;
 };
 
 Dispatcher *new_dispatcher(int size);
@@ -41,6 +42,7 @@ const char *dispatcher_get_packet_name(Dispatcher *d, int value);
 
 void dispatcher_set_error_handlers(Dispatcher *d, unpack_error_fn u_err,
 								   process_error_fn p_err);
+void dispatcher_set_debug(Dispatcher *d, int on);
 
 void dispatcher_set_packet_body(Dispatcher *d, int value, char *name, void *arg,
 								unpack_fn unpack, process_fn process);

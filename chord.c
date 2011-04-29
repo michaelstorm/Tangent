@@ -44,23 +44,28 @@ Server *new_server(struct event_base *ev_base, int tunnel_sock)
 										 srv);
 
 	srv->dispatcher = new_dispatcher(CHORD_PONG+1);
+
+#ifdef CHORD_MESSAGE_DEBUG
+	dispatcher_set_debug(srv->dispatcher, 1);
+#endif
+
 	dispatcher_set_error_handlers(srv->dispatcher, NULL,
 								  (process_error_fn)process_error);
 
 	dispatcher_set_packet(srv->dispatcher, CHORD_ADDR_DISCOVER, srv,
 						  addr_discover__unpack, process_addr_discover);
-	dispatcher_set_packet(srv->dispatcher, CHORD_ADDR_DISCOVER_REPL, srv,
+	dispatcher_set_packet(srv->dispatcher, CHORD_ADDR_DISCOVER_REPLY, srv,
 						  addr_discover_reply__unpack,
 						  process_addr_discover_reply);
 	dispatcher_set_packet(srv->dispatcher, CHORD_DATA, srv, data__unpack,
 						  process_data);
 	dispatcher_set_packet(srv->dispatcher, CHORD_FS, srv,
 						  find_successor__unpack, process_fs);
-	dispatcher_set_packet(srv->dispatcher, CHORD_FS_REPL, srv,
+	dispatcher_set_packet(srv->dispatcher, CHORD_FS_REPLY, srv,
 						  find_successor_reply__unpack, process_fs_reply);
 	dispatcher_set_packet(srv->dispatcher, CHORD_STAB, srv, stabilize__unpack,
 						  process_stab);
-	dispatcher_set_packet(srv->dispatcher, CHORD_STAB_REPL, srv,
+	dispatcher_set_packet(srv->dispatcher, CHORD_STAB_REPLY, srv,
 						  stabilize_reply__unpack, process_stab_reply);
 	dispatcher_set_packet(srv->dispatcher, CHORD_NOTIFY, srv, notify__unpack,
 						  process_notify);
@@ -280,6 +285,7 @@ long double id_to_radians(const chordID *id)
 
 void chord_print_circle(Server *srv)
 {
+	return;
 #define ROW_RATIO ((long double)0.5)
 #define DIAM ((long double)50)
 	struct grid *g = new_grid(DIAM+1, DIAM*ROW_RATIO+1);
@@ -375,15 +381,4 @@ int chord_is_local(Server *srv, chordID *x)
 {
 	return equals(x, &srv->node.id) || is_between(x, &srv->pred_bound,
 												  &srv->node.id);
-}
-
-void chord_set_packet_handler(Server *srv, int event,
-							  chord_packet_handler handler)
-{
-	srv->packet_handlers[event] = handler;
-}
-
-void chord_set_packet_handler_ctx(Server *srv, void *ctx)
-{
-	srv->packet_handler_ctx = ctx;
 }

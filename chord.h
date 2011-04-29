@@ -34,6 +34,7 @@ typedef struct Server Server;
 #define V4_MAPPED(x) IN6_IS_ADDR_V4MAPPED(x)
 
 enum {
+	CHORD_WIRE_VERSION = 1,
 	TICKET_TIMEOUT = 8,		   /* seconds for which a ticket is valid */
 	TICKET_HASH_LEN = 4,
 	TICKET_SALT_LEN = 16,
@@ -60,12 +61,12 @@ enum {
 /* packet types */
 enum {
 	CHORD_ADDR_DISCOVER = 0,
-	CHORD_ADDR_DISCOVER_REPL,
+	CHORD_ADDR_DISCOVER_REPLY,
 	CHORD_DATA,   /* data packet */
 	CHORD_FS,          /* find_successor */
-	CHORD_FS_REPL,     /* find_successor reply */
+	CHORD_FS_REPLY,     /* find_successor reply */
 	CHORD_STAB,        /* get predecessor */
-	CHORD_STAB_REPL,   /* ... response */
+	CHORD_STAB_REPLY,   /* ... response */
 	CHORD_NOTIFY,      /* notify (predecessor) */
 	CHORD_PING,        /* are you alive? */
 	CHORD_PONG,        /* yes, I am */
@@ -210,7 +211,10 @@ void discover_addr(evutil_socket_t sock, short what, void *arg);
 void join(Server *srv, FILE *fp);
 
 /* pack.c */
-int pack_header(uchar *buf, int type, uchar *payload, int n);
+#define pack_chord_header(buf, type, msg) \
+	pack_header(buf, CHORD_WIRE_VERSION, type, (const ProtobufCMessage *)msg)
+
+int pack_header(uchar *buf, int version, int type, const ProtobufCMessage *msg);
 int pack_addr_discover(uchar *buf, uchar *ticket, int ticket_len);
 int pack_addr_discover_reply(uchar *buf, uchar *ticket, int ticket_len,
 							 in6_addr *addr);

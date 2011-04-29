@@ -1,10 +1,10 @@
 message Header
 {
-	required uint32 type = 1;
-	required bytes payload = 1024;
+	optional uint32 version = 1;
+	required uint32 type = 2;
+	required bytes payload = 3;
 
-	extensions 100 to 1023;
-	extensions 1025 to max;
+	extensions 100 to max;
 }
 
 message Ticket
