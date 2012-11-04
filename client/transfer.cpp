@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <udt>
+#include <udt/udt.h>
 #include "chord.h"
 #include "dhash.h"
 #include "transfer.h"

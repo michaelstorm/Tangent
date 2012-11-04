@@ -4,6 +4,7 @@ project(Chord)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
+set(CMAKE_BUILD_TYPE Debug)
 
 file(GLOB PROTOBUF_C_CHORD_MESSAGES "*.proto")
 file(GLOB PROTOBUF_C_CLIENT_MESSAGES "client/*.proto")
@@ -14,18 +15,18 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 PROTOBUF_C_GENERATE_C(PROTO_C_CHORD_SRCS PROTO_C_CHORD_HDRS ${PROTOBUF_C_CHORD_MESSAGES})
 PROTOBUF_C_GENERATE_C(PROTO_C_CLIENT_SRCS PROTO_C_CLIENT_HDRS ${PROTOBUF_C_CLIENT_MESSAGES})
 
-file(GLOB lib_sources "*.c" "*.h")
+file(GLOB lib_sources "*.c" "*.h" "logger/*.c" "logger/*.h")
 list(APPEND lib_sources ${PROTO_C_CHORD_SRCS} ${PROTO_C_CHORD_HDRS})
 
 find_package(OpenSSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
-set(CMAKE_C_FLAGS "-Wall -ggdb -fdump-rtl-expand")
+set(CMAKE_C_FLAGS "-Wall -ggdb -fdump-rtl-expand -D_GNU_SOURCE")
 
 find_package(LibEvent)
 include_directories(${LIBEVENT_INCLUDE_DIR})
 
 add_library(chord SHARED ${lib_sources})
-target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${PROTOBUF_C_LIBRARY} dl m)
+target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${LOG4C_LIBRARIES} ${PROTOBUF_C_LIBRARY} dl m)
 
 file(GLOB client_sources "client/*.cpp" "client/*.h")
 list(APPEND client_sources ${PROTO_C_CLIENT_SRCS} ${PROTO_C_CLIENT_HDRS})

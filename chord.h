@@ -8,10 +8,12 @@
 #include <inttypes.h>  // Need uint64_t
 #endif
 #include <stdio.h>
+#include <stdlib.h>
 #include "chord_api.h"
 #include "debug.h"
 #include "eprintf.h"
 #include "messages.pb-c.h"
+#include "logger/logger.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,11 +22,17 @@ extern "C" {
 typedef struct Finger Finger;
 typedef struct Node Node;
 typedef struct Server Server;
+typedef struct LinkedStringNode LinkedStringNode;
+typedef struct LinkedString LinkedString;
 
 #define NELEMS(a) (sizeof(a) / sizeof(a[0]))
 #ifndef FALSE
 #define FALSE 0
 #define TRUE  1
+#endif
+
+#ifndef LOG_LEVEL
+#define LOG_LEVEL LOG_LEVEL_TRACE
 #endif
 
 /* whether a finger is passive or active */
@@ -159,6 +167,17 @@ struct Server
 	struct Dispatcher *dispatcher;
 };
 
+struct LinkedStringNode {
+	const char *chars;
+	int len;
+	LinkedStringNode *next;
+};
+
+struct LinkedString {
+	LinkedStringNode *first;
+	LinkedStringNode *last;
+};
+
 #define PRED(srv) (srv->tail_flist)
 #define SUCC(srv) (srv->head_flist)
 
@@ -229,7 +248,7 @@ int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port);
 int pack_notify(uchar *buf);
 int pack_ping(uchar *buf, uchar *ticket, int ticket_len, ulong time);
 int pack_pong(uchar *buf, uchar *ticket, int ticket_len, ulong time);
-void protobuf_c_message_print(const ProtobufCMessage *message, FILE *out);
+void protobuf_c_message_print(const ProtobufCMessage *message, LinkedString *out);
 
 /* process.c */
 struct ChordPacketArgs
@@ -312,7 +331,9 @@ int copy_id( chordID *a, chordID *b);
 void print_id(FILE *f, chordID *id);
 chordID atoid(const char *str);
 unsigned hash(chordID *id, unsigned n);
+const char *chordID_to_str(chordID *id);
 void print_chordID(chordID *id);
+void log_chordID(LinkedString *str, chordID *id);
 void print_two_chordIDs(char *preffix, chordID *id1,
 						char *middle, chordID *id2,
 						char *suffix);
@@ -321,6 +342,7 @@ void print_three_chordIDs(char *preffix, chordID *id1,
 						  char *middle2, chordID *id3,
 						  char *suffix);
 void print_node(Node *node, char *prefix, char *suffix);
+void log_node(LinkedString *str, Node *node, char *prefix, char *suffix);
 void print_finger(Finger *f, char *prefix, char *suffix);
 void print_finger_list(Finger *fhead, char *prefix, char *suffix);
 void print_server(Server *s, char *prefix, char *suffix);
@@ -328,13 +350,17 @@ void print_process(Server *srv, char *process_type, chordID *id, in6_addr *addr,
 				   ushort port);
 void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
 				ushort port);
+void log_send(LinkedString *str, Server *srv, const char *send_type, chordID *id, in6_addr *addr,
+				ushort port);
 void print_fun(Server *srv, char *fun_name, chordID *id);
 void print_current_time(char *prefix, char *suffix);
+void log_current_time(LinkedString *str, char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2);
 void v6_addr_copy(in6_addr *dest, const in6_addr *src);
 void v6_addr_set(in6_addr *dest, const uchar *src);
-const char *buf_to_str(const uchar *buf, int len);
+char *buf_to_str(const uchar *buf, int len);
+char *buf_to_hex(const uchar *buf, int len);
 
 int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
 				const char *fmt, ...);
@@ -345,6 +371,25 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 void get_data_id(chordID *id, const uchar *buf, int n);
 void get_address_id(chordID *id, in6_addr *addr, ushort port);
 int verify_address_id(chordID *id, in6_addr *addr, ushort port);
+void log_msg(int level, const char *header, const ProtobufCMessage *msg);
+
+/* str.c */
+LinkedString *lstr_empty();
+LinkedString *lstr_new(const char *fmt, ...);
+void lstr_free(LinkedString *str);
+void lstr_add(LinkedString *str, const char *fmt, ...);
+char *lstr_flat(LinkedString *str);
+
+#if LOG_LEVEL <= LOG_LEVEL_FATAL && !defined DISABLED_ALL_LOGS
+	#define LogString(level, lstr) \
+		{ \
+			char *LogString__str = lstr_flat(lstr); \
+			Log(level, LogString__str); \
+			free(LogString__str); \
+		}
+#else
+	#define LogString(level, lstr)
+#endif
 
 #ifdef __cplusplus
 }

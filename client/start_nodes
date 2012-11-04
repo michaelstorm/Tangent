@@ -3,6 +3,7 @@ for node in "$1"/*
 do
 	if [ "${node}" != "$1/0" ]
 	then
+		echo ${node}
 		cd "${node}"
 		nohup ../../build/client 4.conf
 		cd ../..

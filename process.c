@@ -10,6 +10,8 @@
 int process_addr_discover(Header *header, ChordPacketArgs *args,
 						  AddrDiscover *msg, Node *from)
 {
+	LogDebug("Processing addr_discover");
+	
 	Server *srv = args->srv;
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover", &from->id,
 								 &from->addr, from->port));
@@ -21,6 +23,8 @@ int process_addr_discover(Header *header, ChordPacketArgs *args,
 int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 								AddrDiscoverReply *msg, Node *from)
 {
+	LogDebug("Processing addr_discover_reply");
+	
 	Server *srv = args->srv;
 	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
 								 &from->addr, from->port));
@@ -85,6 +89,8 @@ Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last)
 
 int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 {
+	LogDebug("Processing data");
+	
 	Server *srv = args->srv;
 	chordID id;
 	memcpy(id.x, msg->id.data, CHORD_ID_LEN);
@@ -119,6 +125,8 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 			   Node *from)
 {
+	LogDebug("Processing fs");
+	
 	Server *srv = args->srv;
 	Node *succ, *np;
 	chordID reply_id;
@@ -167,6 +175,8 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 int process_fs_reply(Header *header, ChordPacketArgs *args,
 					 FindSuccessorReply *msg, Node *from)
 {
+	LogDebug("Processing fs_reply");
+	
 	Server *srv = args->srv;
 	int fnew;
 	chordID id;
@@ -200,6 +210,8 @@ int process_fs_reply(Header *header, ChordPacketArgs *args,
 int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 				 Node *from)
 {
+	LogDebug("Processing stab");
+	
 	Server *srv = args->srv;
 	Finger *pred = pred_finger(srv);
 	int		 fnew;
@@ -227,6 +239,8 @@ int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 int process_stab_reply(Header *header, ChordPacketArgs *args,
 					   StabilizeReply *msg, Node *from)
 {
+	LogDebug("Processing stab_reply");
+	
 	Server *srv = args->srv;
 	Finger *succ;
 	int fnew;
@@ -260,6 +274,8 @@ int process_stab_reply(Header *header, ChordPacketArgs *args,
 int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 				   Node *from)
 {
+	LogDebug("Processing notify");
+	
 	Server *srv = args->srv;
 	int fnew;
 
@@ -278,6 +294,8 @@ int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 
 int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 {
+	LogDebug("Processing ping");
+	
 	Server *srv = args->srv;
 	int fnew;
 	Finger *pred;
@@ -304,6 +322,8 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 
 int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from)
 {
+	LogDebug("Processing pong");
+	
 	Server *srv = args->srv;
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;

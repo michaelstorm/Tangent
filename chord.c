@@ -245,6 +245,8 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 			return;
 		}
 	}
+	
+	LogDebug("Received from %s:%s:%d packet of type 0x%02x and length %d", chordID_to_str(&from.id), v6addr_to_str(&from.addr), from.port, buf[0], packet_len);
 
 	get_address_id(&from.id, &from.addr, from.port);
 

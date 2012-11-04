@@ -333,6 +333,20 @@ int match_key(chordID *key_array, int num_keys, chordID *key)
 	return 0;
 }
 
+const char *chordID_to_str(chordID *id)
+{
+	static char id_str[CHORD_ID_LEN*2+1];
+	if (id) {
+		int i;
+		for (i = 0; i < CHORD_ID_LEN; i++)
+			sprintf(id_str+i*2, "%02x", id->x[i]);
+		id_str[CHORD_ID_LEN*2] = '\0';
+	}
+	else
+		id_str[0] = '\0';
+	return id_str;
+}
+
 /***********************************************************************/
 
 void print_chordID(chordID *id)
@@ -349,6 +363,21 @@ void print_chordID(chordID *id)
 	}
 	else
 		fprintf(stderr, "<null>");
+}
+
+void log_chordID(LinkedString *str, chordID *id) {
+	if (id) {
+		int i;
+#ifdef CHORD_PRINT_LONG_IDS
+		for (i = 0; i < CHORD_ID_LEN; i++)
+			lstr_add(str, "%02x", id->x[i]);
+#else
+		for (i = 0; i < 4; i++)
+			lstr_add(str, "%02x", id->x[i]);
+#endif
+	}
+	else
+		lstr_add(str, "<null>");
 }
 
 /***********************************************************************/
@@ -394,6 +423,15 @@ void print_node(Node *node, char *prefix, char *suffix)
 	fprintf(stderr, ", %s, %d%s", addr_str, node->port, suffix);
 }
 
+void log_node(LinkedString *str, Node *node, char *prefix, char *suffix)
+{
+	lstr_add(str, "%s", prefix);
+	log_chordID(str, &node->id);
+
+	char *addr_str = v6addr_to_str(&node->addr);
+	lstr_add(str, ", %s, %d%s", addr_str, node->port, suffix);
+}
+
 void print_finger(Finger *f, char *prefix, char *suffix)
 {
 	fprintf(stderr, "%sFinger:", prefix);
@@ -402,7 +440,6 @@ void print_finger(Finger *f, char *prefix, char *suffix)
 		   f->status ? "ACTIVE" : "PASSIVE", f->npings, f->rtt_avg, f->rtt_dev,
 		   suffix);
 }
-
 
 void print_finger_list(Finger *fhead, char *prefix, char *suffix)
 {
@@ -450,8 +487,7 @@ void print_process(Server *srv, char *process_type, chordID *id, in6_addr *addr,
 	print_current_time(" Time:", "\n");
 }
 
-void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
-				ushort port)
+void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
 {
 	int i = TYPE_LEN - strlen(send_type);
 
@@ -459,17 +495,36 @@ void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
 	if (i > 0) for (; i; i--) fprintf(stderr, " ");
 
 	fprintf(stderr, " (");
-	if (id)
-		print_chordID(id);
-	else
-		fprintf(stderr, "null");
+	print_chordID(id);
 	fprintf(stderr, ") ");
+	
 	print_node(&srv->node, " <", ">");
 	if (addr == NULL)
 		fprintf(stderr, " -----> <,>");
 	else
 		fprintf(stderr, " -----> <%s, %d>", v6addr_to_str(addr), port);
 	print_current_time(" Time:", "\n");
+}
+
+void log_send(LinkedString *str, Server *srv, const char *send_type, chordID *id, in6_addr *addr, ushort port)
+{
+	int i = TYPE_LEN - strlen(send_type);
+
+	lstr_add(str, "[%s]", send_type);
+	if (i > 0) for (; i; i--) lstr_add(str, " ");
+
+	lstr_add(str, " (");
+	log_chordID(str, id);
+	lstr_add(str, ") ");
+	
+	log_node(str, &srv->node, " <", ">");
+	
+	if (addr == NULL)
+		lstr_add(str, " -----> <,>");
+	else
+		lstr_add(str, " -----> <%s, %d>", v6addr_to_str(addr), port);
+	
+	log_current_time(str, " Time:", "\n");
 }
 
 void print_fun(Server *srv, char *fun_name, chordID *id)
@@ -489,9 +544,18 @@ ulong get_current_time()
 void print_current_time(char *prefix, char *suffix)
 {
 #ifdef CHORD_PRINT_LONG_TIME
-	fprintf(stderr, "%s%lld%s", prefix, wall_time(), suffix);
+	fprintf(stderr, "%s%llu%s", prefix, wall_time(), suffix);
 #else
-	fprintf(stderr, "%s%lld%s", prefix, (wall_time() << 32) >> 32, suffix);
+	fprintf(stderr, "%s%llu%s", prefix, (wall_time() << 32) >> 32, suffix);
+#endif
+}
+
+void log_current_time(LinkedString* str, char *prefix, char *suffix)
+{
+#ifdef CHORD_PRINT_LONG_TIME
+	lstr_add(str, "%s%llu%s", prefix, wall_time(), suffix);
+#else
+	lstr_add(str, "%s%llu%s", prefix, (wall_time() << 32) >> 32, suffix);
 #endif
 }
 
@@ -510,10 +574,29 @@ void v6_addr_set(in6_addr *dest, const uchar *src)
 	memcpy(dest->s6_addr, src, 16);
 }
 
-const char *buf_to_str(const uchar *buf, int len)
+char *buf_to_str(const uchar *buf, int len)
 {
-	static char str[1024];
-	memcpy(str, buf, len);
-	str[len] = '\0';
-	return str;
+	static char buf_str[1024];
+	memcpy(buf_str, buf, len);
+	buf_str[len] = '\0';
+	return buf_str;
+}
+
+char *buf_to_hex(const uchar *buf, int len)
+{
+	static char buf_hex[1024];
+	int i;
+	for (i = 0; i < len; i++)
+		sprintf(buf_hex+i*2, "%02x", buf[i]);
+	buf_hex[len*2] = '\0';
+	return buf_hex; 
+}
+
+void log_msg(int level, const char *header, const ProtobufCMessage *msg) {
+	LinkedString *lstr = lstr_new("%s\n", header);
+	protobuf_c_message_print(msg, lstr);
+	char *str = lstr_flat(lstr);
+	Log(level, str);
+	free(str);
+	lstr_free(lstr);
 }

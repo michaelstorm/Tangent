@@ -15,6 +15,16 @@ static uchar ticket_buf[1024];
 #define CHORD_PRINT_MESSAGE_DEBUG
 #endif
 
+#define LOG_SEND_LEVEL LOG_LEVEL_TRACE
+
+#define LOG_SEND \
+{ \
+	LinkedString *str = lstr_empty(); \
+	log_send(str, srv, __func__, 0, to_addr, to_port); \
+	LogString(TRACE, str); \
+	lstr_free(str); \
+}
+
 void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port)
 {
 	CHORD_PRINT_MESSAGE_DEBUG
@@ -24,7 +34,7 @@ void send_addr_discover(Server *srv, in6_addr *to_addr, ushort to_port)
 								 srv->ticket_hash_len, ticket_buf, "c6s",
 								 CHORD_ADDR_DISCOVER, to_addr, to_port);
 
-	CHORD_DEBUG(5, print_send(srv, "send_addr_discover", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_addr_discover(buf, ticket_buf,
 														  ticket_len),
 				buf);
@@ -36,8 +46,7 @@ void send_addr_discover_reply(Server *srv, uchar *ticket, int ticket_len,
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_addr_discover_repl", 0, to_addr,
-							  to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_addr_discover_reply(buf, ticket,
 																ticket_len,
 																to_addr),
@@ -47,12 +56,13 @@ void send_addr_discover_reply(Server *srv, uchar *ticket, int ticket_len,
 void send_data(Server *srv, int last, uchar ttl, Node *np, chordID *id,
 			   ushort n, const uchar *data)
 {
-	in6_addr *to_addr = &np->addr; to_addr = to_addr;
-	ushort to_port = np->port; to_port = to_port;
+	in6_addr *to_addr = &np->addr;
+	ushort to_port = np->port;
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(3, print_send(srv, "send_data", id, &np->addr, np->port));
+	LOG_SEND;
+	
 	send_packet(srv, &np->addr, np->port, pack_data(buf, last, ttl, id, n,
 													data), buf);
 }
@@ -69,7 +79,7 @@ void send_fs(Server *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 								 srv->ticket_hash_len, ticket_buf, "c",
 								 CHORD_FS);
 
-	CHORD_DEBUG(5, print_send(srv, "send_fs", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket_buf, ticket_len, ttl,
 											   addr, port),
 				buf);
@@ -84,7 +94,7 @@ void send_fs_forward(Server *srv, uchar *ticket, int ticket_len, uchar ttl,
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_fs", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_fs(buf, ticket, ticket_len, ttl,
 											   addr, port),
 				buf);
@@ -99,7 +109,7 @@ void send_fs_reply(Server *srv, uchar *ticket, int ticket_len,
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_fs_repl", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_fs_reply(buf, ticket, ticket_len,
 													 addr, port),
 				buf);
@@ -113,7 +123,7 @@ void send_stab(Server *srv, in6_addr *to_addr, ushort to_port, in6_addr *addr,
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_stab", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_stab(buf, addr, port), buf);
 }
 
@@ -125,7 +135,7 @@ void send_stab_reply(Server *srv, in6_addr *to_addr, ushort to_port,
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_stab_repl", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_stab_reply(buf, addr, port), buf);
 }
 
@@ -136,7 +146,7 @@ void send_notify(Server *srv, in6_addr *to_addr, ushort to_port)
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_notify", 0, to_addr, to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_notify(buf), buf);
 }
 
@@ -151,8 +161,7 @@ void send_ping(Server *srv, in6_addr *to_addr, ushort to_port, ulong time)
 								 srv->ticket_hash_len, ticket_buf, "c6sl",
 								 CHORD_PING, to_addr, to_port, time);
 
-	CHORD_DEBUG(5, print_send(srv, "send_ping", &srv->node.id, to_addr,
-							  to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_ping(buf, ticket_buf, ticket_len,
 												 time),
 				buf);
@@ -166,15 +175,14 @@ void send_pong(Server *srv, uchar *ticket, int ticket_len, in6_addr *to_addr,
 	CHORD_PRINT_MESSAGE_DEBUG
 	uchar buf[BUFSIZE];
 
-	CHORD_DEBUG(5, print_send(srv, "send_pong", &srv->node.id, to_addr,
-							  to_port));
+	LOG_SEND;
 	send_packet(srv, to_addr, to_port, pack_pong(buf, ticket, ticket_len, time),
 				buf);
 }
 
 /* send_packet: send datagram to remote addr:port */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n, uchar *buf)
-{
+{	
 	if (srv->is_v6)
 		send_raw_v6(srv->sock, addr, port, n, buf);
 	else

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <udt>
+#include <udt/udt.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <event2/event.h>
@@ -114,11 +114,11 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 
 	dhash->control_sock = dhash_tunnel[1];
 
-	int f = fork();
-	if (f) {
-		fprintf(stderr, "child PID: %d\nparent PID: %d\n", f, getpid());
-		return dhash_tunnel[0];
-	}
+//	int f = fork();
+//	if (f) {
+//		fprintf(stderr, "child PID: %d\nparent PID: %d\n", f, getpid());
+//		return dhash_tunnel[0];
+//	}
 
 	setprogname("dhash");
 	srandom(getpid() ^ time(0));

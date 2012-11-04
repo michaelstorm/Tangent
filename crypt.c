@@ -17,43 +17,36 @@ void vpack_hash(EVP_MD_CTX *ctx, const char *fmt, va_list args)
 	ulong l;
 	chordID *id;
 	in6_addr *v6addr;
-
+	
 	for (; *fmt != '\0'; fmt++) {
 		switch (*fmt) {
 		case 'c':	 /* char */
 			c = va_arg(args, int);
+			LogTrace("hashing char %x", (char)c);
 			EVP_DigestUpdate(ctx, &c, 1);
-
-			C_DEBUG(fprintf(stderr, "char: %02x\n", c));
 			break;
 		case 's':	 /* short */
 			s = va_arg(args, int);
+			LogTrace("hashing short %x", (short)s);
 			EVP_DigestUpdate(ctx, &s, sizeof(ushort));
-
-			C_DEBUG(fprintf(stderr, "short: %hu\n", s));
 			break;
 		case 'l':	 /* long */
 			l = va_arg(args, ulong);
+			LogTrace("hashing long %lx", l);
 			EVP_DigestUpdate(ctx, &l, sizeof(ulong));
-
-			C_DEBUG(fprintf(stderr, "long: %lu\n", l));
 			break;
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
+			LogTrace("hashing id %s", buf_to_hex(id->x, CHORD_ID_LEN));
 			EVP_DigestUpdate(ctx, id->x, CHORD_ID_LEN);
-
-			C_DEBUG(fprintf(stderr, "chordID: "));
-			C_DEBUG(print_id(stderr, id));
-			C_DEBUG(fprintf(stderr, "\n"));
 			break;
 		case '6':
 			v6addr = va_arg(args, in6_addr *);
+			LogTrace("hashing address %s", v6addr_to_str(v6addr));
 			EVP_DigestUpdate(ctx, v6addr->s6_addr, 16);
-
-			C_DEBUG(fprintf(stderr, "addr: %s\n", v6addr_to_str(v6addr)));
 			break;
 		default:	 /* illegal type character */
-			fprintf(stderr, "bad ticket type %c", *fmt);
+			LogError("bad ticket type %c", *fmt);
 			break;
 		}
 	}
@@ -94,10 +87,9 @@ int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
 	ticket.time = epoch_time;
 	ticket.hash.len = hash_len;
 	ticket.hash.data = md_value;
-#ifdef C_DEBUG_ON
-	fprintf(stderr, "packed ticket:\n");
-	protobuf_c_message_print((const ProtobufCMessage *)&ticket, stderr);
-#endif
+	
+	log_msg(LOG_LEVEL_DEBUG, "Packed ticket:", &ticket.base);
+	
 	return ticket__pack(&ticket, (uint8_t *)out);
 }
 
@@ -109,16 +101,22 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 
 	// decrypt the ticket
 	Ticket *ticket = ticket__unpack(NULL, ticket_len, ticket_buf);
-	if (!ticket || ticket->hash.len != hash_len)
+	if (!ticket) {
+		LogInfo("Ticket verification failed because the ticket could not be unpacked");
 		goto fail;
-
-#ifdef C_DEBUG_ON
-	fprintf(stderr, "verifying ticket:\n");
-	protobuf_c_message_print((const ProtobufCMessage *)ticket, stderr);
-#endif
-
-	if (ticket->time < time(NULL)-TICKET_TIMEOUT)
+	}
+	if (ticket->hash.len != hash_len) {
+		LogInfo("Ticket verification failed because ticket length %ul does not match expected length %ul", ticket->hash.len, hash_len);
 		goto fail;
+	}
+
+	log_msg(LOG_LEVEL_DEBUG, "Verifying ticket:", &ticket->base);
+
+	time_t current_time = time(NULL);
+	if (ticket->time < current_time-TICKET_TIMEOUT) {
+		LogInfo("Ticket failed due to timeout; ticket timestamp is %ul, current time is %ul, configured ticket timeout is %ul", ticket->time, current_time, TICKET_TIMEOUT);
+		goto fail;
+	}
 
 	// hash together the time provided in the ticket with the data given in the
 	// arguments (that were presumably in the packet received) to verify that
@@ -132,12 +130,18 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 	va_start(args, fmt);
 	vpack_hash(&ctx, fmt, args);
 	va_end(args);
-
+	
 	unsigned int len;
 	EVP_DigestFinal_ex(&ctx, md_value, &len);
 	EVP_MD_CTX_cleanup(&ctx);
+	
+	LogDebug("Expecting ticket hash: %s", buf_to_hex(md_value, hash_len));
+	LogDebug("Message ticket hash:   %s", buf_to_hex(ticket->hash.data, hash_len));
 
 	int ret = memcmp(md_value, ticket->hash.data, hash_len) == 0;
+	if (!ret)
+		LogDebug("Ticket verification failed because hashes do not match");
+	
 	ticket__free_unpacked(ticket, NULL);
 	return ret;
 

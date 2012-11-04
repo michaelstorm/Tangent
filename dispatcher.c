@@ -219,18 +219,7 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from,
 		return 1;
 	}
 
-	if (d->debug) {
-		fprintf(stderr, "<=== ");
-		if (from) {
-			chordID id;
-			get_address_id(&id, &from->addr, from->port);
-			print_chordID(&id);
-			fprintf(stderr, " ([%s]:%d)\n", v6addr_to_str(&from->addr),
-					from->port);
-		}
-		protobuf_c_message_print(msg, stderr);
-		fprintf(stderr, "\n");
-	}
+	log_msg(LOG_LEVEL_DEBUG, "Dispatching message:", msg);
 
 	int ret = handler->process(header, handler->process_args, msg, from);
 	if (process_ret)

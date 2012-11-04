@@ -10,6 +10,8 @@
 
 static int control_sock;
 
+logger_ctx_t *l;
+
 void process_reply(void *ctx, int code, const uchar *name, int name_len)
 {
 	switch (code) {
@@ -53,6 +55,9 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 
 int main(int argc, char **argv)
 {
+	logger_init();
+	l = get_logger("dhash");
+	
 	if (strcmp(argv[1], "--butterfly") == 0) {
 		long double diam;
 		if (argc > 2)
@@ -68,10 +73,12 @@ int main(int argc, char **argv)
 		print_grid(stdout, g);
 		return 0;
 	}
+	
+	LogInfoTo(l, "Started DHash client");
 
 	// fork the dhash/chord process
-	DHash *dhash = new_dhash(argv[1], "../../certs/stelcert.pem");
-	control_sock = dhash_start(dhash, argv+2, argc-2);
+	DHash *dhash = new_dhash(argv[1], argv[2]);
+	control_sock = dhash_start(dhash, argv+3, argc-3);
 
 	// create an event_base that works with events on file descriptors
 	struct event_config *cfg = event_config_new();
