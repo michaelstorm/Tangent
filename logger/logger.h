@@ -31,9 +31,10 @@ typedef enum
 
 struct logger_ctx_t;
 typedef struct logger_ctx_t logger_ctx_t;
-typedef int (*start_msg_func)(void *data, int level);
-typedef ssize_t (*write_func)(void *data, const char *buf, size_t len);
-typedef int (*end_msg_func)(void *data);
+typedef int (*start_msg_func) (logger_ctx_t *l, const char *file, int line, const char *func, int level);
+typedef int (*printf_func)    (void *data, const char *fmt, va_list args);
+typedef ssize_t (*write_func) (void *data, const char *buf, size_t size);
+typedef int (*end_msg_func)   (logger_ctx_t *l);
 
 struct logger_ctx_t
 {
@@ -43,6 +44,7 @@ struct logger_ctx_t
 	void *data;
 	
 	start_msg_func start_msg;
+	printf_func printf;
 	write_func write;
 	end_msg_func end_msg;
 	

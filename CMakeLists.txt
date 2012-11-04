@@ -20,7 +20,7 @@ list(APPEND lib_sources ${PROTO_C_CHORD_SRCS} ${PROTO_C_CHORD_HDRS})
 
 find_package(OpenSSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
-set(CMAKE_C_FLAGS "-Wall -ggdb -fdump-rtl-expand -D_GNU_SOURCE")
+set(CMAKE_C_FLAGS "-Wall -Wno-format-security -ggdb -fdump-rtl-expand -D_GNU_SOURCE")
 
 find_package(LibEvent)
 include_directories(${LIBEVENT_INCLUDE_DIR})

@@ -13,24 +13,35 @@ static map_t loggers;
 
 int logger_default_level = INT_MIN;
 
+#define LOGGER_WRITE(l, buf) l->write(l->data, buf, strlen(buf))
+
 void logger_init()
 {
 	loggers = hashmap_new();
 }
 
-ssize_t write_file(void *data, const char *buf, size_t len)
-{
-	return fwrite(buf, 1, len, (FILE *)data) != len;
+int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func, int level)
+{	
+	char leader[level+1];
+	memset(leader, ' ', level);
+	leader[level] = '\0';
+	
+	return fprintf((FILE *)l->data, "%s>[%s] (%s) %s$%d: ", leader, l->name, func, BASENAME(file), line);
 }
 
-int end_file_msg(void *data)
+ssize_t write_file(FILE *file, const char *buf, size_t size)
 {
-	int ret = fwrite("\n", 1, 1, (FILE *)data) != 1;
-	fflush((FILE *)data);
+	return fwrite(buf, 1, size, file);
+}
+
+int end_file_msg(logger_ctx_t *l)
+{
+	int ret = fwrite("\n", 1, 1, (FILE *)l->data) != 1;
+	ret |= fflush((FILE *)l->data);
 	return ret;
 }
 
-int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data, start_msg_func start_msg, write_func write, end_msg_func end_msg)
+int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data, start_msg_func start_msg, printf_func printf, write_func write, end_msg_func end_msg)
 {
 	int name_len = strlen(name);
 	l->name = malloc(name_len+1);
@@ -38,9 +49,10 @@ int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data
 	l->name[name_len] = '\0';
 	
 	l->min_level = min_level;
-
+	
 	l->data = data;
 	l->start_msg = start_msg;
+	l->printf = printf;
 	l->write = write;
 	l->end_msg = end_msg;
 	
@@ -57,10 +69,10 @@ int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data
 	return 0;
 }
 
-logger_ctx_t *logger_ctx_new(const char *name, int min_level, void *data, start_msg_func start_msg, write_func write, end_msg_func end_msg)
+logger_ctx_t *logger_ctx_new(const char *name, int min_level, void *data, start_msg_func start_msg, printf_func printf, write_func write, end_msg_func end_msg)
 {
 	logger_ctx_t *l = malloc(sizeof(logger_ctx_t));
-	if (logger_ctx_init(l, name, min_level, data, start_msg, write, end_msg))
+	if (logger_ctx_init(l, name, min_level, data, start_msg, printf, write, end_msg))
 		return NULL;
 	
 	return l;
@@ -69,7 +81,7 @@ logger_ctx_t *logger_ctx_new(const char *name, int min_level, void *data, start_
 logger_ctx_t *logger_ctx_new_file(const char *name, int min_level, FILE *file)
 {
 	logger_ctx_t *l = malloc(sizeof(logger_ctx_t));
-	if (logger_ctx_init(l, name, min_level, file, NULL, write_file, end_file_msg))
+	if (logger_ctx_init(l, name, min_level, file, (start_msg_func)start_file_msg, (printf_func)vfprintf, (write_func)write_file, (end_msg_func)end_file_msg))
 		return NULL;
 	
 	return l;
@@ -101,52 +113,33 @@ logger_ctx_t *get_logger(const char *name)
 	return l;
 }
 
-#define PRINT_VAR_BUF(buf, last_arg, fmt) \
-{ \
-	va_list args; \
-	va_start(args, last_arg); \
-	int formatted_len = vsnprintf(NULL, 0, fmt, args) + 1; \
-	va_end(args); \
-	\
-	buf = malloc(formatted_len); \
-	\
-	va_start(args, last_arg); \
-	vsprintf(buf, fmt, args); \
-	va_end(args); \
-}
-
-char *print_var_buf(const char *fmt, ...)
+logger_ctx_t *get_logger_for_file(const char *file)
 {
-	char *buf;
-	PRINT_VAR_BUF(buf, fmt, fmt)
-	return buf;
+	file = BASENAME(file);
+	int len = strchr(file, '.') - file;
+	
+	char file_base[len+1];
+	strncpy(file_base, file, len);
+	file_base[len] = '\0';
+	
+	return get_logger(file_base);
 }
-
-static const char *std_header_fmt = "[%s] (%s) %s$%d: ";
 
 void StartLog_impl(logger_ctx_t *l, const char *file, int line, const char *func, int level)
 {
+	if (l == NULL)
+		l = get_logger_for_file(file);
+	
 	if (l->start_msg != NULL)
-		l->start_msg(l->data, level);
-	
-	int i;
-	for (i = 0; i < level; i++)
-		l->write(l->data, " ", 1);
-	l->write(l->data, ">", 1);
-	
-	char *header = print_var_buf(std_header_fmt, l->name, func, BASENAME(file), line);
-	
-	l->write(l->data, header, strlen(header));
-	free(header);
+		l->start_msg(l, file, line, func, level);
 }
 
 #define PARTIAL_LOG_IMPL(l, last_arg, fmt) \
 { \
-	char *buf; \
-	PRINT_VAR_BUF(buf, fmt, fmt) \
-	\
-	l->write(l->data, buf, strlen(buf)); \
-	free(buf); \
+	va_list args; \
+	va_start(args, fmt); \
+	l->printf(l->data, fmt, args); \
+	va_end(args); \
 }
 
 void PartialLog_impl(logger_ctx_t *l, const char *fmt, ...)
@@ -156,8 +149,9 @@ void PartialLog_impl(logger_ctx_t *l, const char *fmt, ...)
 
 void EndLog_impl(logger_ctx_t *l)
 {
+	fflush(l->fp);
 	if (l->end_msg != NULL)
-		l->end_msg(l->data);
+		l->end_msg(l);
 }
 
 void StartLogAs_impl(const char *name, const char *file, int line, const char *func, int level)
@@ -178,52 +172,34 @@ void EndLogAs_impl(const char *name)
 	EndLog_impl(l);
 }
 
-void vlog(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *buf)
+void vlog(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, va_list args)
 {
 	StartLog_impl(l, file, line, func, level);
-	l->write(l->data, buf, strlen(buf));
+	l->printf(l->data, fmt, args);
 	EndLog_impl(l);
+}
+
+#define CALL_VLOG \
+{ \
+	va_list args; \
+	va_start(args, fmt); \
+	vlog(l, file, line, func, level, fmt, args); \
+	va_end(args); \
 }
 
 void LogAs_impl(const char *name, const char *file, int line, const char *func, int level, const char *fmt, ...)
 {
 	logger_ctx_t *l = get_logger(name);
 	
-	if (level >= l->min_level) {
-		char *buf;
-		PRINT_VAR_BUF(buf, fmt, fmt)
-		
-		va_list args;
-		va_start(args, fmt);
-		vlog(l, file, line, func, level, buf);
-		va_end(args);
-		
-		free(buf);
-	}
+	if (level >= l->min_level)
+		CALL_VLOG
 }
 
 void Log_impl(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, ...)
 {
-	if (l == NULL) {
-		file = BASENAME(file);
-		int len = strchr(file, '.') - file;
-		
-		char file_base[len+1];
-		strncpy(file_base, file, len);
-		file_base[len] = '\0';
-		
-		l = get_logger(file_base);
-	}
+	if (l == NULL)
+		l = get_logger_for_file(file);
 	
-	if (level >= l->min_level) {
-		char *buf;
-		PRINT_VAR_BUF(buf, fmt, fmt)
-		
-		va_list args;
-		va_start(args, fmt);
-		vlog(l, file, line, func, level, buf);
-		va_end(args);
-		
-		free(buf);
-	}
+	if (level >= l->min_level)
+		CALL_VLOG
 }

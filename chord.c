@@ -146,6 +146,15 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 		fprintf(stderr, "Didn't find any known hosts.");
 }
 
+void log_events(Server *srv)
+{
+	logger_ctx_t *l = get_logger("events");
+	StartLogTo(l, DEBUG);
+	PartialLogTo(l, "queued events:");
+	event_base_dump_events(srv->ev_base, l->fp);
+	EndLogTo(l);
+}
+
 void server_start(Server *srv)
 {
 	struct timeval timeout;
@@ -154,6 +163,8 @@ void server_start(Server *srv)
 
 	event_add(srv->discover_addr_event, &timeout);
 	event_active(srv->discover_addr_event, EV_TIMEOUT, 1);
+	
+	log_events(srv);
 }
 
 void server_initialize_socket(Server *srv)
