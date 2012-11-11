@@ -11,9 +11,11 @@
 
 void discover_addr(evutil_socket_t sock, short what, void *arg)
 {
+	Log(INFO, "Discovering address");
+	
 	Server *srv = arg;
 	if (!IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr)) {
-		fprintf(stderr, "called discover_addr when address is already known\n");
+		Error("called discover_addr when address is already known\n");
 		return;
 	}
 

@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 	fp = fopen(filename, "w");
 	fprintf(fp, "%d\n", 6);
 	fprintf(fp, "%d ", nodes[i].port);
-	print_id(fp, &nodes[i].id);
+	print_chordID(fp, &nodes[i].id);
 	fprintf(fp, "\n");
 
 	j = i-5;
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	fp = fopen(filename, "w");
 	fprintf(fp, "%d\n", 4);
 	fprintf(fp, "%d ", nodes[i].port);
-	print_id(fp, &nodes[i].id);
+	print_chordID(fp, &nodes[i].id);
 	fprintf(fp, "\n");
 
 	j = i-5;

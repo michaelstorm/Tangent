@@ -8,42 +8,39 @@
 #include <string.h>
 #include <errno.h>
 #include "eprintf.h"
+#include "logger/logger.h"
 
-/* eprintf: print error message and exit */
-void eprintf(const char *fmt, ...)
+void log_strerror(logger_ctx_t *l, int level, const char *fmt, va_list args)
 {
-	va_list args;
-
-	fflush(stdout);
-	if (getprogname() != NULL)
-		fprintf(stderr, "%s: ", getprogname());
-
-	va_start(args, fmt);
-	vfprintf(stderr, fmt, args);
+	StartLogTo(l, level);
+	
+	vfprintf(l->fp, fmt, args);
 	va_end(args);
 
 	if (fmt[0] != '\0' && fmt[strlen(fmt)-1] == ':')
-		fprintf(stderr, " %s", strerror(errno));
-	fprintf(stderr, "\n");
+		fprintf(l->fp, " %s", strerror(errno));
+	
+	EndLogTo(l);
+}
+
+/* eprintf: print error message and exit */
+void eprintf_impl(logger_ctx_t *l, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	log_strerror(l, FATAL, fmt, args);
+	va_end(args);
+
 	exit(2); /* conventional value for failed execution */
 }
 
 /* weprintf: print warning message */
-void weprintf(const char *fmt, ...)
+void weprintf_impl(logger_ctx_t *l, const char *fmt, ...)
 {
 	va_list args;
-
-	fflush(stdout);
-	fprintf(stderr, "warning: ");
-	if (getprogname() != NULL)
-		fprintf(stderr, "%s: ", getprogname());
 	va_start(args, fmt);
-	vfprintf(stderr, fmt, args);
+	log_strerror(l, WARN, fmt, args);
 	va_end(args);
-	if (fmt[0] != '\0' && fmt[strlen(fmt)-1] == ':')
-		fprintf(stderr, " %s\n", strerror(errno));
-	else
-		fprintf(stderr, "\n");
 }
 
 /* emalloc: malloc and report if error */

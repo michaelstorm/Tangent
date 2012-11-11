@@ -7,14 +7,18 @@
 #include "dispatcher.h"
 #include "messages.pb-c.h"
 
+#define LOG_PROCESS(id, from_addr, from_port) \
+{ \
+	StartLog(DEBUG); \
+	print_process(file_logger()->fp, srv, (char *)__func__, id, from_addr, from_port); \
+	EndLog(); \
+}
+
 int process_addr_discover(Header *header, ChordPacketArgs *args,
 						  AddrDiscover *msg, Node *from)
 {
-	LogDebug("Processing addr_discover");
-	
 	Server *srv = args->srv;
-	CHORD_DEBUG(5, print_process(srv, "process_addr_discover", &from->id,
-								 &from->addr, from->port));
+	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	send_addr_discover_reply(srv, msg->ticket.data, msg->ticket.len, &from->addr, from->port);
 	return CHORD_NO_ERROR;
@@ -23,11 +27,8 @@ int process_addr_discover(Header *header, ChordPacketArgs *args,
 int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 								AddrDiscoverReply *msg, Node *from)
 {
-	LogDebug("Processing addr_discover_reply");
-	
 	Server *srv = args->srv;
-	CHORD_DEBUG(5, print_process(srv, "process_addr_discover_repl", &from->id,
-								 &from->addr, from->port));
+	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	if (!verify_ticket(srv->ticket_salt, srv->ticket_salt_len,
 					   srv->ticket_hash_len, msg->ticket.data, msg->ticket.len,
@@ -39,11 +40,12 @@ int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
-		fprintf(stderr, "address: [%s]:%d\n", v6addr_to_str(&srv->node.addr),
-			   srv->node.port);
-		fprintf(stderr, "node id: ");
-		print_chordID(&srv->node.id);
-		fprintf(stderr, "\n");
+		StartLog(TRACE);
+		PartialLog("address: [%s]:%d\n", v6addr_to_str(&srv->node.addr), srv->node.port);
+		PartialLog("node id: ");
+		print_chordID(file_logger()->fp, &srv->node.id);
+		PartialLog("\n");
+		EndLog();
 
 		event_del(srv->discover_addr_event);
 
@@ -89,8 +91,6 @@ Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last)
 
 int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 {
-	LogDebug("Processing data");
-	
 	Server *srv = args->srv;
 	chordID id;
 	memcpy(id.x, msg->id.data, CHORD_ID_LEN);
@@ -98,19 +98,20 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return CHORD_ADDR_UNDISCOVERED;
 
-	CHORD_DEBUG(3, print_process(srv, "process_data", &id, &from->addr,
-								 from->port));
+	LOG_PROCESS(&id, &from->addr, from->port);
 
 	if (--msg->ttl == 0) {
-		print_two_chordIDs("TTL expired: data packet ", &id,
-						   " dropped at node ", &srv->node.id, "\n");
+		StartLog(WARN);
+		print_two_chordIDs(file_logger()->fp, "TTL expired: data packet ", &id,
+						   " dropped at node ", &srv->node.id, "");
+		EndLog();
 		return CHORD_TTL_EXPIRED;
 	}
 
 	/* handle request locally? */
 	if (chord_is_local(srv, &id)) {
 		/* Upcall goes here... */
-		fprintf(stderr, "id is local\n");
+		Debug("id is local");
 		//chord_deliver(len, data, from);
 	}
 	else {
@@ -125,8 +126,6 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 			   Node *from)
 {
-	LogDebug("Processing fs");
-	
 	Server *srv = args->srv;
 	Node *succ, *np;
 	chordID reply_id;
@@ -139,12 +138,13 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 	v6_addr_set(&reply_addr, msg->addr.data);
 	get_address_id(&reply_id, &reply_addr, reply_port);
 
-	CHORD_DEBUG(5, print_process(srv, "process_fs", &reply_id, &reply_addr,
-								 reply_port));
+	LOG_PROCESS(&reply_id, &reply_addr, reply_port);
 
 	if (--msg->ttl == 0) {
-		print_two_chordIDs("TTL expired: fix_finger packet ", &reply_id,
-						   " dropped at node ", &srv->node.id, "\n");
+		StartLog(WARN);
+		print_two_chordIDs(file_logger()->fp, "TTL expired: fix_finger packet ", &reply_id,
+						   " dropped at node ", &srv->node.id, "");
+		EndLog();
 		return CHORD_TTL_EXPIRED;
 	}
 
@@ -175,8 +175,6 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 int process_fs_reply(Header *header, ChordPacketArgs *args,
 					 FindSuccessorReply *msg, Node *from)
 {
-	LogDebug("Processing fs_reply");
-	
 	Server *srv = args->srv;
 	int fnew;
 	chordID id;
@@ -196,9 +194,8 @@ int process_fs_reply(Header *header, ChordPacketArgs *args,
 
 	if (v6_addr_equals(&srv->node.addr, &addr) && srv->node.port == msg->port)
 		return CHORD_NO_ERROR;
-
-	CHORD_DEBUG(5, print_process(srv, "process_fs_repl", &id, &from->addr,
-								 from->port));
+	
+	LOG_PROCESS(&id, &from->addr, from->port);
 
 	insert_finger(srv, &id, &addr, msg->port, &fnew);
 	if (fnew == TRUE)
@@ -210,8 +207,6 @@ int process_fs_reply(Header *header, ChordPacketArgs *args,
 int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 				 Node *from)
 {
-	LogDebug("Processing stab");
-	
 	Server *srv = args->srv;
 	Finger *pred = pred_finger(srv);
 	int		 fnew;
@@ -225,7 +220,7 @@ int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 
 	get_address_id(&id, &addr, msg->port);
 
-	CHORD_DEBUG(5, print_process(srv, "process_stab", &id, &addr, msg->port));
+	LOG_PROCESS(&id, &addr, msg->port);
 
 	insert_finger(srv, &id, &addr, msg->port, &fnew);
 
@@ -239,8 +234,6 @@ int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 int process_stab_reply(Header *header, ChordPacketArgs *args,
 					   StabilizeReply *msg, Node *from)
 {
-	LogDebug("Processing stab_reply");
-	
 	Server *srv = args->srv;
 	Finger *succ;
 	int fnew;
@@ -254,7 +247,7 @@ int process_stab_reply(Header *header, ChordPacketArgs *args,
 
 	get_address_id(&id, &addr, msg->port);
 
-	CHORD_DEBUG(5, print_process(srv, "process_stab_repl", &id, NULL, -1));
+	LOG_PROCESS(&id, NULL, -1);
 
 	// If we are our successor's predecessor, everything is fine, so do nothing.
 	if (v6_addr_equals(&srv->node.addr, &addr) && srv->node.port == msg->port)
@@ -274,16 +267,13 @@ int process_stab_reply(Header *header, ChordPacketArgs *args,
 int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 				   Node *from)
 {
-	LogDebug("Processing notify");
-	
 	Server *srv = args->srv;
 	int fnew;
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return CHORD_ADDR_UNDISCOVERED;
 
-	CHORD_DEBUG(5, print_process(srv, "process_notify", &from->id, &from->addr,
-								 from->port));
+	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	// another node thinks that it should be our predecessor
 	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
@@ -294,8 +284,6 @@ int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 
 int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 {
-	LogDebug("Processing ping");
-	
 	Server *srv = args->srv;
 	int fnew;
 	Finger *pred;
@@ -303,8 +291,7 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return CHORD_ADDR_UNDISCOVERED;
 
-	CHORD_DEBUG(5, print_process(srv, "process_ping", &from->id, &from->addr,
-								 from->port));
+	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
 	pred = pred_finger(srv);
@@ -322,8 +309,6 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 
 int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from)
 {
-	LogDebug("Processing pong");
-	
 	Server *srv = args->srv;
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;
@@ -341,8 +326,8 @@ int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from)
 	if (!f)
 		return CHORD_FINGER_ERROR;
 
-	CHORD_DEBUG(5, print_process(srv, "process_pong", &from->id, &from->addr,
-								 from->port));
+	LOG_PROCESS(&from->id, &from->addr, from->port);
+
 	f->npings = 0;
 	new_rtt = get_current_time() - msg->time; /* takes care of overlow */
 	update_rtt(&f->rtt_avg, &f->rtt_dev, (long)new_rtt);
@@ -391,7 +376,7 @@ void process_error(Header *header, ChordPacketArgs *args, void *msg, Node *from,
 		break;
 	}
 
-	weprintf("dropping packet [type 0x%02x: %s] from %s:%hu (%s)", header->type,
-			 dispatcher_get_packet_name(args->srv->dispatcher, header->type),
-			 v6addr_to_str(&from->addr), from->port, err_str);
+	Log(WARN, "dropping packet [type 0x%02x: %s] from %s:%hu (%s)", header->type,
+			  dispatcher_get_packet_name(args->srv->dispatcher, header->type),
+			  v6addr_to_str(&from->addr), from->port, err_str);
 }

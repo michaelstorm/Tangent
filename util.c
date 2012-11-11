@@ -277,15 +277,6 @@ int copy_id( chordID *a, chordID *b)
 
 /**********************************************************************/
 
-void print_id(FILE *f, chordID *id)
-{
-	int i;
-	for (i = 0; i < CHORD_ID_LEN; i++)
-		fprintf(f, "%02x", id->x[i]);
-}
-
-/**********************************************************************/
-
 static unsigned char todigit(char ch)
 {
 	if (isdigit((int) ch))
@@ -349,191 +340,146 @@ const char *chordID_to_str(chordID *id)
 
 /***********************************************************************/
 
-void print_chordID(chordID *id)
+void print_chordID(FILE* out, chordID *id)
 {
 	if (id) {
 		int i;
 #ifdef CHORD_PRINT_LONG_IDS
 		for (i = 0; i < CHORD_ID_LEN; i++)
-			fprintf(stderr, "%02x", id->x[i]);
+			fprintf(out, "%02x", id->x[i]);
 #else
 		for (i = 0; i < 4; i++)
-			fprintf(stderr, "%02x", id->x[i]);
+			fprintf(out, "%02x", id->x[i]);
 #endif
 	}
 	else
-		fprintf(stderr, "<null>");
-}
-
-void log_chordID(LinkedString *str, chordID *id) {
-	if (id) {
-		int i;
-#ifdef CHORD_PRINT_LONG_IDS
-		for (i = 0; i < CHORD_ID_LEN; i++)
-			lstr_add(str, "%02x", id->x[i]);
-#else
-		for (i = 0; i < 4; i++)
-			lstr_add(str, "%02x", id->x[i]);
-#endif
-	}
-	else
-		lstr_add(str, "<null>");
+		fprintf(out, "<null>");
 }
 
 /***********************************************************************/
 
-void print_two_chordIDs(char *preffix, chordID *id1,
+void print_two_chordIDs(FILE *out, char *prefix, chordID *id1,
 						char *middle, chordID *id2,
 						char *suffix)
 {
-	assert(preffix && id1 && middle && id2 && suffix);
-	fprintf(stderr, "%s", preffix);
-	print_chordID(id1);
-	fprintf(stderr, "%s", middle);
-	print_chordID(id2);
-	fprintf(stderr, "%s", suffix);
+	assert(prefix && id1 && middle && id2 && suffix);
+	fprintf(out, "%s", prefix);
+	print_chordID(out, id1);
+	fprintf(out, "%s", middle);
+	print_chordID(out, id2);
+	fprintf(out, "%s", suffix);
 }
 
 /***********************************************************************/
 
-void print_three_chordIDs(char *preffix, chordID *id1,
+void print_three_chordIDs(FILE *out, char *prefix, chordID *id1,
 						  char *middle1, chordID *id2,
 						  char *middle2, chordID *id3,
 						  char *suffix)
 {
-	assert(preffix && id1 && middle1 && id2 && middle2 && id3 && suffix);
-	fprintf(stderr, "%s", preffix);
-	print_chordID(id1);
-	fprintf(stderr, "%s", middle1);
-	print_chordID(id2);
-	fprintf(stderr, "%s", middle2);
-	print_chordID(id3);
-	fprintf(stderr, "%s", suffix);
+	assert(prefix && id1 && middle1 && id2 && middle2 && id3 && suffix);
+	fprintf(out, "%s", prefix);
+	print_chordID(out, id1);
+	fprintf(out, "%s", middle1);
+	print_chordID(out, id2);
+	fprintf(out, "%s", middle2);
+	print_chordID(out, id3);
+	fprintf(out, "%s", suffix);
 }
 
 
 /***********************************************************************/
 
-void print_node(Node *node, char *prefix, char *suffix)
+void print_node(FILE *out, Node *node, char *prefix, char *suffix)
 {
-	fprintf(stderr, "%s", prefix);
-	print_chordID(&node->id);
+	fprintf(out, "%s", prefix);
+	print_chordID(out, &node->id);
 
 	char *addr_str = v6addr_to_str(&node->addr);
-	fprintf(stderr, ", %s, %d%s", addr_str, node->port, suffix);
+	fprintf(out, ", %s, %d%s", addr_str, node->port, suffix);
 }
 
-void log_node(LinkedString *str, Node *node, char *prefix, char *suffix)
+void print_finger(FILE *out, Finger *f, char *prefix, char *suffix)
 {
-	lstr_add(str, "%s", prefix);
-	log_chordID(str, &node->id);
-
-	char *addr_str = v6addr_to_str(&node->addr);
-	lstr_add(str, ", %s, %d%s", addr_str, node->port, suffix);
-}
-
-void print_finger(Finger *f, char *prefix, char *suffix)
-{
-	fprintf(stderr, "%sFinger:", prefix);
-	print_node(&f->node, "<", ">");
-	fprintf(stderr, " (status = %s, npings = %d, rtt = %ld/%ld) %s",
+	fprintf(out, "%sFinger:", prefix);
+	print_node(out, &f->node, "<", ">");
+	fprintf(out, " (status = %s, npings = %d, rtt = %ld/%ld) %s",
 		   f->status ? "ACTIVE" : "PASSIVE", f->npings, f->rtt_avg, f->rtt_dev,
 		   suffix);
 }
 
-void print_finger_list(Finger *fhead, char *prefix, char *suffix)
+void print_finger_list(FILE *out, Finger *fhead, char *prefix, char *suffix)
 {
 	int i;
 	Finger *f;
 
-	fprintf(stderr, "%s", prefix);
+	fprintf(out, "%s", prefix);
 	for (f = fhead, i = 0; f; f = f->next, i++) {
-		fprintf(stderr, "	[%d] ", i);
-		print_finger(f, "", "\n");
+		fprintf(out, "	[%d] ", i);
+		print_finger(out, f, "", "\n");
 	}
-	fprintf(stderr, "%s", suffix);
+	fprintf(out, "%s", suffix);
 }
 
-void print_server(Server *s, char *prefix, char *suffix)
+void print_server(FILE *out, Server *s, char *prefix, char *suffix)
 {
-	fprintf(stderr, "---------------%s---------------\n", prefix);
-	print_node(&s->node, "[", "]\n");
-	fprintf(stderr, "(%d passive)\n", s->num_passive_fingers);
-	print_finger_list(s->head_flist, "	Finger list:\n", "\n");
-	fprintf(stderr, "---------------%s---------------\n", suffix);
+	fprintf(out, "---------------%s---------------\n", prefix);
+	print_node(out, &s->node, "[", "]\n");
+	fprintf(out, "(%d passive)\n", s->num_passive_fingers);
+	print_finger_list(out, s->head_flist, "	Finger list:\n", "\n");
+	fprintf(out, "---------------%s---------------\n", suffix);
 }
 
 
-void print_process(Server *srv, char *process_type, chordID *id, in6_addr *addr,
+void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_addr *addr,
 				   ushort port)
 {
 #define TYPE_LEN 16
 	int i = TYPE_LEN - strlen(process_type);
 
-	fprintf(stderr, "[%s]", process_type);
-	if (i > 0) for (; i; i--) fprintf(stderr, " ");
+	fprintf(out, "[%s]", process_type);
+	if (i > 0) for (; i; i--) fprintf(out, " ");
 
-	fprintf(stderr, " (");
+	fprintf(out, " (");
 	if (id)
-		print_chordID(id);
+		print_chordID(out, id);
 	else
-		fprintf(stderr, "null");
-	fprintf(stderr, ") ");
-	print_node(&srv->node, " <", ">");
+		fprintf(out, "null");
+	fprintf(out, ") ");
+	print_node(out, &srv->node, " <", ">");
 	if (addr == NULL)
-		fprintf(stderr, " <----- <,>");
+		fprintf(out, " <----- <,>");
 	else
-		fprintf(stderr, " <----- <%s, %d>", v6addr_to_str(addr), port);
-	print_current_time(" Time:", "\n");
+		fprintf(out, " <----- <%s, %d>", v6addr_to_str(addr), port);
+	print_current_time(out, " Time:", "\n");
 }
 
-void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
+void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
 {
 	int i = TYPE_LEN - strlen(send_type);
 
-	fprintf(stderr, "[%s]", send_type);
-	if (i > 0) for (; i; i--) fprintf(stderr, " ");
+	fprintf(out, "[%s]", send_type);
+	if (i > 0) for (; i; i--) fprintf(out, " ");
 
-	fprintf(stderr, " (");
-	print_chordID(id);
-	fprintf(stderr, ") ");
+	fprintf(out, " (");
+	print_chordID(out, id);
+	fprintf(out, ") ");
 	
-	print_node(&srv->node, " <", ">");
+	print_node(out, &srv->node, " <", ">");
 	if (addr == NULL)
-		fprintf(stderr, " -----> <,>");
+		fprintf(out, " -----> <,>");
 	else
-		fprintf(stderr, " -----> <%s, %d>", v6addr_to_str(addr), port);
-	print_current_time(" Time:", "\n");
+		fprintf(out, " -----> <%s, %d>", v6addr_to_str(addr), port);
+	print_current_time(out, " Time:", "");
 }
 
-void log_send(LinkedString *str, Server *srv, const char *send_type, chordID *id, in6_addr *addr, ushort port)
+void print_fun(FILE *out, Server *srv, char *fun_name, chordID *id)
 {
-	int i = TYPE_LEN - strlen(send_type);
-
-	lstr_add(str, "[%s]", send_type);
-	if (i > 0) for (; i; i--) lstr_add(str, " ");
-
-	lstr_add(str, " (");
-	log_chordID(str, id);
-	lstr_add(str, ") ");
-	
-	log_node(str, &srv->node, " <", ">");
-	
-	if (addr == NULL)
-		lstr_add(str, " -----> <,>");
-	else
-		lstr_add(str, " -----> <%s, %d>", v6addr_to_str(addr), port);
-	
-	log_current_time(str, " Time:", "\n");
-}
-
-void print_fun(Server *srv, char *fun_name, chordID *id)
-{
-	fprintf(stderr, "%s: ", fun_name);
-	print_chordID(&srv->node.id);
-	fprintf(stderr, " > ");
-	print_chordID(id);
-	print_current_time(" @ ", "\n");
+	fprintf(out, "%s: ", fun_name);
+	print_chordID(out, &srv->node.id);
+	fprintf(out, " > ");
+	print_chordID(out, id);
+	print_current_time(out, " @ ", "\n");
 }
 
 ulong get_current_time()
@@ -541,21 +487,12 @@ ulong get_current_time()
 	return (ulong)wall_time();
 }
 
-void print_current_time(char *prefix, char *suffix)
+void print_current_time(FILE *out, char *prefix, char *suffix)
 {
 #ifdef CHORD_PRINT_LONG_TIME
-	fprintf(stderr, "%s%llu%s", prefix, wall_time(), suffix);
+	fprintf(out, "%s%llu%s", prefix, wall_time(), suffix);
 #else
-	fprintf(stderr, "%s%llu%s", prefix, (wall_time() << 32) >> 32, suffix);
-#endif
-}
-
-void log_current_time(LinkedString* str, char *prefix, char *suffix)
-{
-#ifdef CHORD_PRINT_LONG_TIME
-	lstr_add(str, "%s%llu%s", prefix, wall_time(), suffix);
-#else
-	lstr_add(str, "%s%llu%s", prefix, (wall_time() << 32) >> 32, suffix);
+	fprintf(out, "%s%llu%s", prefix, (wall_time() << 32) >> 32, suffix);
 #endif
 }
 

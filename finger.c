@@ -114,7 +114,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	Node n;
 
 	if (v6_addr_equals(&srv->node.addr, addr) && srv->node.port == port) {
-		weprintf("dropping finger request from ourself");
+		LogWarn("dropping finger request from ourself");
 		return NULL;
 	}
 
@@ -134,7 +134,10 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 		 * Refreshing f here might preclude the ping procedure from removing
 		 * f when it dies.
 		 */
-		CHORD_DEBUG(4, print_server(srv, "[insert_finger(1)]", "end"));
+		StartLog(INFO);
+		print_server(file_logger()->fp, srv, "[insert_finger(1)]", "end");
+		EndLog();
+		
 		*fnew = FALSE;
 		return f;
 	}
@@ -179,7 +182,9 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 		}
 	}
 
-	CHORD_DEBUG(4, print_server(srv, "[insert_finger(2)]", ""));
+	StartLog(INFO);
+	print_server(file_logger()->fp, srv, "[insert_finger(2)]", "");
+	EndLog();
 
 	*fnew = TRUE;
 	return new_f;
@@ -230,7 +235,10 @@ void remove_finger(Server *srv, Finger *f)
 			chord_update_range(srv, &pf->node.id, &srv->node.id);
 	}
 
-	CHORD_DEBUG(4, print_server(srv, "[remove_finger]", ""));
+	StartLog(INFO);
+	print_server(file_logger()->fp, srv, "[remove_finger]", "");
+	EndLog();
+	
 	free(f);
 }
 

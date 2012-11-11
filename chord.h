@@ -328,33 +328,27 @@ int equals_id_str(chordID *a, char *b);
 int is_zero(chordID *x);
 int is_between(chordID *x, chordID *a, chordID *b);
 int copy_id( chordID *a, chordID *b);
-void print_id(FILE *f, chordID *id);
 chordID atoid(const char *str);
 unsigned hash(chordID *id, unsigned n);
 const char *chordID_to_str(chordID *id);
-void print_chordID(chordID *id);
-void log_chordID(LinkedString *str, chordID *id);
-void print_two_chordIDs(char *preffix, chordID *id1,
+void print_chordID(FILE *out, chordID *id);
+void print_two_chordIDs(FILE *out, char *preffix, chordID *id1,
 						char *middle, chordID *id2,
 						char *suffix);
-void print_three_chordIDs(char *preffix, chordID *id1,
+void print_three_chordIDs(FILE *out, char *preffix, chordID *id1,
 						  char *middle1, chordID *id2,
 						  char *middle2, chordID *id3,
 						  char *suffix);
-void print_node(Node *node, char *prefix, char *suffix);
-void log_node(LinkedString *str, Node *node, char *prefix, char *suffix);
-void print_finger(Finger *f, char *prefix, char *suffix);
-void print_finger_list(Finger *fhead, char *prefix, char *suffix);
-void print_server(Server *s, char *prefix, char *suffix);
-void print_process(Server *srv, char *process_type, chordID *id, in6_addr *addr,
+void print_node(FILE *out, Node *node, char *prefix, char *suffix);
+void print_finger(FILE *out, Finger *f, char *prefix, char *suffix);
+void print_finger_list(FILE *out, Finger *fhead, char *prefix, char *suffix);
+void print_server(FILE *out, Server *s, char *prefix, char *suffix);
+void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr,
+				ushort port);
+void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_addr *addr,
 				   ushort port);
-void print_send(Server *srv, char *send_type, chordID *id, in6_addr *addr,
-				ushort port);
-void log_send(LinkedString *str, Server *srv, const char *send_type, chordID *id, in6_addr *addr,
-				ushort port);
-void print_fun(Server *srv, char *fun_name, chordID *id);
-void print_current_time(char *prefix, char *suffix);
-void log_current_time(LinkedString *str, char *prefix, char *suffix);
+void print_fun(FILE *out, Server *srv, char *fun_name, chordID *id);
+void print_current_time(FILE *out, char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2);
 void v6_addr_copy(in6_addr *dest, const in6_addr *src);

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <limits.h>
 #include <libio.h>
+#include <errno.h>
 #include "hashmap.h"
 #include "logger.h"
 
@@ -18,15 +19,42 @@ int logger_default_level = INT_MIN;
 void logger_init()
 {
 	loggers = hashmap_new();
+	
+	char *min_str = getenv("LOG_LEVEL");
+	if (min_str != NULL) {
+		if (strlen(min_str) == 0) {
+			// do nothing
+		}
+		else if (strcmp(min_str, "TRACE") == 0)
+			logger_default_level = LOG_LEVEL_TRACE;
+		else if (strcmp(min_str, "DEBUG") == 0)
+			logger_default_level = LOG_LEVEL_DEBUG;
+		else if (strcmp(min_str, "INFO") == 0)
+			logger_default_level = LOG_LEVEL_INFO;
+		else if (strcmp(min_str, "WARN") == 0)
+			logger_default_level = LOG_LEVEL_WARN;
+		else if (strcmp(min_str, "ERROR") == 0)
+			logger_default_level = LOG_LEVEL_ERROR;
+		else if (strcmp(min_str, "FATAL") == 0)
+			logger_default_level = LOG_LEVEL_FATAL;
+		else {
+			errno = 0;
+			long value = strtol(min_str, NULL, 10);
+			if (errno == 0)
+				logger_default_level = value;
+			else
+				Log(ERROR, "Environment variable LOG_LEVEL must be unset or empty, an integer, or a log level name");
+		}
+	}
 }
 
 int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func, int level)
 {	
 	char leader[level+1];
-	memset(leader, ' ', level);
+	memset(leader, '>', level);
 	leader[level] = '\0';
 	
-	return fprintf((FILE *)l->data, "%s>[%s] (%s) %s$%d: ", leader, l->name, func, BASENAME(file), line);
+	return fprintf((FILE *)l->data, "%s> [%s] (%s) %s@%d: ", leader, l->name, func, BASENAME(file), line);
 }
 
 ssize_t write_file(FILE *file, const char *buf, size_t size)
@@ -39,6 +67,14 @@ int end_file_msg(logger_ctx_t *l)
 	int ret = fwrite("\n", 1, 1, (FILE *)l->data) != 1;
 	ret |= fflush((FILE *)l->data);
 	return ret;
+}
+
+ssize_t logger_call_write(logger_ctx_t *l, const char *buf, size_t size)
+{
+	if (l->log_partial)
+		return l->write(l->data, buf, size);
+	else
+		return size;
 }
 
 int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data, start_msg_func start_msg, printf_func printf, write_func write, end_msg_func end_msg)
@@ -56,14 +92,16 @@ int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data
 	l->write = write;
 	l->end_msg = end_msg;
 	
+	l->log_partial = 0;
+	
 	cookie_io_functions_t funcs = {
-		.write = l->write,
+		.write = (cookie_write_function_t *)logger_call_write,
 		.read = NULL,
 		.seek = NULL,
 		.close = NULL
 	};
 	
-	if ((l->fp = fopencookie(l->data, "w+", funcs)) == NULL)
+	if ((l->fp = fopencookie(l, "w+", funcs)) == NULL)
 		return 1;
 	
 	return 0;
@@ -130,28 +168,42 @@ void StartLog_impl(logger_ctx_t *l, const char *file, int line, const char *func
 	if (l == NULL)
 		l = get_logger_for_file(file);
 	
-	if (l->start_msg != NULL)
-		l->start_msg(l, file, line, func, level);
+	if (level >= l->min_level) {
+		l->log_partial = 1;
+		
+		if (l->start_msg != NULL)
+			l->start_msg(l, file, line, func, level);
+	}
 }
 
 #define PARTIAL_LOG_IMPL(l, last_arg, fmt) \
-{ \
-	va_list args; \
-	va_start(args, fmt); \
-	l->printf(l->data, fmt, args); \
-	va_end(args); \
-}
+	if (l->log_partial) { \
+		va_list args; \
+		va_start(args, last_arg); \
+		l->printf(l->data, fmt, args); \
+		va_end(args); \
+	}
 
-void PartialLog_impl(logger_ctx_t *l, const char *fmt, ...)
+void PartialLog_impl(logger_ctx_t *l, const char *file, const char *fmt, ...)
 {
+	if (l == NULL)
+		l = get_logger_for_file(file);
+	
 	PARTIAL_LOG_IMPL(l, fmt, fmt)
 }
 
-void EndLog_impl(logger_ctx_t *l)
+void EndLog_impl(logger_ctx_t *l, const char *file)
 {
-	fflush(l->fp);
-	if (l->end_msg != NULL)
-		l->end_msg(l);
+	if (l == NULL)
+		l = get_logger_for_file(file);
+	
+	if (l->log_partial) {
+		l->log_partial = 0;
+		
+		fflush(l->fp);
+		if (l->end_msg != NULL)
+			l->end_msg(l);
+	}
 }
 
 void StartLogAs_impl(const char *name, const char *file, int line, const char *func, int level)
@@ -169,14 +221,14 @@ void PartialLogAs_impl(const char *name, const char *fmt, ...)
 void EndLogAs_impl(const char *name)
 {
 	logger_ctx_t *l = get_logger(name);
-	EndLog_impl(l);
+	EndLog_impl(l, NULL);
 }
 
 void vlog(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, va_list args)
 {
 	StartLog_impl(l, file, line, func, level);
 	l->printf(l->data, fmt, args);
-	EndLog_impl(l);
+	EndLog_impl(l, NULL);
 }
 
 #define CALL_VLOG \

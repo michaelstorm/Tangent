@@ -86,11 +86,11 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 	if (fp == NULL)
 		eprintf("fopen(%s,\"r\") failed:", conf_file);
 	if (fscanf(fp, "%d\n", &ip_ver) != 1)
-		eprintf("Didn't find ip version in \"%s\"", conf_file);
+		Die(EX_CONFIG, "Didn't find ip version in \"%s\"", conf_file);
 	if (fscanf(fp, "%hd", (short *)&srv->node.port) != 1)
-		eprintf("Didn't find port in \"%s\"", conf_file);
+		Die(EX_CONFIG, "Didn't find port in \"%s\"", conf_file);
 	if (fscanf(fp, " %s\n", id) != 1)
-		eprintf("Didn't find id in \"%s\"", conf_file);
+		Die(EX_CONFIG, "Didn't find id in \"%s\"", conf_file);
 //	srv->node.id = atoid(id);
 
 	srv->is_v6 = ip_ver == 6;
@@ -107,8 +107,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 										   (struct sockaddr *)&sock_addr,
 										   &outlen) != 0)
 			{
-				fprintf(stderr, "error parsing address and port \"%s\"\n",
-						addr_str);
+				Fatal("error parsing address and port \"%s\"\n", addr_str);
 				exit(1);
 			}
 
@@ -122,8 +121,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 										   (struct sockaddr *)&sock_addr,
 										   &outlen) != 0)
 			{
-				fprintf(stderr, "error parsing address and port \"%s\"\n",
-						addr_str);
+				Fatal("error parsing address and port \"%s\"\n", addr_str);
 				exit(1);
 			}
 
@@ -134,7 +132,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 		/* resolve address */
 		if (resolve_v6name(v6addr_to_str(&addr),
 						   &srv->well_known[srv->nknown].node.addr)) {
-			weprintf("could not join well-known node [%s]:%d", addr_str, port);
+			Warn("could not join well-known node [%s]:%d", addr_str, port);
 			break;
 		}
 
@@ -143,7 +141,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 	}
 
 	if (srv->nknown == 0)
-		fprintf(stderr, "Didn't find any known hosts.");
+		Error("Didn't find any known hosts.");
 }
 
 void log_events(Server *srv)
@@ -205,7 +203,7 @@ void chord_main(char **conf_files, int nservers, int tunnel_sock)
 static void init_ticket_key(Server *srv)
 {
 	if (!RAND_load_file("/dev/urandom", 64)) {
-		fprintf(stderr, "Could not seed random number generator.\n");
+		Fatal("Could not seed random number generator.\n");
 		exit(2);
 	}
 
@@ -213,7 +211,7 @@ static void init_ticket_key(Server *srv)
 	srv->ticket_salt_len = TICKET_SALT_LEN;
 	srv->ticket_hash_len = TICKET_HASH_LEN;
 	if (!RAND_bytes(srv->ticket_salt, TICKET_SALT_LEN)) {
-		fprintf(stderr, "Could not generate ticket key.\n");
+		Fatal("Could not generate ticket key.\n");
 		exit(2);
 	}
 }
@@ -262,7 +260,7 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 	get_address_id(&from.id, &from.addr, from.port);
 
 	if (!dispatch_packet(srv->dispatcher, buf, packet_len, &from, NULL))
-		weprintf("dropped unknown packet type 0x%02x", buf[0]);
+		Warn("dropped unknown packet type 0x%02x", buf[0]);
 }
 
 /**********************************************************************/
@@ -364,18 +362,24 @@ void chord_print_circle(Server *srv)
 	long double y = (c->center_y*ROW_RATIO)+(((long double)(text_height+2))/2);
 	draw_centered_text(g, center_text, lrintl(x), lrintl(y), 1);
 
-	print_grid(stderr, g);
+	StartLog(INFO);
+	PartialLog("\n");
+	print_grid(file_logger()->fp, g);
+	EndLog();
+	
 	free_circle(c);
 	free_grid(g);
 }
 
 void chord_update_range(Server *srv, chordID *l, chordID *r)
 {
-	fprintf(stderr, "range: ");
-	print_chordID(l);
-	fprintf(stderr, " - ");
-	print_chordID(r);
-	fprintf(stderr, "\n");
+	StartLog(INFO);
+	PartialLog("range: ");
+	print_chordID(file_logger()->fp, l);
+	PartialLog(" - ");
+	print_chordID(file_logger()->fp, r);
+	PartialLog("\n");
+	EndLog();
 
 	srv->pred_bound = *l;
 	srv->node.id = *r;

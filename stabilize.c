@@ -95,7 +95,9 @@ void fix_fingers(Server *srv)
 	chordID id = successor(srv->node.id, srv->to_fix_finger);
 	chordID to_id = successor(srv->node.id, NFINGERS-1);
 
-	CHORD_DEBUG(4, print_fun(srv, "fix_finger", &id));
+	StartLog(DEBUG);
+	print_fun(file_logger()->fp, srv, "fix_finger", &id);
+	EndLog();
 
 	/* Only loop across most significant fingers */
 	if (is_between(&id, &srv->node.id, &succ->node.id)
@@ -156,7 +158,9 @@ void fix_succs_preds(Server *srv)
 	Finger *f, *succ;
 	chordID id;
 
-	CHORD_DEBUG(4, print_fun(srv, "fix_successors", 0));
+	StartLog(DEBUG);
+	print_fun(file_logger()->fp, srv, "fix_successors", 0);
+	EndLog();
 
 	if (succ_finger(srv) == NULL)
 		return;
@@ -228,7 +232,7 @@ void ping(Server *srv)
 			inet_ntop(AF_INET6, &srv->node.addr, srv_addr, INET6_ADDRSTRLEN);
 			inet_ntop(AF_INET6, &f->node.addr, dropped_addr, INET6_ADDRSTRLEN);
 
-			weprintf("dropping finger[%d] %s:%d (at %s:%d)\n", i, dropped_addr,
+			Info("dropping finger[%d] %s:%d (at %s:%d)\n", i, dropped_addr,
 					 f->node.port, srv_addr, srv->node.port);
 			f_next = f->next;
 			remove_finger(srv, f);
