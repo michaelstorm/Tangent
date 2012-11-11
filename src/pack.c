@@ -16,6 +16,11 @@ int pack_header(uchar *buf, int version, int type, const ProtobufCMessage *msg)
 	header.version = version;
 	header.has_version = 1;
 
+#ifdef CHORD_MESSAGE_DEBUG
+	protobuf_c_message_print(msg, stderr);
+	fprintf(stderr, "\n");
+#endif
+
 	header.type = type;
 	header.payload.len = protobuf_c_message_pack(msg, msg_buf);
 	header.payload.data = msg_buf;
@@ -168,49 +173,49 @@ sizeof_elt_in_repeated_array (ProtobufCType type)
   return 0;
 }
 
-static void message_body_print(const ProtobufCMessage *message, LinkedString *out,
+static void message_body_print(const ProtobufCMessage *message, FILE *out,
 							   int tabs);
 
 static void
 required_field_print(const ProtobufCFieldDescriptor *field,
 					 const void *member,
-					 LinkedString *out, int tabs)
+					 FILE *out, int tabs)
 {
   switch (field->type)
 	{
 	case PROTOBUF_C_TYPE_SFIXED32:
 	case PROTOBUF_C_TYPE_SINT32:
 	case PROTOBUF_C_TYPE_INT32:
-	  lstr_add(out, "%d", *(const int32_t *)member); break;
+	  fprintf(out, "%d", *(const int32_t *)member); break;
 	case PROTOBUF_C_TYPE_FIXED32:
 	case PROTOBUF_C_TYPE_UINT32:
-	  lstr_add(out, "%u", *(const uint32_t *)member); break;
+	  fprintf(out, "%u", *(const uint32_t *)member); break;
 	case PROTOBUF_C_TYPE_SFIXED64:
 	case PROTOBUF_C_TYPE_SINT64:
 	case PROTOBUF_C_TYPE_INT64:
-	  lstr_add(out, "%lld", *(const int64_t *)member); break;
+	  fprintf(out, "%"PRId64, *(const int64_t *)member); break;
 	case PROTOBUF_C_TYPE_FIXED64:
 	case PROTOBUF_C_TYPE_UINT64:
-	  lstr_add(out, "%llu", *(const uint64_t *)member); break;
+	  fprintf(out, "%"PRIu64, *(const uint64_t *)member); break;
 	case PROTOBUF_C_TYPE_FLOAT:
-	  lstr_add(out, "%f", *(const float *)member); break;
+	  fprintf(out, "%f", *(const float *)member); break;
 	case PROTOBUF_C_TYPE_DOUBLE:
-	  lstr_add(out, "%lf", *(const double *)member); break;
+	  fprintf(out, "%lf", *(const double *)member); break;
 	case PROTOBUF_C_TYPE_BOOL:
-	  lstr_add(out, "%s", *(const protobuf_c_boolean *)member
+	  fprintf(out, "%s", *(const protobuf_c_boolean *)member
 							? "true" : "false");
 	  break;
 	case PROTOBUF_C_TYPE_STRING:
-	  lstr_add(out, "[%d] \"%s\"", strlen(*(char * const *)member),
+	  fprintf(out, "[%zu] \"%s\"", strlen(*(char * const *)member),
 			  *(char * const *)member);
 	  break;
 	case PROTOBUF_C_TYPE_BYTES:
 	  {
 		const ProtobufCBinaryData * bd = ((const ProtobufCBinaryData*) member);
-		lstr_add(out, "[%d] ", bd->len);
+		fprintf(out, "[%zu] ", bd->len);
 		int i;
 		for (i = 0; i < bd->len; i++)
-			lstr_add(out, "%02x ", bd->data[i]);
+			fprintf(out, "%02x ", bd->data[i]);
 
 		int printable = 1;
 		for (i = 0; i < bd->len; i++) {
@@ -221,25 +226,25 @@ required_field_print(const ProtobufCFieldDescriptor *field,
 		}
 
 		if (printable && bd->len > 0) {
-			lstr_add(out, "(\"");
+			fprintf(out, "(\"");
 			for (i = 0; i < bd->len; i++)
-				lstr_add(out, "%c", bd->data[i]);
-			lstr_add(out, "\")");
+				fprintf(out, "%c", bd->data[i]);
+			fprintf(out, "\")");
 		}
 		break;
 	  }
 	//case PROTOBUF_C_TYPE_GROUP:          // NOT SUPPORTED
 	case PROTOBUF_C_TYPE_MESSAGE:
-	  lstr_add(out, "\n");
+	  fprintf(out, "\n");
 		message_body_print(*(ProtobufCMessage * const *)member, out, tabs);
 		break;
 	case PROTOBUF_C_TYPE_ENUM:
 	{
 		uint32_t value = *(const uint32_t *)member;
 		const ProtobufCEnumDescriptor *desc = field->descriptor;
-		lstr_add(out, "%u", value);
+		fprintf(out, "%u", value);
 		if (value < desc->n_values)
-			lstr_add(out, " (%s)", desc->values[value].name);
+			fprintf(out, " (%s)", desc->values[value].name);
 		break;
 	}
 	}
@@ -249,40 +254,40 @@ static void
 optional_field_print(const ProtobufCFieldDescriptor *field,
 					 const protobuf_c_boolean *has,
 					 const void *member,
-					 LinkedString *out, int tabs)
+					 FILE *out, int tabs)
 {
   if (field->type == PROTOBUF_C_TYPE_MESSAGE
    || field->type == PROTOBUF_C_TYPE_STRING)
 	{
 	  const void *ptr = * (const void * const *) member;
 	  if (ptr == NULL) {
-		  lstr_add(out, "<none>");
+		  fprintf(out, "<none>");
 		  return;
 	  }
 	  else if (ptr == field->default_value) {
-		  lstr_add(out, "<default> (");
+		  fprintf(out, "<default> (");
 		  required_field_print(field, field->default_value, out, tabs);
-		  lstr_add(out, ")");
+		  fprintf(out, ")");
 		  return;
 	  }
 	}
   else if (!*has) {
-	  lstr_add(out, "<none>");
+	  fprintf(out, "<none>");
 	  return;
   }
   required_field_print(field, member, out, tabs);
 }
 
-static void print_tabs(LinkedString *out, int tabs)
+static void print_tabs(FILE *out, int tabs)
 {
 	int i;
 	for (i = 0; i < tabs; i++)
-		lstr_add(out, "\t");
+		fprintf(out, "\t");
 }
 
-static void print_nl(LinkedString *out, int tabs)
+static void print_nl(FILE *out, int tabs)
 {
-	lstr_add(out, "\n");
+	fprintf(out, "\n");
 	print_tabs(out, tabs);
 }
 
@@ -290,9 +295,9 @@ static void
 repeated_field_print(const ProtobufCFieldDescriptor *field,
 					 size_t count,
 					 const void *member,
-					 LinkedString *out, int tabs)
+					 FILE *out, int tabs)
 {
-	lstr_add(out, "[%d] ", count);
+	fprintf(out, "[%zu] ", count);
 	if (count > 0) {
 		if (field->type == PROTOBUF_C_TYPE_MESSAGE) {
 			char *array = * (char * const *)member;
@@ -304,7 +309,7 @@ repeated_field_print(const ProtobufCFieldDescriptor *field,
 			}
 		}
 		else {
-			lstr_add(out, "{");
+			fprintf(out, "{");
 
 			char *array = * (char * const *)member;
 			unsigned siz = sizeof_elt_in_repeated_array(field->type);
@@ -313,88 +318,88 @@ repeated_field_print(const ProtobufCFieldDescriptor *field,
 				required_field_print(field, array, out, tabs);
 				array += siz;
 				if (i < count-1)
-					lstr_add(out, ", ");
+					fprintf(out, ", ");
 			}
 
-			lstr_add(out, "}");
+			fprintf(out, "}");
 		}
 	}
 }
 
 static void
 unknown_field_print(const ProtobufCMessageUnknownField *field,
-					LinkedString *out)
+					FILE *out)
 {
 	switch (field->wire_type) {
 	case PROTOBUF_C_WIRE_TYPE_VARINT:
-		lstr_add(out, "<varint>"); break;
+		fprintf(out, "<varint>"); break;
 	case PROTOBUF_C_WIRE_TYPE_64BIT:
-		lstr_add(out, "<64bit>"); break;
+		fprintf(out, "<64bit>"); break;
 	case PROTOBUF_C_WIRE_TYPE_LENGTH_PREFIXED:
-		lstr_add(out, "<length_prefixed>"); break;
+		fprintf(out, "<length_prefixed>"); break;
 	case PROTOBUF_C_WIRE_TYPE_START_GROUP:
-		lstr_add(out, "<start_group>"); break;
+		fprintf(out, "<start_group>"); break;
 	case PROTOBUF_C_WIRE_TYPE_END_GROUP:
-		lstr_add(out, "<end_group>"); break;
+		fprintf(out, "<end_group>"); break;
 	case PROTOBUF_C_WIRE_TYPE_32BIT:
-		lstr_add(out, "<32bit>"); break;
+		fprintf(out, "<32bit>"); break;
 	}
-	lstr_add(out, " [%d]", field->len);
+	fprintf(out, " [%zu]", field->len);
 }
 
-static void type_name_print(const ProtobufCFieldDescriptor *field, LinkedString *out)
+static void type_name_print(const ProtobufCFieldDescriptor *field, FILE *out)
 {
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_INT32:
-		lstr_add(out, "int32 %s", field->name); break;
+		fprintf(out, "int32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SINT32:
-		lstr_add(out, "sint32 %s", field->name); break;
+		fprintf(out, "sint32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SFIXED32:
-		lstr_add(out, "sfixed32 %s", field->name); break;
+		fprintf(out, "sfixed32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_INT64:
-		lstr_add(out, "int64 %s", field->name); break;
+		fprintf(out, "int64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SINT64:
-		lstr_add(out, "sint64 %s", field->name); break;
+		fprintf(out, "sint64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_SFIXED64:
-		lstr_add(out, "sfixed64 %s", field->name); break;
+		fprintf(out, "sfixed64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_UINT32:
-		lstr_add(out, "uint32 %s", field->name); break;
+		fprintf(out, "uint32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_FIXED32:
-		lstr_add(out, "fixed32 %s", field->name); break;
+		fprintf(out, "fixed32 %s", field->name); break;
 	case PROTOBUF_C_TYPE_UINT64:
-		lstr_add(out, "uint64 %s", field->name); break;
+		fprintf(out, "uint64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_FIXED64:
-		lstr_add(out, "fixed64 %s", field->name); break;
+		fprintf(out, "fixed64 %s", field->name); break;
 	case PROTOBUF_C_TYPE_FLOAT:
-		lstr_add(out, "float %s", field->name); break;
+		fprintf(out, "float %s", field->name); break;
 	case PROTOBUF_C_TYPE_DOUBLE:
-		lstr_add(out, "double %s", field->name); break;
+		fprintf(out, "double %s", field->name); break;
 	case PROTOBUF_C_TYPE_BOOL:
-		lstr_add(out, "bool %s", field->name); break;
+		fprintf(out, "bool %s", field->name); break;
 	case PROTOBUF_C_TYPE_ENUM:
 	{
 		const ProtobufCEnumDescriptor *desc = field->descriptor;
-		lstr_add(out, "%s %s", desc->name, field->name);
+		fprintf(out, "%s %s", desc->name, field->name);
 		break;
 	}
 	case PROTOBUF_C_TYPE_STRING:
-		lstr_add(out, "string %s", field->name); break;
+		fprintf(out, "string %s", field->name); break;
 	case PROTOBUF_C_TYPE_BYTES:
-		lstr_add(out, "bytes %s", field->name); break;
+		fprintf(out, "bytes %s", field->name); break;
 	case PROTOBUF_C_TYPE_MESSAGE:
 	{
 		const ProtobufCMessageDescriptor *desc = field->descriptor;
-		lstr_add(out, "%s %s", desc->name, field->name);
+		fprintf(out, "%s %s", desc->name, field->name);
 		break;
 	}
 	}
 }
 
-static void message_body_print(const ProtobufCMessage *message, LinkedString *out,
+static void message_body_print(const ProtobufCMessage *message, FILE *out,
 							   int tabs)
 {
 	print_tabs(out, tabs);
-	lstr_add(out, "{ [%d]", message->descriptor->sizeof_message);
+	fprintf(out, "{ [%zu]", message->descriptor->sizeof_message);
 	tabs++;
   unsigned i;
   for (i = 0; i < message->descriptor->n_fields; i++)
@@ -404,40 +409,40 @@ static void message_body_print(const ProtobufCMessage *message, LinkedString *ou
 	  const void *qmember = ((const char *) message) + field->quantifier_offset;
 
 	  print_nl(out, tabs);
-	  lstr_add(out, "%d: ", field->id);
+	  fprintf(out, "%d: ", field->id);
 	  if (field->label == PROTOBUF_C_LABEL_REQUIRED) {
-		  lstr_add(out, "required ");
+		  fprintf(out, "required ");
 		  type_name_print(field, out);
-		  lstr_add(out, " = ");
+		  fprintf(out, " = ");
 		  required_field_print(field, member, out, tabs);
 	  }
 	  else if (field->label == PROTOBUF_C_LABEL_OPTIONAL) {
-		  lstr_add(out, "optional ");
+		  fprintf(out, "optional ");
 		  type_name_print(field, out);
-		  lstr_add(out, " = ");
+		  fprintf(out, " = ");
 		  optional_field_print(field, qmember, member, out, tabs);
 	  }
 	  else {
-		  lstr_add(out, "repeated ");
+		  fprintf(out, "repeated ");
 		  type_name_print(field, out);
-		  lstr_add(out, " = ");
+		  fprintf(out, " = ");
 		  repeated_field_print(field, *(const size_t *)qmember, member, out,
 							   tabs);
 	  }
 	}
   for (i = 0; i < message->n_unknown_fields; i++) {
-	  lstr_add(out, "unknown ");
+	  fprintf(out, "unknown ");
 	  unknown_field_print(&message->unknown_fields[i], out);
 	  print_nl(out, tabs);
   }
   tabs--;
   print_nl(out, tabs);
-  lstr_add(out, "}");
+  fprintf(out, "}");
 }
 
-void protobuf_c_message_print(const ProtobufCMessage *message, LinkedString *out)
+void protobuf_c_message_print(const ProtobufCMessage *message, FILE *out)
 {
-	lstr_add(out, "%s ", message->descriptor->name);
+	fprintf(out, "%s ", message->descriptor->name);
 	message_body_print(message, out, 0);
-	lstr_add(out, "\n");
+	fprintf(out, "\n");
 }

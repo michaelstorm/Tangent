@@ -248,7 +248,7 @@ int pack_stab_reply(uchar *buf, in6_addr *addr, ushort port);
 int pack_notify(uchar *buf);
 int pack_ping(uchar *buf, uchar *ticket, int ticket_len, ulong time);
 int pack_pong(uchar *buf, uchar *ticket, int ticket_len, ulong time);
-void protobuf_c_message_print(const ProtobufCMessage *message, LinkedString *out);
+void protobuf_c_message_print(const ProtobufCMessage *message, FILE *out);
 
 /* process.c */
 struct ChordPacketArgs
@@ -365,7 +365,6 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 void get_data_id(chordID *id, const uchar *buf, int n);
 void get_address_id(chordID *id, in6_addr *addr, ushort port);
 int verify_address_id(chordID *id, in6_addr *addr, ushort port);
-void log_msg(int level, const char *header, const ProtobufCMessage *msg);
 
 /* str.c */
 LinkedString *lstr_empty();
@@ -373,6 +372,16 @@ LinkedString *lstr_new(const char *fmt, ...);
 void lstr_free(LinkedString *str);
 void lstr_add(LinkedString *str, const char *fmt, ...);
 char *lstr_flat(LinkedString *str);
+
+#define LogMessageTo(l_ctx, level, header, msg) \
+{ \
+	StartLogTo(l_ctx, level); \
+	protobuf_c_message_print(msg, l_ctx->fp); \
+	EndLogTo(l_ctx); \
+}
+
+#define LogMessage(level, header, msg)   LogMessageTo(get_logger_for_file(__FILE__), level, header, msg)
+#define LogMessageAs(level, header, msg) LogMessageTo(get_logger(name), level, header, msg)
 
 #if LOG_LEVEL <= LOG_LEVEL_FATAL && !defined DISABLED_ALL_LOGS
 	#define LogString(level, lstr) \

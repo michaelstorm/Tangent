@@ -490,9 +490,9 @@ ulong get_current_time()
 void print_current_time(FILE *out, char *prefix, char *suffix)
 {
 #ifdef CHORD_PRINT_LONG_TIME
-	fprintf(out, "%s%llu%s", prefix, wall_time(), suffix);
+	fprintf(out, "%s%"PRIu64"%s", prefix, wall_time(), suffix);
 #else
-	fprintf(out, "%s%llu%s", prefix, (wall_time() << 32) >> 32, suffix);
+	fprintf(out, "%s%"PRIu64"%s", prefix, (wall_time() << 32) >> 32, suffix);
 #endif
 }
 
@@ -527,13 +527,4 @@ char *buf_to_hex(const uchar *buf, int len)
 		sprintf(buf_hex+i*2, "%02x", buf[i]);
 	buf_hex[len*2] = '\0';
 	return buf_hex; 
-}
-
-void log_msg(int level, const char *header, const ProtobufCMessage *msg) {
-	LinkedString *lstr = lstr_new("%s\n", header);
-	protobuf_c_message_print(msg, lstr);
-	char *str = lstr_flat(lstr);
-	Log(level, str);
-	free(str);
-	lstr_free(lstr);
 }

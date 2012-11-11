@@ -219,7 +219,7 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from,
 		return 1;
 	}
 
-	log_msg(LOG_LEVEL_DEBUG, "Dispatching message:", msg);
+	LogMessage(DEBUG, "Dispatching message:", msg);
 
 	int ret = handler->process(header, handler->process_args, msg, from);
 	if (process_ret)

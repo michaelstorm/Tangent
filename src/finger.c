@@ -110,7 +110,7 @@ Finger *get_worst_passive_finger(Server *srv)
 Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 					  int *fnew)
 {
-	Finger *f, *new_f, *pred;
+	Finger *f, *new_f;
 	Node n;
 
 	if (v6_addr_equals(&srv->node.addr, addr) && srv->node.port == port) {
@@ -118,7 +118,6 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 		return NULL;
 	}
 
-	pred = PRED(srv);
 	f = get_finger(srv, id);
 
 	if (f) {

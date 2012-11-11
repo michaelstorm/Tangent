@@ -88,7 +88,7 @@ int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
 	ticket.hash.len = hash_len;
 	ticket.hash.data = md_value;
 	
-	log_msg(LOG_LEVEL_DEBUG, "Packed ticket:", &ticket.base);
+	LogMessage(DEBUG, "Packed ticket:", &ticket.base);
 	
 	return ticket__pack(&ticket, (uint8_t *)out);
 }
@@ -110,7 +110,7 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 		goto fail;
 	}
 
-	log_msg(LOG_LEVEL_DEBUG, "Verifying ticket:", &ticket->base);
+	LogMessage(DEBUG, "Verifying ticket:", &ticket->base);
 
 	time_t current_time = time(NULL);
 	if (ticket->time < current_time-TICKET_TIMEOUT) {
