@@ -6,16 +6,17 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_INCLUDE_CURRENT_DIR on)
 set(CMAKE_BUILD_TYPE Debug)
 
-file(GLOB PROTOBUF_C_CHORD_MESSAGES "*.proto")
+file(GLOB PROTOBUF_C_CHORD_MESSAGES "src/*.proto")
 file(GLOB PROTOBUF_C_CLIENT_MESSAGES "client/*.proto")
 
 find_package(ProtobufC REQUIRED)
 include_directories(${PROTOBUF_C_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories("src/")
 PROTOBUF_C_GENERATE_C(PROTO_C_CHORD_SRCS PROTO_C_CHORD_HDRS ${PROTOBUF_C_CHORD_MESSAGES})
 PROTOBUF_C_GENERATE_C(PROTO_C_CLIENT_SRCS PROTO_C_CLIENT_HDRS ${PROTOBUF_C_CLIENT_MESSAGES})
 
-file(GLOB lib_sources "*.c" "*.h" "logger/*.c" "logger/*.h")
+file(GLOB lib_sources "src/*.c" "src/*.h" "src/logger/*.c" "src/logger/*.h")
 list(APPEND lib_sources ${PROTO_C_CHORD_SRCS} ${PROTO_C_CHORD_HDRS})
 
 find_package(OpenSSL)

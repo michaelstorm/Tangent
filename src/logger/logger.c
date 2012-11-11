@@ -198,11 +198,13 @@ void EndLog_impl(logger_ctx_t *l, const char *file)
 		l = get_logger_for_file(file);
 	
 	if (l->log_partial) {
-		l->log_partial = 0;
-		
 		fflush(l->fp);
 		if (l->end_msg != NULL)
 			l->end_msg(l);
+		
+		// fflush() calls write(), which checks log_partial, so make
+		// sure to clear the flag only after that's done
+		l->log_partial = 0;
 	}
 }
 
