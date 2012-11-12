@@ -81,7 +81,7 @@ message Notify
 message Ping
 {
 	optional bytes ticket = 1;
-	required fixed32 time = 2;
+	required fixed64 time = 2;
 
 	extensions 100 to max;
 }
@@ -89,7 +89,7 @@ message Ping
 message Pong
 {
 	optional bytes ticket = 1;
-	required fixed32 time = 2;
+	required fixed64 time = 2;
 
 	extensions 100 to max;
 }

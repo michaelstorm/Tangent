@@ -390,44 +390,41 @@ void print_three_chordIDs(FILE *out, char *prefix, chordID *id1,
 
 /***********************************************************************/
 
-void print_node(FILE *out, Node *node, char *prefix, char *suffix)
+void print_node(FILE *out, Node *node)
 {
-	fprintf(out, "%s", prefix);
+	fprintf(out, "[");
 	print_chordID(out, &node->id);
 
 	char *addr_str = v6addr_to_str(&node->addr);
-	fprintf(out, ", %s, %d%s", addr_str, node->port, suffix);
+	fprintf(out, ", %s, %d]", addr_str, node->port);
 }
 
 void print_finger(FILE *out, Finger *f, char *prefix, char *suffix)
 {
 	fprintf(out, "%sFinger:", prefix);
-	print_node(out, &f->node, "<", ">");
+	print_node(out, &f->node);
 	fprintf(out, " (status = %s, npings = %d, rtt = %ld/%ld) %s",
 		   f->status ? "ACTIVE" : "PASSIVE", f->npings, f->rtt_avg, f->rtt_dev,
 		   suffix);
 }
 
-void print_finger_list(FILE *out, Finger *fhead, char *prefix, char *suffix)
+void print_finger_list(FILE *out, Finger *fhead)
 {
 	int i;
 	Finger *f;
 
-	fprintf(out, "%s", prefix);
 	for (f = fhead, i = 0; f; f = f->next, i++) {
 		fprintf(out, "	[%d] ", i);
 		print_finger(out, f, "", "\n");
 	}
-	fprintf(out, "%s", suffix);
 }
 
-void print_server(FILE *out, Server *s, char *prefix, char *suffix)
+void print_server(FILE *out, Server *s)
 {
-	fprintf(out, "---------------%s---------------\n", prefix);
-	print_node(out, &s->node, "[", "]\n");
-	fprintf(out, "(%d passive)\n", s->num_passive_fingers);
-	print_finger_list(out, s->head_flist, "	Finger list:\n", "\n");
-	fprintf(out, "---------------%s---------------\n", suffix);
+	print_node(out, &s->node);
+	fprintf(out, "\n(%d passive)\n", s->num_passive_fingers);
+	fprintf(out, "Finger list:\n");
+	print_finger_list(out, s->head_flist);
 }
 
 
@@ -435,18 +432,18 @@ void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_
 				   ushort port)
 {
 #define TYPE_LEN 16
-	int i = TYPE_LEN - strlen(process_type);
+	//int i = TYPE_LEN - strlen(process_type);
 
-	fprintf(out, "[%s]", process_type);
-	if (i > 0) for (; i; i--) fprintf(out, " ");
+	//fprintf(out, "[%s]", process_type);
+	//if (i > 0) for (; i; i--) fprintf(out, " ");
 
-	fprintf(out, " (");
+	fprintf(out, "(");
 	if (id)
 		print_chordID(out, id);
 	else
 		fprintf(out, "null");
 	fprintf(out, ") ");
-	print_node(out, &srv->node, " <", ">");
+	print_node(out, &srv->node);
 	if (addr == NULL)
 		fprintf(out, " <----- <,>");
 	else
@@ -456,16 +453,16 @@ void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_
 
 void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
 {
-	int i = TYPE_LEN - strlen(send_type);
+	//int i = TYPE_LEN - strlen(send_type);
 
-	fprintf(out, "[%s]", send_type);
-	if (i > 0) for (; i; i--) fprintf(out, " ");
+	//fprintf(out, "[%s]", send_type);
+	//if (i > 0) for (; i; i--) fprintf(out, " ");
 
-	fprintf(out, " (");
+	fprintf(out, "(");
 	print_chordID(out, id);
 	fprintf(out, ") ");
 	
-	print_node(out, &srv->node, " <", ">");
+	print_node(out, &srv->node);
 	if (addr == NULL)
 		fprintf(out, " -----> <,>");
 	else

@@ -7,6 +7,7 @@
 #include <errno.h>
 #include "hashmap.h"
 #include "logger.h"
+#include "color.h"
 
 #define BASENAME(file) strrchr(file, '/') ? strrchr(file, '/') + 1 : file
 
@@ -14,7 +15,9 @@ static map_t loggers;
 
 int logger_default_level = INT_MIN;
 
-#define LOGGER_WRITE(l, buf) l->write(l->data, buf, strlen(buf))
+static int default_level_colors[] = {
+	FG_PURPLE|COLOR_INTENSE_FG, FG_CYAN|COLOR_INTENSE_FG, FG_GREEN|COLOR_INTENSE_FG, FG_YELLOW, FG_RED, FG_WHITE|BG_RED
+};
 
 void logger_init()
 {
@@ -43,18 +46,31 @@ void logger_init()
 			if (errno == 0)
 				logger_default_level = value;
 			else
-				Log(ERROR, "Environment variable LOG_LEVEL must be unset or empty, an integer, or a log level name");
+				Log(ERROR, "Environment variable LOG_LEVEL must be unset, empty, an integer, or a log level name");
 		}
 	}
 }
 
 int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func, int level)
 {	
+	FILE *fp = (FILE *)l->data;
+
+	int color = level >= LOG_LEVEL_TRACE && level <= LOG_LEVEL_FATAL ? default_level_colors[level] : 0;
+	start_color(fp, color|ATTR_BOLD);
+
+#ifdef LOG_BRACKET_LEADER
 	char leader[level+1];
 	memset(leader, '>', level);
 	leader[level] = '\0';
+	fprintf(fp, "%s> ", leader);
+#endif
 	
-	return fprintf((FILE *)l->data, "%s> [%s] (%s) %s@%d: ", leader, l->name, func, BASENAME(file), line);
+	int ret = fprintf(fp, "[%s] (%s) %s@%d: ", l->name, func, BASENAME(file), line);
+	
+	default_color(fp);
+	start_color(fp, color);
+	
+	return ret;
 }
 
 ssize_t write_file(FILE *file, const char *buf, size_t size)
@@ -64,8 +80,10 @@ ssize_t write_file(FILE *file, const char *buf, size_t size)
 
 int end_file_msg(logger_ctx_t *l)
 {
-	int ret = fwrite("\n", 1, 1, (FILE *)l->data) != 1;
-	ret |= fflush((FILE *)l->data);
+	FILE *fp = (FILE *)l->data;
+	default_color(fp);
+	int ret = fwrite("\n", 1, 1, fp) != 1;
+	ret |= fflush(fp);
 	return ret;
 }
 
@@ -178,6 +196,8 @@ void StartLog_impl(logger_ctx_t *l, const char *file, int line, const char *func
 
 #define PARTIAL_LOG_IMPL(l, last_arg, fmt) \
 	if (l->log_partial) { \
+		fflush(l->fp); /* make sure writes are not concatenated out of order */ \
+		\
 		va_list args; \
 		va_start(args, last_arg); \
 		l->printf(l->data, fmt, args); \

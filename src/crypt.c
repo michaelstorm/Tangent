@@ -2,15 +2,7 @@
 #include <string.h>
 #include "chord.h"
 
-#undef C_DEBUG_ON
-
-#ifdef C_DEBUG_ON
-#define C_DEBUG(x) x
-#else
-#define C_DEBUG(x)
-#endif
-
-void vpack_hash(EVP_MD_CTX *ctx, const char *fmt, va_list args)
+void vpack_hash(int debug, EVP_MD_CTX *ctx, const char *fmt, va_list args)
 {
 	char c;
 	ushort s;
@@ -22,46 +14,60 @@ void vpack_hash(EVP_MD_CTX *ctx, const char *fmt, va_list args)
 		switch (*fmt) {
 		case 'c':	 /* char */
 			c = va_arg(args, int);
-			LogTrace("hashing char %x", (char)c);
 			EVP_DigestUpdate(ctx, &c, 1);
+
+			if (debug)
+				Trace("hashing char %d", (char)c);
 			break;
+
 		case 's':	 /* short */
 			s = va_arg(args, int);
-			LogTrace("hashing short %x", (short)s);
 			EVP_DigestUpdate(ctx, &s, sizeof(ushort));
+
+			if (debug)
+				Trace("hashing short %d", (short)s);
 			break;
+
 		case 'l':	 /* long */
 			l = va_arg(args, ulong);
-			LogTrace("hashing long %lx", l);
 			EVP_DigestUpdate(ctx, &l, sizeof(ulong));
+
+			if (debug)
+				Trace("hashing long %ld", l);
 			break;
+
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
-			LogTrace("hashing id %s", buf_to_hex(id->x, CHORD_ID_LEN));
 			EVP_DigestUpdate(ctx, id->x, CHORD_ID_LEN);
+
+			if (debug)
+				Trace("hashing id %s", buf_to_hex(id->x, CHORD_ID_LEN));
 			break;
+
 		case '6':
 			v6addr = va_arg(args, in6_addr *);
-			LogTrace("hashing address %s", v6addr_to_str(v6addr));
 			EVP_DigestUpdate(ctx, v6addr->s6_addr, 16);
+
+			if (debug)
+				Trace("hashing address %s", v6addr_to_str(v6addr));
 			break;
-		default:	 /* illegal type character */
-			LogError("bad ticket type %c", *fmt);
+
+		default:
+			Error("bad ticket type %c", *fmt);
 			break;
 		}
 	}
 }
 
-void pack_hash(EVP_MD_CTX *ctx, const char *fmt, ...)
+void pack_hash(int debug, EVP_MD_CTX *ctx, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	vpack_hash(ctx, fmt, args);
+	vpack_hash(debug, ctx, fmt, args);
 	va_end(args);
 }
 
-int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
-				const char *fmt, ...)
+int pack_ticket_impl(const uchar *salt, int salt_len, int hash_len, const uchar *out, const char *args_str, const char *fmt, ...)
 {
 	va_list args;
 	uchar md_value[EVP_MAX_MD_SIZE];
@@ -72,15 +78,20 @@ int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
 	EVP_MD_CTX_init(&ctx);
 	EVP_DigestInit_ex(&ctx, EVP_sha1(), NULL);
 
-	pack_hash(&ctx, "l", epoch_time);
+	Trace("hashing time %"PRIu32, epoch_time);
+	pack_hash(1, &ctx, "l", epoch_time);
+
+	Trace("packing ticket with format \"%s\" and args \"%s\"", fmt, args_str);
 
 	va_start(args, fmt);
-	vpack_hash(&ctx, fmt, args);
+	vpack_hash(1, &ctx, fmt, args);
 	va_end(args);
 
 	unsigned int len;
 	EVP_DigestFinal_ex(&ctx, md_value, &len);
 	EVP_MD_CTX_cleanup(&ctx);
+	
+	LogTrace("created hash %s", buf_to_hex(md_value, len));
 
 	// pack the 32-bit epoch time and 32-bit hash into a buffer
 	Ticket ticket = TICKET__INIT;
@@ -88,13 +99,13 @@ int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
 	ticket.hash.len = hash_len;
 	ticket.hash.data = md_value;
 	
-	LogMessage(DEBUG, "Packed ticket:", &ticket.base);
+	LogMessage(TRACE, "Packed ticket:", &ticket.base);
 	
 	return ticket__pack(&ticket, (uint8_t *)out);
 }
 
-int verify_ticket(const uchar *salt, int salt_len, int hash_len,
-				  const uchar *ticket_buf, int ticket_len, const char *fmt, ...)
+int verify_ticket_impl(const uchar *salt, int salt_len, int hash_len,
+					   const uchar *ticket_buf, int ticket_len, const char *args_str, const char *fmt, ...)
 {
 	va_list args;
 	uchar md_value[EVP_MAX_MD_SIZE];
@@ -110,7 +121,7 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 		goto fail;
 	}
 
-	LogMessage(DEBUG, "Verifying ticket:", &ticket->base);
+	LogMessage(TRACE, "Verifying ticket:", &ticket->base);
 
 	time_t current_time = time(NULL);
 	if (ticket->time < current_time-TICKET_TIMEOUT) {
@@ -125,22 +136,26 @@ int verify_ticket(const uchar *salt, int salt_len, int hash_len,
 	EVP_MD_CTX_init(&ctx);
 	EVP_DigestInit_ex(&ctx, EVP_sha1(), NULL);
 
-	pack_hash(&ctx, "l", ticket->time);
+	Trace("hashing time %"PRIu32, ticket->time);
+	pack_hash(1, &ctx, "l", ticket->time);
+	
+	Trace("verifying ticket with format \"%s\" and args \"%s\"", fmt, args_str);
 
 	va_start(args, fmt);
-	vpack_hash(&ctx, fmt, args);
+	vpack_hash(1, &ctx, fmt, args);
 	va_end(args);
 	
 	unsigned int len;
 	EVP_DigestFinal_ex(&ctx, md_value, &len);
 	EVP_MD_CTX_cleanup(&ctx);
 	
-	LogDebug("Expecting ticket hash: %s", buf_to_hex(md_value, hash_len));
-	LogDebug("Message ticket hash:   %s", buf_to_hex(ticket->hash.data, hash_len));
-
+	LogTrace("created hash %s", buf_to_hex(md_value, len));
+	
 	int ret = memcmp(md_value, ticket->hash.data, hash_len) == 0;
-	if (!ret)
-		LogDebug("Ticket verification failed because hashes do not match");
+	if (!ret) {
+		LogDebug("Expecting ticket hash: %s", buf_to_hex(md_value, hash_len));
+		LogDebug("Message ticket hash:   %s", buf_to_hex(ticket->hash.data, hash_len));
+	}
 	
 	ticket__free_unpacked(ticket, NULL);
 	return ret;
@@ -169,7 +184,7 @@ void get_address_id(chordID *id, in6_addr *addr, ushort port)
 	EVP_MD_CTX_init(&ctx);
 	EVP_DigestInit_ex(&ctx, EVP_sha1(), NULL);
 
-	pack_hash(&ctx, "6s", addr, htons(port));
+	pack_hash(0, &ctx, "6s", addr, htons(port));
 
 	unsigned int len;
 	EVP_DigestFinal_ex(&ctx, id->x, &len);

@@ -45,10 +45,6 @@ Server *new_server(struct event_base *ev_base, int tunnel_sock)
 
 	srv->dispatcher = new_dispatcher(CHORD_PONG+1);
 
-#ifdef CHORD_MESSAGE_DEBUG
-	dispatcher_set_debug(srv->dispatcher, 1);
-#endif
-
 	dispatcher_set_error_handlers(srv->dispatcher, NULL,
 								  (process_error_fn)process_error);
 
@@ -378,7 +374,6 @@ void chord_update_range(Server *srv, chordID *l, chordID *r)
 	print_chordID(file_logger()->fp, l);
 	PartialLog(" - ");
 	print_chordID(file_logger()->fp, r);
-	PartialLog("\n");
 	EndLog();
 
 	srv->pred_bound = *l;

@@ -75,12 +75,16 @@ Node *closest_preceding_node(Server *srv, chordID *id, int fall)
 
 /**********************************************************************/
 
-Finger *get_finger(Server *srv, chordID *id)
+Finger *get_finger(Server *srv, chordID *id, int *index)
 {
 	Finger *f;
-	for (f = srv->head_flist; f; f = f->next) {
-		if (equals(id, &f->node.id))
+	int i;
+	for (f = srv->head_flist, i = 0; f; f = f->next, i++) {
+		if (equals(id, &f->node.id)) {
+			if (index != NULL)
+				*index = i;
 			return f;
+		}
 	}
 	return NULL;
 }
@@ -118,24 +122,42 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 		return NULL;
 	}
 
-	f = get_finger(srv, id);
+	int index;
+	f = get_finger(srv, id, &index);
 
 	if (f) {
 		if (!v6_addr_equals(&f->node.addr, addr)) {
+			StartLog(INFO);
+			PartialLog("Finger for id ");
+			print_chordID(file_logger()->fp, &f->node.id);
+			
+			// be careful about v6addr_to_str() using static buffer
+			PartialLog(" is already in list with different peer; replacing <%s, %d>", v6addr_to_str(&f->node.addr), f->node.port);
+			PartialLog(" with <%s, %d>", v6addr_to_str(&f->node.addr), f->node.port);
+			EndLog();
+			
 			v6_addr_copy(&f->node.addr, addr);
 			f->node.port = port;
 			f->rtt_avg = f->rtt_dev = 0;
 			f->npings = 0;
-		}
 
-		/* f is already in the list. In this case,
-		 * f is not refreshed, i.e., f->npings is not set to 0.
-		 * Refreshing f here might preclude the ping procedure from removing
-		 * f when it dies.
-		 */
-		StartLog(INFO);
-		print_server(file_logger()->fp, srv, "[insert_finger(1)]", "end");
-		EndLog();
+			StartLog(INFO);
+			PartialLog("\n");
+			print_server(file_logger()->fp, srv);
+			EndLog();
+		}
+		else {
+			/* f is already in the list. In this case,
+			 * f is not refreshed, i.e., f->npings is not set to 0.
+			 * Refreshing f here might preclude the ping procedure from removing
+			 * f when it dies.
+			 */
+			StartLog(INFO);
+			PartialLog("Finger for id ");
+			print_chordID(file_logger()->fp, &f->node.id);
+			PartialLog(" is already in list with the given peer <%s, %d>", v6addr_to_str(&f->node.addr), f->node.port);
+			EndLog();
+		}
 		
 		*fnew = FALSE;
 		return f;
@@ -182,7 +204,8 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	}
 
 	StartLog(INFO);
-	print_server(file_logger()->fp, srv, "[insert_finger(2)]", "");
+	PartialLog("\n");
+	print_server(file_logger()->fp, srv);
 	EndLog();
 
 	*fnew = TRUE;
@@ -202,6 +225,10 @@ void activate_finger(Server *srv, Finger *f)
 
 void remove_finger(Server *srv, Finger *f)
 {
+	StartLog(DEBUG);
+	PartialLog("Removing finger ");
+	print_node(file_logger()->fp, &f->node);
+	
 	Finger *pred, *pf;
 
 	if (f->status == F_PASSIVE)
@@ -234,8 +261,9 @@ void remove_finger(Server *srv, Finger *f)
 			chord_update_range(srv, &pf->node.id, &srv->node.id);
 	}
 
-	StartLog(INFO);
-	print_server(file_logger()->fp, srv, "[remove_finger]", "");
+	StartLog(DEBUG);
+	PartialLog("\n");
+	print_server(file_logger()->fp, srv);
 	EndLog();
 	
 	free(f);

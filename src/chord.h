@@ -50,8 +50,8 @@ enum {
 	NFINGERS     = CHORD_ID_BITS,  /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
-	ADDR_DISCOVER_INTERVAL = 1*1000000,
-	STABILIZE_PERIOD = 3*1000000,  /* in usec */
+	ADDR_DISCOVER_INTERVAL = 1*1000000, /* in micros */
+	STABILIZE_PERIOD = 3*1000000,  /* in micros */
 	BUFSIZE      = 65535,          /* buffer for packets */
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
 									*  (read from configuration file)
@@ -210,7 +210,7 @@ Finger *pred_finger(Server *srv);
 Finger *closest_preceding_finger(Server *srv, chordID *id, int fall);
 Node *closest_preceding_node(Server *srv, chordID *id, int fall);
 void remove_finger(Server *srv, Finger *f);
-Finger *get_finger(Server *srv, chordID *id);
+Finger *get_finger(Server *srv, chordID *id, int *index);
 Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 					  int *fnew);
 void activate_finger(Server *srv, Finger *f);
@@ -339,10 +339,10 @@ void print_three_chordIDs(FILE *out, char *preffix, chordID *id1,
 						  char *middle1, chordID *id2,
 						  char *middle2, chordID *id3,
 						  char *suffix);
-void print_node(FILE *out, Node *node, char *prefix, char *suffix);
+void print_node(FILE *out, Node *node);
 void print_finger(FILE *out, Finger *f, char *prefix, char *suffix);
-void print_finger_list(FILE *out, Finger *fhead, char *prefix, char *suffix);
-void print_server(FILE *out, Server *s, char *prefix, char *suffix);
+void print_finger_list(FILE *out, Finger *fhead);
+void print_server(FILE *out, Server *s);
 void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr,
 				ushort port);
 void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_addr *addr,
@@ -356,11 +356,14 @@ void v6_addr_set(in6_addr *dest, const uchar *src);
 char *buf_to_str(const uchar *buf, int len);
 char *buf_to_hex(const uchar *buf, int len);
 
-int pack_ticket(const uchar *salt, int salt_len, int hash_len, const uchar *out,
-				const char *fmt, ...);
-int verify_ticket(const uchar *salt, int salt_len, int hash_len,
-				  const uchar *ticket_buf, int ticket_len, const char *fmt,
-				  ...);
+int pack_ticket_impl(const uchar *salt, int salt_len, int hash_len, const uchar *out,
+					 const char *args_str, const char *fmt, ...);
+int verify_ticket_impl(const uchar *salt, int salt_len, int hash_len,
+					   const uchar *ticket_buf, int ticket_len, const char *fmt, const char *args_str, 
+					   ...);
+
+#define pack_ticket(salt, salt_len, hash_len, out, fmt, ...) pack_ticket_impl(salt, salt_len, hash_len, out, #__VA_ARGS__, fmt, ##__VA_ARGS__)
+#define verify_ticket(salt, salt_len, hash_len, ticket_buf, ticket_len, fmt, ...) verify_ticket_impl(salt, salt_len, hash_len, ticket_buf, ticket_len, #__VA_ARGS__, fmt, ##__VA_ARGS__)
 
 void get_data_id(chordID *id, const uchar *buf, int n);
 void get_address_id(chordID *id, in6_addr *addr, ushort port);
@@ -376,6 +379,7 @@ char *lstr_flat(LinkedString *str);
 #define LogMessageTo(l_ctx, level, header, msg) \
 { \
 	StartLogTo(l_ctx, level); \
+	PartialLogTo(l_ctx, "%s\n", header); \
 	protobuf_c_message_print(msg, l_ctx->fp); \
 	EndLogTo(l_ctx); \
 }

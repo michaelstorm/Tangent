@@ -3,10 +3,12 @@
 #include <unistd.h>
 #include <event2/event.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 #include "chord_api.h"
 #include "chord.h"
 #include "grid.h"
 #include "dhash.h"
+#include "logger/color.h"
 
 static int control_sock;
 
@@ -55,6 +57,17 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 
 int main(int argc, char **argv)
 {
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+	
+	char line[w.ws_col+1];
+	int i;
+	for (i = 0; i < w.ws_col; i++)
+		line[i] = '=';
+	line[w.ws_col] = '\0';
+	
+	cfprintf(stdout, FG_BLACK|BG_WHITE|COLOR_INTENSE_BG, "%s\n", line);
+	
 	logger_init();
 	l = get_logger("dhash");
 	

@@ -294,14 +294,23 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
+	if (fnew)
+		Debug("Inserted a new possible finger");
+	
 	pred = pred_finger(srv);
 	if (fnew == TRUE
 		&& ((pred == NULL)
 			|| (pred && is_between(&from->id, &pred->node.id,
 								   &srv->node.id)))) {
+		if (pred == NULL)
+			Debug("We have no predecessor, and this is a possible new finger, so we ping it");
+		else
+			Debug("This possible new finger falls between our current predecessor and ourselves, so we ping it");
+		
 		send_ping(srv, &from->addr, from->port, get_current_time());
 	}
 
+	Debug("Replying to the ping with a pong");
 	send_pong(srv, msg->ticket.data, msg->ticket.len, &from->addr, from->port, msg->time);
 
 	return CHORD_NO_ERROR;
