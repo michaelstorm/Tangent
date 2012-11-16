@@ -47,13 +47,13 @@ void start_color(FILE *stream, int color)
 	
 	if (fg != FG_DEFAULT) {
 		int fg_index = fg - 1;
-		int fg_color = color_mod & COLOR_INTENSE_FG ? FG_HI_COLORS[fg_index] : FG_COLORS[fg_index];
+		int fg_color = color_mod & MOD_INTENSE_FG ? FG_HI_COLORS[fg_index] : FG_COLORS[fg_index];
 		fprintf(stream, "%c[%dm", 0x1B, fg_color);
 	}
 	
 	if (bg != BG_DEFAULT) {
 		int bg_index = bg - 1;
-		int bg_color = color_mod & COLOR_INTENSE_BG ? BG_HI_COLORS[bg_index] : BG_COLORS[bg_index];
+		int bg_color = color_mod & MOD_INTENSE_BG ? BG_HI_COLORS[bg_index] : BG_COLORS[bg_index];
 		fprintf(stream, "%c[%dm", 0x1B, bg_color);
 	}
 }

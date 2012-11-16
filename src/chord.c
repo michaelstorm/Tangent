@@ -207,7 +207,7 @@ static void init_ticket_key(Server *srv)
 	srv->ticket_salt_len = TICKET_SALT_LEN;
 	srv->ticket_hash_len = TICKET_HASH_LEN;
 	if (!RAND_bytes(srv->ticket_salt, TICKET_SALT_LEN)) {
-		Fatal("Could not generate ticket key.\n");
+		Fatal("Could not generate ticket key.");
 		exit(2);
 	}
 }

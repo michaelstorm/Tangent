@@ -78,9 +78,9 @@ void EndLogAs_impl(const char *name);
 #define LogWarn(fmt, ...)    Log_impl(NULL, __FILE__, __LINE__, __func__, LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
 #define LogError(fmt, ...)   Log_impl(NULL, __FILE__, __LINE__, __func__, LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #define LogFatal(fmt, ...)   Log_impl(NULL, __FILE__, __LINE__, __func__, LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
-#define StartLog(level)      StartLog_impl(NULL, __FILE__, __LINE__, __func__, level)
+#define StartLog(level)      { StartLog_impl(NULL, __FILE__, __LINE__, __func__, level)
 #define PartialLog(fmt, ...) PartialLog_impl(NULL, __FILE__, fmt, ##__VA_ARGS__)
-#define EndLog()             EndLog_impl(NULL, __FILE__)
+#define EndLog()             } EndLog_impl(NULL, __FILE__)
 
 #define LogTo(l_ctx, level, fmt, ...) Log_impl(l_ctx, __FILE__, __LINE__, __func__, level,           fmt, ##__VA_ARGS__)
 #define LogTraceTo(l_ctx, fmt, ...)   Log_impl(l_ctx, __FILE__, __LINE__, __func__, LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
@@ -89,9 +89,9 @@ void EndLogAs_impl(const char *name);
 #define LogWarnTo(l_ctx,  fmt, ...)   Log_impl(l_ctx, __FILE__, __LINE__, __func__, LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
 #define LogErrorTo(l_ctx, fmt, ...)   Log_impl(l_ctx, __FILE__, __LINE__, __func__, LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #define LogFatalTo(l_ctx, fmt, ...)   Log_impl(l_ctx, __FILE__, __LINE__, __func__, LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
-#define StartLogTo(l_ctx, level)      StartLog_impl(l_ctx, __FILE__, __LINE__, __func__, level)
+#define StartLogTo(l_ctx, level)      { StartLog_impl(l_ctx, __FILE__, __LINE__, __func__, level)
 #define PartialLogTo(l_ctx, fmt, ...) PartialLog_impl(l_ctx, __FILE__, fmt, ##__VA_ARGS__)
-#define EndLogTo(l_ctx)               EndLog_impl(l_ctx, __FILE__)
+#define EndLogTo(l_ctx)               } EndLog_impl(l_ctx, __FILE__)
 
 #define LogAs(name, level, fmt, ...) LogAs_impl(name, __FILE__, __LINE__, __func__, level,           fmt, ##__VA_ARGS__)
 #define LogTraceAs(name, fmt, ...)   LogAs_impl(name, __FILE__, __LINE__, __func__, LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
@@ -100,9 +100,9 @@ void EndLogAs_impl(const char *name);
 #define LogWarnAs(name,  fmt, ...)   LogAs_impl(name, __FILE__, __LINE__, __func__, LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
 #define LogErrorAs(name, fmt, ...)   LogAs_impl(name, __FILE__, __LINE__, __func__, LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #define LogFatalAs(name, fmt, ...)   LogAs_impl(name, __FILE__, __LINE__, __func__, LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
-#define StartLogAs(name, level)      StartLogAs_impl(name, __FILE__, __LINE__, __func__, level)
+#define StartLogAs(name, level)      { StartLogAs_impl(name, __FILE__, __LINE__, __func__, level)
 #define PartialLogAs(name, fmt, ...) PartialLogAs_impl(name, fmt, ##__VA_ARGS__)
-#define EndLogAs(name)               EndLogAs_impl(name)
+#define EndLogAs(name)               } EndLogAs_impl(name)
 
 #define Die(ret_code, fmt, ...)          { LogFatal(fmt, ##__VA_ARGS__);          LogFatal("Exiting with code " #ret_code);          exit(ret_code); }
 #define DieTo(l_ctx, ret_code, fmt, ...) { LogFatalTo(l_ctx, fmt, ##__VA_ARGS__); LogFatalTo(l_ctx, "Exiting with code " #ret_code); exit(ret_code); }

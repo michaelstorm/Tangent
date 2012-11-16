@@ -29,6 +29,8 @@ static void clean_finger_list(Server *srv);
 
 void stabilize(evutil_socket_t sock, short what, void *arg)
 {
+	Info("Stabilizing");
+	
 	Server *srv = arg;
 	static int idx = 0, i;
 	Finger *succ, *pred;

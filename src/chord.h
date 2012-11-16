@@ -43,7 +43,7 @@ typedef struct LinkedString LinkedString;
 
 enum {
 	CHORD_WIRE_VERSION = 1,
-	TICKET_TIMEOUT = 8,		   /* seconds for which a ticket is valid */
+	TICKET_TIMEOUT = 1000000,		   /* seconds for which a ticket is valid */
 	TICKET_HASH_LEN = 4,
 	TICKET_SALT_LEN = 16,
 	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */

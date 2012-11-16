@@ -67,6 +67,13 @@ void pack_hash(int debug, EVP_MD_CTX *ctx, const char *fmt, ...)
 	va_end(args);
 }
 
+void log_salt(int level, const uchar *salt, int salt_len)
+{
+	StartLog(level);
+	PartialLog("hashing salt %s (%d)", buf_to_hex(salt, salt_len), salt_len);
+	EndLog();
+}
+
 int pack_ticket_impl(const uchar *salt, int salt_len, int hash_len, const uchar *out, const char *args_str, const char *fmt, ...)
 {
 	va_list args;
@@ -77,6 +84,9 @@ int pack_ticket_impl(const uchar *salt, int salt_len, int hash_len, const uchar 
 	EVP_MD_CTX ctx;
 	EVP_MD_CTX_init(&ctx);
 	EVP_DigestInit_ex(&ctx, EVP_sha1(), NULL);
+
+	log_salt(TRACE, salt, salt_len);
+	EVP_DigestUpdate(&ctx, salt, salt_len);
 
 	Trace("hashing time %"PRIu32, epoch_time);
 	pack_hash(1, &ctx, "l", epoch_time);
@@ -91,7 +101,7 @@ int pack_ticket_impl(const uchar *salt, int salt_len, int hash_len, const uchar 
 	EVP_DigestFinal_ex(&ctx, md_value, &len);
 	EVP_MD_CTX_cleanup(&ctx);
 	
-	LogTrace("created hash %s", buf_to_hex(md_value, len));
+	Trace("created hash %s", buf_to_hex(md_value, len));
 
 	// pack the 32-bit epoch time and 32-bit hash into a buffer
 	Ticket ticket = TICKET__INIT;
@@ -113,11 +123,11 @@ int verify_ticket_impl(const uchar *salt, int salt_len, int hash_len,
 	// decrypt the ticket
 	Ticket *ticket = ticket__unpack(NULL, ticket_len, ticket_buf);
 	if (!ticket) {
-		LogInfo("Ticket verification failed because the ticket could not be unpacked");
+		Warn("Ticket verification failed because the ticket could not be unpacked");
 		goto fail;
 	}
 	if (ticket->hash.len != hash_len) {
-		LogInfo("Ticket verification failed because ticket length %ul does not match expected length %ul", ticket->hash.len, hash_len);
+		Warn("Ticket verification failed because ticket length %ul does not match expected length %ul", ticket->hash.len, hash_len);
 		goto fail;
 	}
 
@@ -125,7 +135,7 @@ int verify_ticket_impl(const uchar *salt, int salt_len, int hash_len,
 
 	time_t current_time = time(NULL);
 	if (ticket->time < current_time-TICKET_TIMEOUT) {
-		LogInfo("Ticket failed due to timeout; ticket timestamp is %ul, current time is %ul, configured ticket timeout is %ul", ticket->time, current_time, TICKET_TIMEOUT);
+		Warn("Ticket failed due to timeout; ticket timestamp is %ul, current time is %ul, configured ticket timeout is %ul", ticket->time, current_time, TICKET_TIMEOUT);
 		goto fail;
 	}
 
@@ -135,6 +145,9 @@ int verify_ticket_impl(const uchar *salt, int salt_len, int hash_len,
 	EVP_MD_CTX ctx;
 	EVP_MD_CTX_init(&ctx);
 	EVP_DigestInit_ex(&ctx, EVP_sha1(), NULL);
+
+	log_salt(TRACE, salt, salt_len);
+	EVP_DigestUpdate(&ctx, salt, salt_len);
 
 	Trace("hashing time %"PRIu32, ticket->time);
 	pack_hash(1, &ctx, "l", ticket->time);
@@ -149,12 +162,12 @@ int verify_ticket_impl(const uchar *salt, int salt_len, int hash_len,
 	EVP_DigestFinal_ex(&ctx, md_value, &len);
 	EVP_MD_CTX_cleanup(&ctx);
 	
-	LogTrace("created hash %s", buf_to_hex(md_value, len));
+	Trace("created hash %s", buf_to_hex(md_value, len));
 	
 	int ret = memcmp(md_value, ticket->hash.data, hash_len) == 0;
 	if (!ret) {
-		LogDebug("Expecting ticket hash: %s", buf_to_hex(md_value, hash_len));
-		LogDebug("Message ticket hash:   %s", buf_to_hex(ticket->hash.data, hash_len));
+		Debug("Expecting ticket hash: %s", buf_to_hex(md_value, hash_len));
+		Debug("Message ticket hash:   %s", buf_to_hex(ticket->hash.data, hash_len));
 	}
 	
 	ticket__free_unpacked(ticket, NULL);

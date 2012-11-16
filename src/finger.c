@@ -152,7 +152,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 			 * Refreshing f here might preclude the ping procedure from removing
 			 * f when it dies.
 			 */
-			StartLog(INFO);
+			StartLog(DEBUG);
 			PartialLog("Finger for id ");
 			print_chordID(file_logger()->fp, &f->node.id);
 			PartialLog(" is already in list with the given peer <%s, %d>", v6addr_to_str(&f->node.addr), f->node.port);
@@ -228,6 +228,7 @@ void remove_finger(Server *srv, Finger *f)
 	StartLog(DEBUG);
 	PartialLog("Removing finger ");
 	print_node(file_logger()->fp, &f->node);
+	EndLog();
 	
 	Finger *pred, *pf;
 

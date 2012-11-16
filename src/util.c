@@ -415,7 +415,7 @@ void print_finger_list(FILE *out, Finger *fhead)
 
 	for (f = fhead, i = 0; f; f = f->next, i++) {
 		fprintf(out, "	[%d] ", i);
-		print_finger(out, f, "", "\n");
+		print_finger(out, f, "", "");
 	}
 }
 
@@ -448,7 +448,7 @@ void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_
 		fprintf(out, " <----- <,>");
 	else
 		fprintf(out, " <----- <%s, %d>", v6addr_to_str(addr), port);
-	print_current_time(out, " Time:", "\n");
+	print_current_time(out, " Time:", "");
 }
 
 void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
@@ -476,7 +476,7 @@ void print_fun(FILE *out, Server *srv, char *fun_name, chordID *id)
 	print_chordID(out, &srv->node.id);
 	fprintf(out, " > ");
 	print_chordID(out, id);
-	print_current_time(out, " @ ", "\n");
+	print_current_time(out, " @ ", "");
 }
 
 ulong get_current_time()

@@ -16,7 +16,7 @@ static map_t loggers;
 int logger_default_level = INT_MIN;
 
 static int default_level_colors[] = {
-	FG_PURPLE|COLOR_INTENSE_FG, FG_CYAN|COLOR_INTENSE_FG, FG_GREEN|COLOR_INTENSE_FG, FG_YELLOW, FG_RED, FG_WHITE|BG_RED
+	FG_PURPLE|MOD_INTENSE_FG, FG_CYAN|MOD_INTENSE_FG, FG_GREEN|MOD_INTENSE_FG, FG_YELLOW|MOD_INTENSE_FG, FG_RED|MOD_INTENSE_FG, FG_WHITE|BG_RED
 };
 
 void logger_init()
@@ -217,8 +217,14 @@ void EndLog_impl(logger_ctx_t *l, const char *file)
 	if (l == NULL)
 		l = get_logger_for_file(file);
 	
+	/*
+	 * Flush whether or not log_partial is true, to ensure that data buffered
+	 * on the file descriptor is not flushed at the wrong time (which would be
+	 * when log_partial becomes true again).
+	 */
+	fflush(l->fp);
+	
 	if (l->log_partial) {
-		fflush(l->fp);
 		if (l->end_msg != NULL)
 			l->end_msg(l);
 		

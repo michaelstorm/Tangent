@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 		line[i] = '=';
 	line[w.ws_col] = '\0';
 	
-	cfprintf(stdout, FG_BLACK|BG_WHITE|COLOR_INTENSE_BG, "%s\n", line);
+	cfprintf(stdout, FG_BLACK|BG_WHITE|MOD_INTENSE_BG, "%s\n", line);
 	
 	logger_init();
 	l = get_logger("dhash");
