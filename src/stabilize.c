@@ -6,9 +6,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "chord.h"
-#include "sendpkt.h"
-#include "util.h"
+#include "chord/chord.h"
+#include "chord/finger.h"
+#include "chord/sendpkt.h"
+#include "chord/util.h"
 
 /* local functions */
 static void fix_fingers(Server *srv);

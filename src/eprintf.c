@@ -7,8 +7,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
-#include "eprintf.h"
-#include "logger/logger.h"
+#include "chord/eprintf.h"
+#include "chord/logger/logger.h"
 
 void log_strerror(logger_ctx_t *l, int level, const char *fmt, va_list args)
 {

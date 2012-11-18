@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "chord/chord_api.h"
+#include "messages.pb-c.h"
 
 #ifdef __cplusplus
 extern "C" {

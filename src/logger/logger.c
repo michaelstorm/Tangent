@@ -6,9 +6,9 @@
 #include <libio.h>
 #include <errno.h>
 #include <time.h>
-#include "hashmap.h"
-#include "logger.h"
-#include "color.h"
+#include "chord/logger/hashmap.h"
+#include "chord/logger/logger.h"
+#include "chord/logger/color.h"
 
 #define BASENAME(file) strrchr(file, '/') ? strrchr(file, '/') + 1 : file
 

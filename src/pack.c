@@ -3,9 +3,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <netinet/in.h>
-#include "chord.h"
-#include "ctype.h"
-#include "dispatcher.h"
+#include <ctype.h>
+#include "chord/chord.h"
+#include "chord/dispatcher.h"
+#include "chord/message_print.h"
+#include "chord/pack.h"
 #include "messages.pb-c.h"
 
 static uchar msg_buf[BUFSIZE];

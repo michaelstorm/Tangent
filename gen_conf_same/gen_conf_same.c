@@ -5,7 +5,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/hosts.h"
+#include "chord/util.h"
 
 int main(int argc, char **argv)
 {

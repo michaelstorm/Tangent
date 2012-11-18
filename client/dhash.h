@@ -3,6 +3,9 @@
 
 #include <openssl/x509.h>
 #include <netinet/in.h>
+#include "chord/chord_api.h"
+#include "chord/chord.h"
+#include "chord/process.h"
 
 #undef DHASH_MESSAGE_DEBUG
 #undef DHASH_CONTROL_MESSAGE_DEBUG
@@ -17,6 +20,8 @@ struct Server;
 struct Transfer;
 typedef struct DHash DHash;
 typedef struct DHashPacketArgs DHashPacketArgs;
+typedef struct ChordDataPacketArgs ChordDataPacketArgs;
+typedef struct ControlPacketArgs ControlPacketArgs;
 
 struct DHash
 {
@@ -37,6 +42,17 @@ struct DHash
 
 	STACK_OF(X509) *cert_stack;
 };
+
+struct ChordDataPacketArgs
+{
+	DHash *dhash;
+	struct Server *srv;
+} __attribute__((__packed__));
+
+struct ControlPacketArgs
+{
+	DHash *dhash;
+} __attribute__((__packed__));
 
 struct DHashPacketArgs
 {

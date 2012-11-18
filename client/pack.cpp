@@ -1,9 +1,9 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
-#include "chord.h"
+#include "chord/dispatcher.h"
+#include "chord/pack.h"
 #include "dhash.h"
-#include "dispatcher.h"
 #include "d_messages.pb-c.h"
 #include "pack.h"
 #include "process.h"

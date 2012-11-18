@@ -7,8 +7,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/utsname.h>
-#include "chord.h"
-#include "sendpkt.h"
+#include "chord/chord.h"
+#include "chord/sendpkt.h"
 
 void discover_addr(evutil_socket_t sock, short what, void *arg)
 {

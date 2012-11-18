@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "grid.h"
+#include "chord/grid.h"
 
 struct grid *new_grid(int cols, int rows)
 {

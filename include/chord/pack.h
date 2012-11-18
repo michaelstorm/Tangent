@@ -1,6 +1,9 @@
 #ifndef PACK_H
 #define PACK_H
 
+#include "chord/chord_api.h"
+#include "messages.pb-c.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

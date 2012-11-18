@@ -12,9 +12,9 @@
 #include <event2/thread.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/dispatcher.h"
 #include "dhash.h"
-#include "dispatcher.h"
 #include "d_messages.pb-c.h"
 #include "pack.h"
 #include "process.h"

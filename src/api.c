@@ -7,7 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include "chord.h"
+#include "chord/chord.h"
 
 /**********************************************************************/
 

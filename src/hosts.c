@@ -16,7 +16,8 @@
 #include <netdb.h>
 extern int h_errno;
 #include <net/if.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/util.h"
 
 #define TRIVIAL_LOCAL_ADDR	"127.0.0.1"
 #define MAX_NUM_INTERFACES	3

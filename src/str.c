@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include "chord.h"
+#include "chord/chord.h"
 
 #define LSTR_VADD(str, fmt) \
 	{ \

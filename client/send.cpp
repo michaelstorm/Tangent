@@ -1,6 +1,8 @@
 #include <string.h>
 #include <unistd.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/sendpkt.h"
+#include "chord/util.h"
 #include "dhash.h"
 #include "pack.h"
 #include "send.h"

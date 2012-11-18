@@ -1,7 +1,7 @@
 #ifndef DHASH_PACK_H
 #define DHASH_PACK_H
 
-#include "chord.h"
+#include "chord/chord.h"
 
 #define DHASH_WIRE_VERSION 1
 

@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "color.h"
+#include "chord/logger/color.h"
 
 #define ATTR_CODE_OFF        0
 #define ATTR_CODE_BOLD       1

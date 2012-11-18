@@ -8,9 +8,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "chord.h"
-#include "gen_utils.h"
-#include "util.h"
+#include "chord/chord.h"
+#include "chord/gen_utils.h"
+#include "chord/util.h"
 
 /* f_rand: return a random double between 0.0 and 1.0 */
 double f_rand(void)

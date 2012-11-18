@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include "chord.h"
-#include "dispatcher.h"
+#include "chord/chord.h"
+#include "chord/dispatcher.h"
+#include "chord/message_print.h"
 
 struct packet_handler
 {

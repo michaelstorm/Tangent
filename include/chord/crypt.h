@@ -1,5 +1,5 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef CRYPT_H
+#define CRYPT_H
 
 #ifdef __cplusplus
 extern "C" {

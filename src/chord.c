@@ -18,13 +18,14 @@
 #include <sys/time.h>
 #include <openssl/rand.h>
 #include <confuse.h>
-#include "chord.h"
-#include "dispatcher.h"
-#include "grid.h"
-#include "gen_utils.h"
-#include "process.h"
-#include "sendpkt.h"
-#include "util.h"
+#include "chord/chord.h"
+#include "chord/dispatcher.h"
+#include "chord/grid.h"
+#include "chord/gen_utils.h"
+#include "chord/hosts.h"
+#include "chord/process.h"
+#include "chord/sendpkt.h"
+#include "chord/util.h"
 
 const char *PACKET_NAMES[] = {
 	"ADDR_DISCOVER",

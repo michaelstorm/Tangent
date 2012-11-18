@@ -1,7 +1,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/finger.h"
+#include "chord/util.h"
 
 /* new_finger: allocate and initialize finger structure */
 Finger *new_finger(Node *node)

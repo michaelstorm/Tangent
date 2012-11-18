@@ -6,7 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <udt/udt.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/util.h"
 #include "dhash.h"
 #include "transfer.h"
 using namespace std;

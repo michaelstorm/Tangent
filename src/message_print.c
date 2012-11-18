@@ -1,5 +1,7 @@
+#include <ctype.h>
 #include <stdio.h>
-#include "message_print.h"
+#include <string.h>
+#include "chord/message_print.h"
 
 static inline size_t
 sizeof_elt_in_repeated_array (ProtobufCType type)

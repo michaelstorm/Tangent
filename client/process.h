@@ -3,22 +3,6 @@
 
 #include "d_messages.pb-c.h"
 
-struct Server;
-
-struct ChordDataPacketArgs
-{
-	DHash *dhash;
-	struct Server *srv;
-} __attribute__((__packed__));
-
-struct ControlPacketArgs
-{
-	DHash *dhash;
-} __attribute__((__packed__));
-
-typedef struct ChordDataPacketArgs ChordDataPacketArgs;
-typedef struct ControlPacketArgs ControlPacketArgs;
-
 int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 						Node *from);
 int dhash_process_query_reply_success(Header *header, ChordDataPacketArgs *args,

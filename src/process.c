@@ -3,14 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <netinet/in.h>
-#include "chord.h"
-#include "crypt.h"
-#include "dispatcher.h"
-#include "finger.h"
+#include "chord/chord.h"
+#include "chord/crypt.h"
+#include "chord/dispatcher.h"
+#include "chord/finger.h"
+#include "chord/process.h"
+#include "chord/sendpkt.h"
+#include "chord/util.h"
 #include "messages.pb-c.h"
-#include "process.h"
-#include "sendpkt.h"
-#include "util.h"
 
 #define LOG_PROCESS(id, from_addr, from_port) \
 { \

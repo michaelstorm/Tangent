@@ -4,11 +4,10 @@
 #include <event2/event.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
-#include "chord_api.h"
-#include "chord.h"
-#include "grid.h"
+#include "chord/chord.h"
+#include "chord/grid.h"
+#include "chord/logger/color.h"
 #include "dhash.h"
-#include "logger/color.h"
 
 static int control_sock;
 

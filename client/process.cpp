@@ -2,12 +2,14 @@
 #include <string.h>
 #include <openssl/cms.h>
 #include <openssl/err.h>
-#include "chord.h"
+#include "chord/chord.h"
+#include "chord/messages.pb-c.h"
+#include "chord/process.h"
+#include "chord/util.h"
 #include "dhash.h"
 #include "process.h"
 #include "send.h"
 #include "transfer.h"
-#include "util.h"
 
 int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 						Node *from)

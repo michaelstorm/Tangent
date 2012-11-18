@@ -16,7 +16,7 @@
 #include <sys/ioctl.h>
 #include <string.h>
 
-#include "chord.h"
+#include "chord/chord.h"
 
 #define IFNAME_LEN 256
 #define MAX_NUM_IFS 16

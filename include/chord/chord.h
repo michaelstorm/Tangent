@@ -7,11 +7,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "chord_api.h"
-#include "debug.h"
-#include "eprintf.h"
-#include "messages.pb-c.h"
-#include "logger/logger.h"
+#include "chord/chord_api.h"
+#include "chord/eprintf.h"
+#include "chord/logger/logger.h"
 
 #ifdef __cplusplus
 extern "C" {

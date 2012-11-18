@@ -1,8 +1,8 @@
 #include <openssl/evp.h>
 #include <string.h>
-#include "chord.h"
-#include "message_print.h"
-#include "util.h"
+#include "chord/chord.h"
+#include "chord/message_print.h"
+#include "chord/util.h"
 
 void vpack_hash(int debug, EVP_MD_CTX *ctx, const char *fmt, va_list args)
 {
