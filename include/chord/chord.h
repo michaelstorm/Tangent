@@ -18,8 +18,6 @@ extern "C" {
 typedef struct Finger Finger;
 typedef struct Node Node;
 typedef struct Server Server;
-typedef struct LinkedStringNode LinkedStringNode;
-typedef struct LinkedString LinkedString;
 
 #define NELEMS(a) (sizeof(a) / sizeof(a[0]))
 #ifndef FALSE
@@ -169,17 +167,6 @@ struct Server
 	struct Dispatcher *dispatcher;
 };
 
-struct LinkedStringNode {
-	const char *chars;
-	int len;
-	LinkedStringNode *next;
-};
-
-struct LinkedString {
-	LinkedStringNode *first;
-	LinkedStringNode *last;
-};
-
 #define PRED(srv) (srv->tail_flist)
 #define SUCC(srv) (srv->head_flist)
 
@@ -213,13 +200,6 @@ void join(Server *srv, FILE *fp);
 /* stabilize.c */
 void stabilize(evutil_socket_t sock, short what, void *arg);
 
-/* str.c */
-LinkedString *lstr_empty();
-LinkedString *lstr_new(const char *fmt, ...);
-void lstr_free(LinkedString *str);
-void lstr_add(LinkedString *str, const char *fmt, ...);
-char *lstr_flat(LinkedString *str);
-
 #define LogMessageTo(l_ctx, level, header, msg) \
 { \
 	StartLogTo(l_ctx, level); \
@@ -230,17 +210,6 @@ char *lstr_flat(LinkedString *str);
 
 #define LogMessage(level, header, msg)   LogMessageTo(get_logger_for_file(__FILE__), level, header, msg)
 #define LogMessageAs(level, header, msg) LogMessageTo(get_logger(name), level, header, msg)
-
-#if LOG_LEVEL <= LOG_LEVEL_FATAL && !defined DISABLED_ALL_LOGS
-	#define LogString(level, lstr) \
-		{ \
-			char *LogString__str = lstr_flat(lstr); \
-			Log(level, LogString__str); \
-			free(LogString__str); \
-		}
-#else
-	#define LogString(level, lstr)
-#endif
 
 #ifdef __cplusplus
 }
