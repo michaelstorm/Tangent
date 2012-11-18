@@ -12,6 +12,7 @@ file(GLOB PROTOBUF_C_CLIENT_MESSAGES "client/*.proto")
 find_package(ProtobufC REQUIRED)
 include_directories(${PROTOBUF_C_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories("/home/michael/libevent/install/include")
 include_directories("src/")
 PROTOBUF_C_GENERATE_C(PROTO_C_CHORD_SRCS PROTO_C_CHORD_HDRS ${PROTOBUF_C_CHORD_MESSAGES})
 PROTOBUF_C_GENERATE_C(PROTO_C_CLIENT_SRCS PROTO_C_CLIENT_HDRS ${PROTOBUF_C_CLIENT_MESSAGES})
@@ -21,13 +22,13 @@ list(APPEND lib_sources ${PROTO_C_CHORD_SRCS} ${PROTO_C_CHORD_HDRS})
 
 find_package(OpenSSL)
 include_directories(${OPENSSL_INCLUDE_DIR})
-set(CMAKE_C_FLAGS "-Wall -Wno-format-security -ggdb -fdump-rtl-expand -D_GNU_SOURCE")
+set(CMAKE_C_FLAGS "-std=c99 -Wall -Wno-format-security -ggdb -fdump-rtl-expand -D_GNU_SOURCE")
 
 find_package(LibEvent)
 include_directories(${LIBEVENT_INCLUDE_DIR})
 
 add_library(chord SHARED ${lib_sources})
-target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${LOG4C_LIBRARIES} ${PROTOBUF_C_LIBRARY} dl m)
+target_link_libraries(chord ${OPENSSL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${PROTOBUF_C_LIBRARY} dl m)
 
 file(GLOB client_sources "client/*.cpp" "client/*.h")
 list(APPEND client_sources ${PROTO_C_CLIENT_SRCS} ${PROTO_C_CLIENT_HDRS})

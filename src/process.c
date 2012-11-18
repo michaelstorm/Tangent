@@ -40,21 +40,20 @@ int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 		get_address_id(&srv->node.id, &srv->node.addr, srv->node.port);
 		chord_update_range(srv, &srv->node.id, &srv->node.id);
 
-		StartLog(TRACE);
-		PartialLog("address: [%s]:%d\n", v6addr_to_str(&srv->node.addr), srv->node.port);
+		StartLog(INFO);
+		PartialLog("address: [%s]:%d, ", v6addr_to_str(&srv->node.addr), srv->node.port);
 		PartialLog("node id: ");
 		print_chordID(file_logger()->fp, &srv->node.id);
-		PartialLog("\n");
 		EndLog();
+		
+		Info("Stabilizing every %u.%u seconds", STABILIZE_PERIOD / 1000000UL, STABILIZE_PERIOD % 1000000UL);
 
 		event_del(srv->discover_addr_event);
-
+		
 		struct timeval timeout;
 		timeout.tv_sec = STABILIZE_PERIOD / 1000000UL;
 		timeout.tv_usec = STABILIZE_PERIOD % 1000000UL;
-
 		event_add(srv->stab_event, &timeout);
-		event_active(srv->stab_event, EV_TIMEOUT, 1);
 	}
 	return CHORD_NO_ERROR;
 }

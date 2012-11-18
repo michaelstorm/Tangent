@@ -88,7 +88,7 @@ int pack_ticket_impl(const uchar *salt, int salt_len, int hash_len, const uchar 
 	log_salt(TRACE, salt, salt_len);
 	EVP_DigestUpdate(&ctx, salt, salt_len);
 
-	Trace("hashing time %"PRIu32, epoch_time);
+	Trace("hashing time %" PRIu32, epoch_time);
 	pack_hash(1, &ctx, "l", epoch_time);
 
 	Trace("packing ticket with format \"%s\" and args \"%s\"", fmt, args_str);

@@ -22,7 +22,53 @@
 #include "grid.h"
 #include "gen_utils.h"
 
+const char *PACKET_NAMES[] = {
+	"ADDR_DISCOVER",
+	"ADDR_DISCOVER_REPLY",
+	"DATA",
+	"FS",
+	"FS_REPLY",
+	"STAB",
+	"STAB_REPLY",
+	"NOTIFY",
+	"PING",
+	"PONG",
+};
+
+int MAX_PACKET_TYPE = sizeof(PACKET_NAMES) / sizeof(char *);
+
 static void init_ticket_key(Server *srv);
+
+int chord_check_library_versions()
+{
+	int ret = 0;
+	Debug("libevent binary version number: 0x%x; header version number: 0x%x", event_get_version_number(), LIBEVENT_VERSION_NUMBER);
+	if (event_get_version_number() < LIBEVENT_VERSION_NUMBER) {
+		Warn("libevent binary version is 0x%x, but this binary was compiled against header version 0x%x; unexplainable strange happenings may occur",
+			 event_get_version_number(), LIBEVENT_VERSION_NUMBER);
+		ret = 1;
+	}
+	return ret;
+}
+
+void init_discover_addr_event(Server *srv)
+{
+	srv->discover_addr_event = event_new(srv->ev_base, -1,
+										 EV_TIMEOUT|EV_PERSIST, discover_addr,
+										 srv);
+
+	struct timeval timeout;
+	timeout.tv_sec = ADDR_DISCOVER_INTERVAL / 1000000UL;
+	timeout.tv_usec = ADDR_DISCOVER_INTERVAL % 1000000UL;
+	event_add(srv->discover_addr_event, &timeout);
+	event_active(srv->discover_addr_event, 0, 1);
+}
+
+void init_stabilize_event(Server *srv)
+{
+	srv->stab_event = event_new(srv->ev_base, -1, EV_TIMEOUT|EV_PERSIST,
+								stabilize, srv);
+}
 
 Server *new_server(struct event_base *ev_base, int tunnel_sock)
 {
@@ -36,12 +82,8 @@ Server *new_server(struct event_base *ev_base, int tunnel_sock)
 
 	init_ticket_key(srv);
 
-	srv->stab_event = event_new(srv->ev_base, -1, EV_TIMEOUT|EV_PERSIST,
-								stabilize, srv);
-
-	srv->discover_addr_event = event_new(srv->ev_base, -1,
-										 EV_TIMEOUT|EV_PERSIST, discover_addr,
-										 srv);
+	init_discover_addr_event(srv);
+	init_stabilize_event(srv);
 
 	srv->dispatcher = new_dispatcher(CHORD_PONG+1);
 
@@ -151,23 +193,20 @@ void log_events(Server *srv)
 
 void server_start(Server *srv)
 {
-	struct timeval timeout;
-	timeout.tv_sec = ADDR_DISCOVER_INTERVAL / 1000000UL;
-	timeout.tv_usec = ADDR_DISCOVER_INTERVAL % 1000000UL;
-
-	event_add(srv->discover_addr_event, &timeout);
-	event_active(srv->discover_addr_event, EV_TIMEOUT, 1);
-	
-	log_events(srv);
 }
 
 void server_initialize_socket(Server *srv)
 {
 	srv->sock = socket(srv->is_v6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
-	if (srv->is_v6)
+	if (srv->is_v6) {
 		chord_bind_v6socket(srv->sock, &in6addr_any, srv->node.port);
-	else
+		srv->send_func = &send_raw_v6;
+	}
+	else {
 		chord_bind_v4socket(srv->sock, INADDR_ANY, srv->node.port);
+		srv->send_func = &send_raw_v4;
+	}
+
 	set_socket_nonblocking(srv->sock);
 
 	srv->sock_event = event_new(srv->ev_base, srv->sock, EV_READ|EV_PERSIST,
@@ -251,7 +290,7 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 		}
 	}
 	
-	LogDebug("Received from %s:%s:%d packet of type 0x%02x and length %d", chordID_to_str(&from.id), v6addr_to_str(&from.addr), from.port, buf[0], packet_len);
+	LogDebug("Received from %s:%s:%d packet of type %s (0x%02x) and length %d", chordID_to_str(&from.id), v6addr_to_str(&from.addr), from.port, PACKET_NAMES[buf[0]], buf[0], packet_len);
 
 	get_address_id(&from.id, &from.addr, from.port);
 

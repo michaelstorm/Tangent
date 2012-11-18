@@ -168,6 +168,12 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	if (srv->num_passive_fingers >= MAX_PASSIVE_FINGERS) {
 		Finger *worst_finger = get_worst_passive_finger(srv);
 		assert(worst_finger);
+
+		StartLog(DEBUG);
+		PartialLog("Dropping passive finger for id ");
+		print_chordID(file_logger()->fp, &f->node.id);
+		EndLog();
+
 		remove_finger(srv, worst_finger);
 	}
 

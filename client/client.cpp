@@ -55,7 +55,22 @@ void handle_request(evutil_socket_t sock, short what, void *arg)
 		dhash_client_send_request(control_sock, file, n-1); // skip newline
 }
 
-int main(int argc, char **argv)
+static void event_logging_cb(int severity, const char *msg)
+{
+	int level;
+	switch (severity)
+	{
+		case EVENT_LOG_DEBUG: level = DEBUG; break;
+		case EVENT_LOG_MSG:   level = INFO;  break;
+		case EVENT_LOG_WARN:  level = WARN;  break;
+		case EVENT_LOG_ERR:   level = ERROR; break;
+		default:			  level = WARN;  break;
+	}
+	
+	LogAs("libevent", level, msg);
+}
+
+void print_separator()
 {
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -67,8 +82,14 @@ int main(int argc, char **argv)
 	line[w.ws_col] = '\0';
 	
 	cfprintf(stdout, FG_BLACK|BG_WHITE|MOD_INTENSE_BG, "%s\n", line);
-	
+}
+
+int main(int argc, char **argv)
+{
 	logger_init();
+	print_separator();
+	chord_check_library_versions();
+	
 	l = get_logger("dhash");
 	
 	if (strcmp(argv[1], "--butterfly") == 0) {
@@ -86,12 +107,15 @@ int main(int argc, char **argv)
 		print_grid(stdout, g);
 		return 0;
 	}
+
+	event_set_log_callback(&event_logging_cb);
+	event_enable_debug_logging(EVENT_DBG_ALL);
 	
 	LogInfoTo(l, "Started DHash client");
 
 	// fork the dhash/chord process
 	DHash *dhash = new_dhash(argv[1], argv[2]);
-	control_sock = dhash_start(dhash, argv+3, argc-3);
+	control_sock = dhash_start(dhash, argv+3, argc-3);	
 
 	// create an event_base that works with events on file descriptors
 	struct event_config *cfg = event_config_new();

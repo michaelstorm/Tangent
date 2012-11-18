@@ -156,7 +156,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 	dhash->control_sock_event = event_new(dhash->ev_base, dhash->control_sock,
 										  EV_READ|EV_PERSIST,
 										  dhash_unpack_control_packet, dhash);
-	event_add(dhash->control_sock_event, NULL);
+	//event_add(dhash->control_sock_event, NULL);
 
 	event_base_dispatch(dhash->ev_base);
 }

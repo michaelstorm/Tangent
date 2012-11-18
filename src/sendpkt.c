@@ -147,10 +147,7 @@ void send_pong(Server *srv, uchar *ticket, int ticket_len, in6_addr *to_addr,
 /* send_packet: send datagram to remote addr:port */
 void send_packet(Server *srv, in6_addr *addr, in_port_t port, int n, uchar *buf)
 {	
-	if (srv->is_v6)
-		send_raw_v6(srv->sock, addr, port, n, buf);
-	else
-		send_raw_v4(srv->sock, addr, port, n, buf);
+	srv->send_func(srv->sock, addr, port, n, buf);
 }
 
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf)

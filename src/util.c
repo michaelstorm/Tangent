@@ -329,7 +329,11 @@ const char *chordID_to_str(chordID *id)
 	static char id_str[CHORD_ID_LEN*2+1];
 	if (id) {
 		int i;
+#ifdef CHORD_PRINT_LONG_IDS
 		for (i = 0; i < CHORD_ID_LEN; i++)
+#else
+		for (i = 0; i < 4; i++)
+#endif
 			sprintf(id_str+i*2, "%02x", id->x[i]);
 		id_str[CHORD_ID_LEN*2] = '\0';
 	}
@@ -346,11 +350,10 @@ void print_chordID(FILE* out, chordID *id)
 		int i;
 #ifdef CHORD_PRINT_LONG_IDS
 		for (i = 0; i < CHORD_ID_LEN; i++)
-			fprintf(out, "%02x", id->x[i]);
 #else
 		for (i = 0; i < 4; i++)
-			fprintf(out, "%02x", id->x[i]);
 #endif
+			fprintf(out, "%02x", id->x[i]);
 	}
 	else
 		fprintf(out, "<null>");

@@ -4,9 +4,7 @@
 #include <event2/event.h>
 #include <netinet/in.h>
 #include <sys/types.h>
-#ifdef __APPLE__
-#include <inttypes.h>  // Need uint64_t
-#endif
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "chord_api.h"
@@ -80,6 +78,9 @@ enum {
 	CHORD_PONG,        /* yes, I am */
 };
 
+extern const char *PACKET_NAMES[];
+extern int MAX_PACKET_TYPE;
+
 enum {
 	CHORD_NO_ERROR = 0,
 	CHORD_PROTOCOL_ERROR,
@@ -129,6 +130,8 @@ struct WellKnown
 	in6_addr reflect_addr;
 };
 
+typedef void (*send_func_t)(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
+
 struct Server
 {
 	Node node;          /* addr and ID */
@@ -143,6 +146,7 @@ struct Server
 
 	int sock;        /* incoming/outgoing socket */
 	int is_v6;		 /* whether we're sitting on an IPv6 interface */
+	send_func_t send_func;
 
 	int tunnel_sock;
 
@@ -182,6 +186,7 @@ struct LinkedString {
 #define SUCC(srv) (srv->head_flist)
 
 /* chord.c */
+int chord_check_library_versions();
 Server *new_server(struct event_base *ev_base, int tunnel_sock);
 void server_initialize_from_file(Server *srv, char *conf_file);
 void server_start(Server *srv);
