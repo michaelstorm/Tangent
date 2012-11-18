@@ -134,30 +134,6 @@ in_addr_t get_addr()
 	return (in_addr_t)get_local_addr();
 }
 
-void to_v6addr(ulong v4addr, in6_addr *v6addr)
-{
-	memset(&v6addr->s6_addr[0], 0, 10);
-	memset(&v6addr->s6_addr[10], 0xFF, 2);
-	memcpy(&v6addr->s6_addr[12], &v4addr, 4);
-}
-
-ulong to_v4addr(const in6_addr *v6addr)
-{
-	return *(ulong *)&v6addr->s6_addr[12];
-}
-
-char *v6addr_to_str(const in6_addr *v6addr)
-{
-	static char addr_str[INET6_ADDRSTRLEN];
-	if (!V4_MAPPED(v6addr))
-		inet_ntop(AF_INET6, v6addr, addr_str, INET6_ADDRSTRLEN);
-	else {
-		ulong v4addr = to_v4addr(v6addr);
-		inet_ntop(AF_INET, &v4addr, addr_str, INET6_ADDRSTRLEN);
-	}
-	return addr_str;
-}
-
 void set_socket_nonblocking(int sock)
 {
 	int flags = fcntl(sock, F_GETFL);

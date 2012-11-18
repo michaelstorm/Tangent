@@ -1,6 +1,10 @@
 #include <assert.h>
 #include <string.h>
 #include "chord.h"
+#include "crypt.h"
+#include "pack.h"
+#include "sendpkt.h"
+#include "util.h"
 
 static uchar ticket_buf[1024];
 

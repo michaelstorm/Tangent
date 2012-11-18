@@ -17,10 +17,14 @@
 #include <netdb.h>
 #include <sys/time.h>
 #include <openssl/rand.h>
+#include <confuse.h>
 #include "chord.h"
 #include "dispatcher.h"
 #include "grid.h"
 #include "gen_utils.h"
+#include "process.h"
+#include "sendpkt.h"
+#include "util.h"
 
 const char *PACKET_NAMES[] = {
 	"ADDR_DISCOVER",

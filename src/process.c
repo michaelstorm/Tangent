@@ -4,8 +4,13 @@
 #include <string.h>
 #include <netinet/in.h>
 #include "chord.h"
+#include "crypt.h"
 #include "dispatcher.h"
+#include "finger.h"
 #include "messages.pb-c.h"
+#include "process.h"
+#include "sendpkt.h"
+#include "util.h"
 
 #define LOG_PROCESS(id, from_addr, from_port) \
 { \

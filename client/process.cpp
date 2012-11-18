@@ -7,6 +7,7 @@
 #include "process.h"
 #include "send.h"
 #include "transfer.h"
+#include "util.h"
 
 int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 						Node *from)

@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include "chord.h"
 #include "gen_utils.h"
+#include "util.h"
 
 /* f_rand: return a random double between 0.0 and 1.0 */
 double f_rand(void)
@@ -527,4 +528,28 @@ char *buf_to_hex(const uchar *buf, int len)
 		sprintf(buf_hex+i*2, "%02x", buf[i]);
 	buf_hex[len*2] = '\0';
 	return buf_hex; 
+}
+
+void to_v6addr(ulong v4addr, in6_addr *v6addr)
+{
+	memset(&v6addr->s6_addr[0], 0, 10);
+	memset(&v6addr->s6_addr[10], 0xFF, 2);
+	memcpy(&v6addr->s6_addr[12], &v4addr, 4);
+}
+
+ulong to_v4addr(const in6_addr *v6addr)
+{
+	return *(ulong *)&v6addr->s6_addr[12];
+}
+
+char *v6addr_to_str(const in6_addr *v6addr)
+{
+	static char addr_str[INET6_ADDRSTRLEN];
+	if (!V4_MAPPED(v6addr))
+		inet_ntop(AF_INET6, v6addr, addr_str, INET6_ADDRSTRLEN);
+	else {
+		ulong v4addr = to_v4addr(v6addr);
+		inet_ntop(AF_INET, &v4addr, addr_str, INET6_ADDRSTRLEN);
+	}
+	return addr_str;
 }

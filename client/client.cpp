@@ -60,8 +60,8 @@ static void event_logging_cb(int severity, const char *msg)
 	int level;
 	switch (severity)
 	{
-		case EVENT_LOG_DEBUG: level = DEBUG; break;
-		case EVENT_LOG_MSG:   level = INFO;  break;
+		case EVENT_LOG_DEBUG: level = -1; break;
+		case EVENT_LOG_MSG:   level = DEBUG;  break;
 		case EVENT_LOG_WARN:  level = WARN;  break;
 		case EVENT_LOG_ERR:   level = ERROR; break;
 		default:			  level = WARN;  break;
