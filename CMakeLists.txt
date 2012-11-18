@@ -16,8 +16,6 @@ include_directories("include/")
 include_directories("src/")
 PROTOBUF_C_GENERATE_C(PROTO_C_CHORD_SRCS PROTO_C_CHORD_HDRS ${PROTOBUF_C_CHORD_MESSAGES})
 PROTOBUF_C_GENERATE_C(PROTO_C_CLIENT_SRCS PROTO_C_CLIENT_HDRS ${PROTOBUF_C_CLIENT_MESSAGES})
-message(${CMAKE_CURRENT_BINARY_DIR})
-message(${CMAKE_CURRENT_SOURCE_DIR})
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/include/chord/messages.pb-c.h
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/src/messages.pb-c.h ${CMAKE_CURRENT_SOURCE_DIR}/include/chord/messages.pb-c.h

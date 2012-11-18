@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "chord/chord_api.h"
+#include "chord/chord_opts.h"
 #include "chord/eprintf.h"
 #include "chord/logger/logger.h"
 
@@ -34,31 +35,6 @@ typedef struct Server Server;
 #define F_ACTIVE  1
 
 #define V4_MAPPED(x) IN6_IS_ADDR_V4MAPPED(x)
-
-enum {
-	CHORD_WIRE_VERSION = 1,
-	TICKET_TIMEOUT = 1000000,		   /* seconds for which a ticket is valid */
-	TICKET_HASH_LEN = 4,
-	TICKET_SALT_LEN = 16,
-	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */
-	NFINGERS     = CHORD_ID_BITS,  /* # fingers per node */
-	NSUCCESSORS  = 8,              /* # successors kept */
-	NPREDECESSORS = 3,             /* # predecessors kept */
-	ADDR_DISCOVER_INTERVAL = 1*1000000, /* in micros */
-	STABILIZE_PERIOD = 3*1000000,  /* in micros */
-	BUFSIZE      = 65535,          /* buffer for packets */
-	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
-									*  (read from configuration file)
-									*/
-	MAX_SIMJOIN = 4,               /* maximum number of servers
-									* contacted simultaneously when joining
-									*/
-	MAX_PASSIVE_FINGERS = 20,	   /* maximum number of fingers to keep that
-									* have yet to respond to ping
-									*/
-	PING_THRESH = 5,               /* this many unanswered pings are allowed */
-	DEF_TTL      = 32,             /* default TTL for multi-hop packets */
-};
 
 /* packet types */
 enum {
@@ -176,7 +152,6 @@ Server *new_server(struct event_base *ev_base, int tunnel_sock);
 void server_initialize_from_file(Server *srv, char *conf_file);
 void server_start(Server *srv);
 void server_initialize_socket(Server *srv);
-void set_socket_nonblocking(int sock);
 
 void chord_main(char **conf_files, int nservers, int tunnel_sock);
 void initialize(Server *srv, int is_v6);
@@ -200,19 +175,8 @@ void join(Server *srv, FILE *fp);
 /* stabilize.c */
 void stabilize(evutil_socket_t sock, short what, void *arg);
 
-#define LogMessageTo(l_ctx, level, header, msg) \
-{ \
-	StartLogTo(l_ctx, level); \
-	PartialLogTo(l_ctx, "%s\n", header); \
-	protobuf_c_message_print(msg, l_ctx->fp); \
-	EndLogTo(l_ctx); \
-}
-
-#define LogMessage(level, header, msg)   LogMessageTo(get_logger_for_file(__FILE__), level, header, msg)
-#define LogMessageAs(level, header, msg) LogMessageTo(get_logger(name), level, header, msg)
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* INCL_CHORD_H */
+#endif
