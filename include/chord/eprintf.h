@@ -22,8 +22,8 @@ void *ecalloc(size_t, size_t);
 void setprogname(const char *);
 const char*	getprogname(void);
 
-#define eprintf(fmt, ...)  eprintf_impl (file_logger(), fmt, ##__VA_ARGS__)
-#define weprintf(fmt, ...) weprintf_impl(file_logger(), fmt, ##__VA_ARGS__)
+#define eprintf(fmt, ...)  eprintf_impl (clog_file_logger(), fmt, ##__VA_ARGS__)
+#define weprintf(fmt, ...) weprintf_impl(clog_file_logger(), fmt, ##__VA_ARGS__)
 
 #ifdef CCURED
 #pragma ccuredvararg("eprintf", printf(1))

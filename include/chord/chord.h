@@ -21,14 +21,6 @@ typedef struct Node Node;
 typedef struct Server Server;
 
 #define NELEMS(a) (sizeof(a) / sizeof(a[0]))
-#ifndef FALSE
-#define FALSE 0
-#define TRUE  1
-#endif
-
-#ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_TRACE
-#endif
 
 /* whether a finger is passive or active */
 #define F_PASSIVE 0
@@ -71,24 +63,6 @@ struct Node
 	chordID id;
 	in6_addr addr;
 	in_port_t port;
-};
-
-struct Finger
-{
-	Node node;          /* ID and address of finger */
-	int status;         /* specifies whether this finger has been
-						 * pinged; possible values: F_PASSIVE (the node
-						 * has not been pinged) and F_ACTIVE (the node
-						 * has been pinged)
-						 */
-	int npings;         /* # of unanswered pings */
-	long rtt_avg;       /* average rtt to finger (usec) */
-	long rtt_dev;       /* rtt's mean deviation (usec) */
-						/* rtt_avg, rtt_dev can be used to implement
-						 * proximity routing or set up RTO for ping
-						 */
-	Finger *next;
-	Finger *prev;
 };
 
 /* Finger table contains NFINGERS fingers, then predecessor, then
@@ -142,9 +116,6 @@ struct Server
 
 	struct Dispatcher *dispatcher;
 };
-
-#define PRED(srv) (srv->tail_flist)
-#define SUCC(srv) (srv->head_flist)
 
 /* chord.c */
 int chord_check_library_versions();

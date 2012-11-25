@@ -18,8 +18,8 @@ void protobuf_c_message_print(const ProtobufCMessage *message, FILE *out);
 	EndLogTo(l_ctx); \
 }
 
-#define LogMessage(level, header, msg)   LogMessageTo(get_logger_for_file(__FILE__), level, header, msg)
-#define LogMessageAs(level, header, msg) LogMessageTo(get_logger(name), level, header, msg)
+#define LogMessage(level, header, msg)   LogMessageTo(clog_get_logger_for_file(__FILE__), level, header, msg)
+#define LogMessageAs(level, header, msg) LogMessageTo(clog_get_logger(name), level, header, msg)
 
 #ifdef __cplusplus
 }

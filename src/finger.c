@@ -56,7 +56,7 @@ Finger *closest_preceding_finger(Server *srv, chordID *id, int fall)
 		/* look only for active fingers; we do not know if we can
 		 * reach the passive fingers
 		 */
-		if ((fall == TRUE) || (f->status == F_ACTIVE)) {
+		if (fall || f->status == F_ACTIVE) {
 			if (is_between(&f->node.id, &srv->node.id, id))
 				return f;
 		}
@@ -113,10 +113,11 @@ Finger *get_worst_passive_finger(Server *srv)
 
 /**********************************************************************/
 
+void fingerlist_insert(Server *srv, Finger *f);
+
 Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 					  int *fnew)
 {
-	Finger *f, *new_f;
 	Node n;
 
 	if (v6_addr_equals(&srv->node.addr, addr) && srv->node.port == port) {
@@ -125,13 +126,13 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	}
 
 	int index;
-	f = get_finger(srv, id, &index);
+	Finger *f = get_finger(srv, id, &index);
 
 	if (f) {
 		if (!v6_addr_equals(&f->node.addr, addr)) {
 			StartLog(INFO);
 			PartialLog("Finger for id ");
-			print_chordID(file_logger()->fp, &f->node.id);
+			print_chordID(clog_file_logger()->fp, &f->node.id);
 			
 			// be careful about v6addr_to_str() using static buffer
 			PartialLog(" is already in list with different peer; replacing <%s, %d>", v6addr_to_str(&f->node.addr), f->node.port);
@@ -145,7 +146,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 
 			StartLog(INFO);
 			PartialLog("\n");
-			print_server(file_logger()->fp, srv);
+			print_server(clog_file_logger()->fp, srv);
 			EndLog();
 		}
 		else {
@@ -156,12 +157,12 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 			 */
 			StartLog(DEBUG);
 			PartialLog("Finger for id ");
-			print_chordID(file_logger()->fp, &f->node.id);
+			print_chordID(clog_file_logger()->fp, &f->node.id);
 			PartialLog(" is already in list with the given peer <%s, %d>", v6addr_to_str(&f->node.addr), f->node.port);
 			EndLog();
 		}
 		
-		*fnew = FALSE;
+		*fnew = 0;
 		return f;
 	}
 
@@ -173,7 +174,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 
 		StartLog(DEBUG);
 		PartialLog("Dropping passive finger for id ");
-		print_chordID(file_logger()->fp, &f->node.id);
+		print_chordID(clog_file_logger()->fp, &f->node.id);
 		EndLog();
 
 		remove_finger(srv, worst_finger);
@@ -185,39 +186,40 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	v6_addr_copy(&n.addr, addr);
 	n.port = port;
 
-	new_f = new_finger(&n);
+	Finger *new_f = new_finger(&n);
+	fingerlist_insert(srv, new_f);
 
-	f = srv->head_flist;
-	if (f == NULL) {
-		/* this is the first finger */
+	StartLog(INFO);
+	PartialLog("\n");
+	print_server(clog_file_logger()->fp, srv);
+	EndLog();
+
+	*fnew = 1;
+	return new_f;
+}
+
+void fingerlist_insert(Server *srv, Finger *new_f)
+{
+	if (srv->head_flist == NULL)
 		srv->head_flist = srv->tail_flist = new_f;
-	}
 	else {
-		f = closest_preceding_finger(srv, id, TRUE);
-		if (f == NULL) {
+		Finger *prec_f = closest_preceding_finger(srv, &new_f->node.id, 1);
+		if (prec_f == NULL) {
 			new_f->next = srv->head_flist;
 			new_f->prev = NULL;
 			srv->head_flist->prev = new_f;
 			srv->head_flist = new_f;
 		}
 		else {
-			new_f->next = f->next;
-			if (f->next)
-				f->next->prev = new_f;
+			new_f->next = prec_f->next;
+			if (prec_f->next)
+				prec_f->next->prev = new_f;
 			else
 				srv->tail_flist = new_f;
-			new_f->prev = f;
-			f->next = new_f;
+			new_f->prev = prec_f;
+			prec_f->next = new_f;
 		}
 	}
-
-	StartLog(INFO);
-	PartialLog("\n");
-	print_server(file_logger()->fp, srv);
-	EndLog();
-
-	*fnew = TRUE;
-	return new_f;
 }
 
 void activate_finger(Server *srv, Finger *f)
@@ -235,7 +237,7 @@ void remove_finger(Server *srv, Finger *f)
 {
 	StartLog(DEBUG);
 	PartialLog("Removing finger ");
-	print_node(file_logger()->fp, &f->node);
+	print_node(clog_file_logger()->fp, &f->node);
 	EndLog();
 	
 	Finger *pred, *pf;
@@ -272,7 +274,7 @@ void remove_finger(Server *srv, Finger *f)
 
 	StartLog(DEBUG);
 	PartialLog("\n");
-	print_server(file_logger()->fp, srv);
+	print_server(clog_file_logger()->fp, srv);
 	EndLog();
 	
 	free(f);

@@ -15,7 +15,7 @@
 #define LOG_PROCESS(id, from_addr, from_port) \
 { \
 	StartLog(DEBUG); \
-	print_process(file_logger()->fp, srv, (char *)__func__, id, from_addr, from_port); \
+	print_process(clog_file_logger()->fp, srv, (char *)__func__, id, from_addr, from_port); \
 	EndLog(); \
 }
 
@@ -48,7 +48,7 @@ int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 		StartLog(INFO);
 		PartialLog("address: [%s]:%d, ", v6addr_to_str(&srv->node.addr), srv->node.port);
 		PartialLog("node id: ");
-		print_chordID(file_logger()->fp, &srv->node.id);
+		print_chordID(clog_file_logger()->fp, &srv->node.id);
 		EndLog();
 		
 		Info("Stabilizing every %u.%u seconds", STABILIZE_PERIOD / 1000000UL, STABILIZE_PERIOD % 1000000UL);
@@ -90,7 +90,7 @@ Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last)
 
 	/* send packet to the closest active predecessor (that we know about) */
 	*next_is_last = 0;
-	return closest_preceding_node(srv, id, FALSE);
+	return closest_preceding_node(srv, id, 0);
 }
 
 int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
@@ -106,7 +106,7 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 
 	if (--msg->ttl == 0) {
 		StartLog(WARN);
-		print_two_chordIDs(file_logger()->fp, "TTL expired: data packet ", &id,
+		print_two_chordIDs(clog_file_logger()->fp, "TTL expired: data packet ", &id,
 						   " dropped at node ", &srv->node.id, "");
 		EndLog();
 		return CHORD_TTL_EXPIRED;
@@ -146,7 +146,7 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 
 	if (--msg->ttl == 0) {
 		StartLog(WARN);
-		print_two_chordIDs(file_logger()->fp, "TTL expired: fix_finger packet ", &reply_id,
+		print_two_chordIDs(clog_file_logger()->fp, "TTL expired: fix_finger packet ", &reply_id,
 						   " dropped at node ", &srv->node.id, "");
 		EndLog();
 		return CHORD_TTL_EXPIRED;
@@ -169,7 +169,7 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 					  &succ->addr, succ->port);
 	}
 	else {
-		np = closest_preceding_node(srv, &reply_id, FALSE);
+		np = closest_preceding_node(srv, &reply_id, 0);
 		send_fs_forward(srv, msg->ticket.data, msg->ticket.len, msg->ttl, &np->addr, np->port,
 						&reply_addr, reply_port);
 	}
@@ -202,7 +202,7 @@ int process_fs_reply(Header *header, ChordPacketArgs *args,
 	LOG_PROCESS(&id, &from->addr, from->port);
 
 	insert_finger(srv, &id, &addr, msg->port, &fnew);
-	if (fnew == TRUE)
+	if (fnew)
 		send_ping(srv, &addr, msg->port, get_current_time());
 
 	return CHORD_NO_ERROR;
@@ -263,7 +263,7 @@ int process_stab_reply(Header *header, ChordPacketArgs *args,
 	insert_finger(srv, &id, &addr, msg->port, &fnew);
 	succ = succ_finger(srv);
 	send_notify(srv, &succ->node.addr, succ->node.port);
-	if (fnew == TRUE)
+	if (fnew)
 		send_ping(srv, &addr, msg->port, get_current_time());
 	return CHORD_NO_ERROR;
 }
@@ -281,7 +281,7 @@ int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 
 	// another node thinks that it should be our predecessor
 	insert_finger(srv, &from->id, &from->addr, from->port, &fnew);
-	if (fnew == TRUE)
+	if (fnew)
 		send_ping(srv, &from->addr, from->port, get_current_time());
 	return CHORD_NO_ERROR;
 }
@@ -302,10 +302,7 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 		Debug("Inserted a new possible finger");
 	
 	pred = pred_finger(srv);
-	if (fnew == TRUE
-		&& ((pred == NULL)
-			|| (pred && is_between(&from->id, &pred->node.id,
-								   &srv->node.id)))) {
+	if (fnew && (pred == NULL || (pred != NULL && is_between(&from->id, &pred->node.id, &srv->node.id)))) {
 		if (pred == NULL)
 			Debug("We have no predecessor, and this is a possible new finger, so we ping it");
 		else

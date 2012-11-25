@@ -101,7 +101,7 @@ void fix_fingers(Server *srv)
 	chordID to_id = successor(srv->node.id, NFINGERS-1);
 
 	StartLog(DEBUG);
-	print_fun(file_logger()->fp, srv, "fix_finger", &id);
+	print_fun(clog_file_logger()->fp, srv, "fix_finger", &id);
 	EndLog();
 
 	/* Only loop across most significant fingers */
@@ -133,7 +133,7 @@ void fix_fingers(Server *srv)
 	 * preferable this is a far away finger, that share as little routing
 	 * information as possible with us
 	 */
-	if ((f = closest_preceding_finger(srv, &to_id, FALSE)) == NULL) {
+	if ((f = closest_preceding_finger(srv, &to_id, 0)) == NULL) {
 		/* settle for successor... */
 		f = succ;
 	}
@@ -144,8 +144,8 @@ void fix_fingers(Server *srv)
 
 		/* once in a while try to get a better predecessor, as well */
 		if (srv->to_fix_finger == NFINGERS-1) {
-			if (PRED(srv)) {
-				random_between(&(PRED(srv)->node.id), &srv->node.id, &id);
+			if (srv->tail_flist != NULL) {
+				random_between(&srv->tail_flist->node.id, &srv->node.id, &id);
 				send_fs(srv, DEF_TTL, &f->node.addr, f->node.port,
 						&srv->node.addr, srv->node.port);
 			}
@@ -164,7 +164,7 @@ void fix_succs_preds(Server *srv)
 	chordID id;
 
 	StartLog(DEBUG);
-	print_fun(file_logger()->fp, srv, "fix_successors", 0);
+	print_fun(clog_file_logger()->fp, srv, "fix_successors", 0);
 	EndLog();
 
 	if (succ_finger(srv) == NULL)
@@ -172,7 +172,7 @@ void fix_succs_preds(Server *srv)
 
 	/* find the next successor to be fixed... */
 	for (f = succ_finger(srv), k = 0;
-		 (k < srv->to_fix_backup) && f->next;
+		 k < srv->to_fix_backup && f->next;
 		 k++, f = f->next);
 
 	/* ... no more successors to be fixed; restart */
@@ -237,8 +237,8 @@ void ping(Server *srv)
 			inet_ntop(AF_INET6, &srv->node.addr, srv_addr, INET6_ADDRSTRLEN);
 			inet_ntop(AF_INET6, &f->node.addr, dropped_addr, INET6_ADDRSTRLEN);
 
-			Info("dropping finger[%d] %s:%d (at %s:%d)\n", i, dropped_addr,
-					 f->node.port, srv_addr, srv->node.port);
+			Info("dropping finger[%d] %s:%d (at %s:%d)\n", i, dropped_addr, f->node.port, srv_addr, srv->node.port);
+
 			f_next = f->next;
 			remove_finger(srv, f);
 		}

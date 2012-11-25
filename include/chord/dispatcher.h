@@ -59,8 +59,8 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, struct Node *from,
 	dispatcher_set_packet_body(d, value, (char *)#value, arg, (unpack_fn)unpack, \
 							   (process_fn)process)
 
-#endif
-
 #ifdef __cplusplus
 }
+#endif
+
 #endif

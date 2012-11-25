@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include "chord/chord.h"
 #include "chord/gen_utils.h"
+#include "chord/finger.h"
 #include "chord/util.h"
 
 /* f_rand: return a random double between 0.0 and 1.0 */

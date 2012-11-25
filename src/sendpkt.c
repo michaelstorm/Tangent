@@ -13,7 +13,7 @@ static uchar ticket_buf[1024];
 #define LOG_SEND() \
 { \
 	StartLog(LOG_SEND_LEVEL); \
-	print_send(file_logger()->fp, srv, (char *)__func__, 0, to_addr, to_port); \
+	print_send(clog_file_logger()->fp, srv, (char *)__func__, 0, to_addr, to_port); \
 	EndLog(); \
 }
 

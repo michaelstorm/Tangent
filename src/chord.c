@@ -20,6 +20,7 @@
 #include <confuse.h>
 #include "chord/chord.h"
 #include "chord/dispatcher.h"
+#include "chord/finger.h"
 #include "chord/grid.h"
 #include "chord/gen_utils.h"
 #include "chord/hosts.h"
@@ -189,7 +190,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 
 void log_events(Server *srv)
 {
-	logger_ctx_t *l = get_logger("events");
+	logger_ctx_t *l = clog_get_logger("events");
 	StartLogTo(l, DEBUG);
 	PartialLogTo(l, "queued events:");
 	event_base_dump_events(srv->ev_base, l->fp);
@@ -404,7 +405,7 @@ void chord_print_circle(Server *srv)
 
 	StartLog(INFO);
 	PartialLog("\n");
-	print_grid(file_logger()->fp, g);
+	print_grid(clog_file_logger()->fp, g);
 	EndLog();
 	
 	free_circle(c);
@@ -415,9 +416,9 @@ void chord_update_range(Server *srv, chordID *l, chordID *r)
 {
 	StartLog(INFO);
 	PartialLog("range: ");
-	print_chordID(file_logger()->fp, l);
+	print_chordID(clog_file_logger()->fp, l);
 	PartialLog(" - ");
-	print_chordID(file_logger()->fp, r);
+	print_chordID(clog_file_logger()->fp, r);
 	EndLog();
 
 	srv->pred_bound = *l;

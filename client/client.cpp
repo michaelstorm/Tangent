@@ -85,11 +85,11 @@ void print_separator()
 
 int main(int argc, char **argv)
 {
-	logger_init();
+	clog_init();
 	print_separator();
 	chord_check_library_versions();
 	
-	l = get_logger("dhash");
+	l = clog_get_logger("dhash");
 	
 	if (strcmp(argv[1], "--butterfly") == 0) {
 		long double diam;

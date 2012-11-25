@@ -14,7 +14,7 @@
 
 static map_t loggers;
 
-int logger_default_level = INT_MIN;
+int clog_default_log_level = 0;
 
 static int default_level_colors[] = {
 	FG_PURPLE|MOD_INTENSE_FG, FG_CYAN|MOD_INTENSE_FG, FG_GREEN|MOD_INTENSE_FG, FG_YELLOW|MOD_INTENSE_FG, FG_RED|MOD_INTENSE_FG, FG_WHITE|BG_RED
@@ -22,34 +22,34 @@ static int default_level_colors[] = {
 
 struct timespec start_time;
 
-void logger_init()
+void clog_init()
 {
 	loggers = hashmap_new();
 	
-	char *min_str = getenv("LOG_LEVEL");
+	char *min_str = getenv("CLOG_LOG_LEVEL");
 	if (min_str != NULL) {
 		if (strlen(min_str) == 0) {
 			// do nothing
 		}
 		else if (strcmp(min_str, "TRACE") == 0)
-			logger_default_level = LOG_LEVEL_TRACE;
+			clog_default_log_level = CLOG_LOG_LEVEL_TRACE;
 		else if (strcmp(min_str, "DEBUG") == 0)
-			logger_default_level = LOG_LEVEL_DEBUG;
+			clog_default_log_level = CLOG_LOG_LEVEL_DEBUG;
 		else if (strcmp(min_str, "INFO") == 0)
-			logger_default_level = LOG_LEVEL_INFO;
+			clog_default_log_level = CLOG_LOG_LEVEL_INFO;
 		else if (strcmp(min_str, "WARN") == 0)
-			logger_default_level = LOG_LEVEL_WARN;
+			clog_default_log_level = CLOG_LOG_LEVEL_WARN;
 		else if (strcmp(min_str, "ERROR") == 0)
-			logger_default_level = LOG_LEVEL_ERROR;
+			clog_default_log_level = CLOG_LOG_LEVEL_ERROR;
 		else if (strcmp(min_str, "FATAL") == 0)
-			logger_default_level = LOG_LEVEL_FATAL;
+			clog_default_log_level = CLOG_LOG_LEVEL_FATAL;
 		else {
 			errno = 0;
 			long value = strtol(min_str, NULL, 10);
 			if (errno == 0)
-				logger_default_level = value;
+				clog_default_log_level = value;
 			else
-				Log(ERROR, "Environment variable LOG_LEVEL must be unset, empty, an integer, or a log level name");
+				Log(ERROR, "Environment variable CLOG_LOG_LEVEL must be unset, empty, an integer, or a log level name");
 		}
 	}
 	
@@ -61,7 +61,7 @@ int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func
 {	
 	FILE *fp = (FILE *)l->data;
 
-	int color = level >= LOG_LEVEL_TRACE && level <= LOG_LEVEL_FATAL ? default_level_colors[level] : 0;
+	int color = level >= CLOG_LOG_LEVEL_TRACE && level <= CLOG_LOG_LEVEL_FATAL ? default_level_colors[level] : 0;
 	start_color(fp, color|ATTR_BOLD);
 
 #ifdef LOG_BRACKET_LEADER
@@ -178,23 +178,23 @@ void logger_ctx_free(logger_ctx_t *l)
 	free(l);
 }
 
-int add_logger(logger_ctx_t *l_new)
+int clog_add_logger(logger_ctx_t *l_new)
 {
 	return hashmap_put(loggers, (char *)l_new->name, l_new);
 }
 
-logger_ctx_t *get_logger(const char *name)
+logger_ctx_t *clog_get_logger(const char *name)
 {
 	logger_ctx_t *l;
 	if (hashmap_get(loggers, (char *)name, (any_t *)&l)) {
-		l = logger_ctx_new_file(name, logger_default_level, stdout);
-		if (add_logger(l))
+		l = logger_ctx_new_file(name, clog_default_log_level, stdout);
+		if (clog_add_logger(l))
 			return NULL;
 	}
 	return l;
 }
 
-logger_ctx_t *get_logger_for_file(const char *file)
+logger_ctx_t *clog_get_logger_for_file(const char *file)
 {
 	file = BASENAME(file);
 	int len = strchr(file, '.') - file;
@@ -203,13 +203,13 @@ logger_ctx_t *get_logger_for_file(const char *file)
 	strncpy(file_base, file, len);
 	file_base[len] = '\0';
 	
-	return get_logger(file_base);
+	return clog_get_logger(file_base);
 }
 
-void StartLog_impl(logger_ctx_t *l, const char *file, int line, const char *func, int level)
+void clog_start_log(logger_ctx_t *l, const char *file, int line, const char *func, int level)
 {
 	if (l == NULL)
-		l = get_logger_for_file(file);
+		l = clog_get_logger_for_file(file);
 	
 	if (level >= l->min_level) {
 		l->log_partial = 1;
@@ -229,18 +229,18 @@ void StartLog_impl(logger_ctx_t *l, const char *file, int line, const char *func
 		va_end(args); \
 	}
 
-void PartialLog_impl(logger_ctx_t *l, const char *file, const char *fmt, ...)
+void clog_partial_log(logger_ctx_t *l, const char *file, const char *fmt, ...)
 {
 	if (l == NULL)
-		l = get_logger_for_file(file);
+		l = clog_get_logger_for_file(file);
 	
 	PARTIAL_LOG_IMPL(l, fmt, fmt)
 }
 
-void EndLog_impl(logger_ctx_t *l, const char *file)
+void clog_end_log(logger_ctx_t *l, const char *file)
 {
 	if (l == NULL)
-		l = get_logger_for_file(file);
+		l = clog_get_logger_for_file(file);
 	
 	/*
 	 * Flush whether or not log_partial is true, to ensure that data buffered
@@ -259,29 +259,29 @@ void EndLog_impl(logger_ctx_t *l, const char *file)
 	}
 }
 
-void StartLogAs_impl(const char *name, const char *file, int line, const char *func, int level)
+void clog_start_log_as(const char *name, const char *file, int line, const char *func, int level)
 {
-	logger_ctx_t *l = get_logger(name);
-	StartLog_impl(l, file, line, func, level);
+	logger_ctx_t *l = clog_get_logger(name);
+	clog_start_log(l, file, line, func, level);
 }
 
-void PartialLogAs_impl(const char *name, const char *fmt, ...)
+void clog_partial_log_as(const char *name, const char *fmt, ...)
 {
-	logger_ctx_t *l = get_logger(name);
+	logger_ctx_t *l = clog_get_logger(name);
 	PARTIAL_LOG_IMPL(l, fmt, fmt)
 }
 
-void EndLogAs_impl(const char *name)
+void clog_end_log_as(const char *name)
 {
-	logger_ctx_t *l = get_logger(name);
-	EndLog_impl(l, NULL);
+	logger_ctx_t *l = clog_get_logger(name);
+	clog_end_log(l, NULL);
 }
 
 void vlog(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, va_list args)
 {
-	StartLog_impl(l, file, line, func, level);
+	clog_start_log(l, file, line, func, level);
 	l->printf(l->data, fmt, args);
-	EndLog_impl(l, NULL);
+	clog_end_log(l, NULL);
 }
 
 #define CALL_VLOG \
@@ -292,18 +292,18 @@ void vlog(logger_ctx_t *l, const char *file, int line, const char *func, int lev
 	va_end(args); \
 }
 
-void LogAs_impl(const char *name, const char *file, int line, const char *func, int level, const char *fmt, ...)
+void clog_log_as(const char *name, const char *file, int line, const char *func, int level, const char *fmt, ...)
 {
-	logger_ctx_t *l = get_logger(name);
+	logger_ctx_t *l = clog_get_logger(name);
 	
 	if (level >= l->min_level)
 		CALL_VLOG
 }
 
-void Log_impl(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, ...)
+void clog_log(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, ...)
 {
 	if (l == NULL)
-		l = get_logger_for_file(file);
+		l = clog_get_logger_for_file(file);
 	
 	if (level >= l->min_level)
 		CALL_VLOG

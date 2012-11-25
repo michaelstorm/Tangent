@@ -5,6 +5,30 @@
 extern "C" {
 #endif
 
+struct FingerList
+{
+	Finger *head;
+	Finger *tail;
+};
+
+struct Finger
+{
+	Node node;          /* ID and address of finger */
+	int status;         /* specifies whether this finger has been
+						 * pinged; possible values: F_PASSIVE (the node
+						 * has not been pinged) and F_ACTIVE (the node
+						 * has been pinged)
+						 */
+	int npings;         /* # of unanswered pings */
+	long rtt_avg;       /* average rtt to finger (usec) */
+	long rtt_dev;       /* rtt's mean deviation (usec) */
+						/* rtt_avg, rtt_dev can be used to implement
+						 * proximity routing or set up RTO for ping
+						 */
+	Finger *next;
+	Finger *prev;
+};
+
 Finger *new_finger(Node *node);
 Finger *succ_finger(Server *srv);
 Finger *pred_finger(Server *srv);
