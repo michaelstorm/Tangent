@@ -6,7 +6,7 @@
 #define EPRINTF_H
 
 #include <sysexits.h>
-#include "logger/logger.h"
+#include "logger/clog.h"
 
 #ifdef __cplusplus
 extern "C" {

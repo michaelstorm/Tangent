@@ -1,7 +1,7 @@
 #ifndef MESSAGE_PRINT_H
 #define MESSAGE_PRINT_H
 
-#include "chord/logger/logger.h"
+#include "chord/logger/clog.h"
 #include "messages.pb-c.h"
 
 #ifdef __cplusplus

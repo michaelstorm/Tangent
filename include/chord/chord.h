@@ -10,7 +10,7 @@
 #include "chord/chord_api.h"
 #include "chord/chord_opts.h"
 #include "chord/eprintf.h"
-#include "chord/logger/logger.h"
+#include "chord/logger/clog.h"
 
 #ifdef __cplusplus
 extern "C" {
