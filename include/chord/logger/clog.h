@@ -17,7 +17,7 @@ typedef enum
 	CLOG_LOG_LEVEL_FATAL
 } log_level_t;
 
-#ifndef DISABLE_SHORT_CLOG_LOG_LEVEL_NAMES
+#ifndef CLOG_DISABLE_SHORT_LOG_LEVEL_NAMES
 typedef enum
 {
 	TRACE = 0,
@@ -31,10 +31,11 @@ typedef enum
 
 struct logger_ctx_t;
 typedef struct logger_ctx_t logger_ctx_t;
-typedef int (*start_msg_func) (logger_ctx_t *l, const char *file, int line, const char *func, int level);
-typedef int (*printf_func)    (void *data, const char *fmt, va_list args);
-typedef ssize_t (*write_func) (void *data, const char *buf, size_t size);
-typedef int (*end_msg_func)   (logger_ctx_t *l);
+
+typedef     int (*start_msg_func) (logger_ctx_t *l, const char *file, int line, const char *func, int level);
+typedef     int (*printf_func)    (void *data, const char *fmt, va_list args);
+typedef ssize_t (*write_func)     (void *data, const char *buf, size_t size);
+typedef     int (*end_msg_func)   (logger_ctx_t *l);
 
 struct logger_ctx_t
 {
@@ -52,10 +53,11 @@ struct logger_ctx_t
 	int log_partial;
 };
 
-extern int clog_default_log_level;
-
 void clog_init();
-int clog_add_logger(logger_ctx_t *l_new);
+ int clog_get_default_log_level();
+void clog_set_default_log_level(int level);
+
+ 		 int  clog_add_logger(logger_ctx_t *l_new);
 logger_ctx_t *clog_get_logger(const char *name);
 logger_ctx_t *clog_get_logger_for_file(const char *file);
 

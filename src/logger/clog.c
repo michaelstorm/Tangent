@@ -14,7 +14,7 @@
 
 static map_t loggers;
 
-int clog_default_log_level = 0;
+static int clog_default_log_level = 0;
 
 static int default_level_colors[] = {
 	FG_PURPLE|MOD_INTENSE_FG, FG_CYAN|MOD_INTENSE_FG, FG_GREEN|MOD_INTENSE_FG, FG_YELLOW|MOD_INTENSE_FG, FG_RED|MOD_INTENSE_FG, FG_WHITE|BG_RED
@@ -55,6 +55,16 @@ void clog_init()
 	
 	start_time.tv_sec = 0;
 	start_time.tv_nsec = 0;
+}
+
+int clog_get_default_log_level()
+{
+	return clog_default_log_level;
+}
+
+void clog_set_default_log_level(int level)
+{
+	clog_default_log_level = level;
 }
 
 int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func, int level)
