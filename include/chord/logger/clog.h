@@ -1,5 +1,5 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef CLOG_H
+#define CLOG_H
 
 #include <stdarg.h>
 
@@ -53,9 +53,17 @@ struct logger_ctx_t
 	int log_partial;
 };
 
+struct timespec;
+
 void clog_init();
  int clog_get_default_log_level();
 void clog_set_default_log_level(int level);
+ int clog_time_offset(struct timespec *diff_time);
+ 
+		 int  logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data, start_msg_func start_msg, printf_func printf, write_func write, end_msg_func end_msg);
+logger_ctx_t *logger_ctx_new(const char *name, int min_level, void *data, start_msg_func start_msg, printf_func printf, write_func write, end_msg_func end_msg);
+        void  logger_ctx_close(logger_ctx_t *l);
+        void  logger_ctx_free(logger_ctx_t *l);
 
  		 int  clog_add_logger(logger_ctx_t *l_new);
 logger_ctx_t *clog_get_logger(const char *name);
@@ -74,35 +82,35 @@ void clog_end_log_as(const char *name);
 
 #define clog_file_logger() clog_get_logger_for_file(__FILE__)
 
-#define Log(level, fmt, ...) clog_log(NULL, __FILE__, __LINE__, __func__, level,                fmt, ##__VA_ARGS__)
-#define LogTrace(fmt, ...)   clog_log(NULL, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
-#define LogDebug(fmt, ...)   clog_log(NULL, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
-#define LogInfo(fmt, ...)    clog_log(NULL, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_INFO,  fmt, ##__VA_ARGS__)
-#define LogWarn(fmt, ...)    clog_log(NULL, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
-#define LogError(fmt, ...)   clog_log(NULL, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
-#define LogFatal(fmt, ...)   clog_log(NULL, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
+#define Log(level, fmt, ...) clog_log(NULL, __FILE__, __LINE__, __func__, level, fmt, ##__VA_ARGS__)
+#define LogTrace(fmt, ...)   Log(CLOG_LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
+#define LogDebug(fmt, ...)   Log(CLOG_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
+#define LogInfo(fmt, ...)    Log(CLOG_LOG_LEVEL_INFO,  fmt, ##__VA_ARGS__)
+#define LogWarn(fmt, ...)    Log(CLOG_LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
+#define LogError(fmt, ...)   Log(CLOG_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#define LogFatal(fmt, ...)   Log(CLOG_LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
 #define StartLog(level)      { clog_start_log(NULL, __FILE__, __LINE__, __func__, level)
 #define PartialLog(fmt, ...)   clog_partial_log(NULL, __FILE__, fmt, ##__VA_ARGS__)
 #define EndLog()             } clog_end_log(NULL, __FILE__)
 
-#define LogTo(l_ctx, level, fmt, ...) clog_log(l_ctx, __FILE__, __LINE__, __func__, level,                fmt, ##__VA_ARGS__)
-#define LogTraceTo(l_ctx, fmt, ...)   clog_log(l_ctx, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
-#define LogDebugTo(l_ctx, fmt, ...)   clog_log(l_ctx, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
-#define LogInfoTo(l_ctx,  fmt, ...)   clog_log(l_ctx, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_INFO,  fmt, ##__VA_ARGS__)
-#define LogWarnTo(l_ctx,  fmt, ...)   clog_log(l_ctx, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
-#define LogErrorTo(l_ctx, fmt, ...)   clog_log(l_ctx, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
-#define LogFatalTo(l_ctx, fmt, ...)   clog_log(l_ctx, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
+#define LogTo(l_ctx, level, fmt, ...) clog_log(l_ctx, __FILE__, __LINE__, __func__, level, fmt, ##__VA_ARGS__)
+#define LogTraceTo(l_ctx, fmt, ...)   LogTo(l_ctx, CLOG_LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
+#define LogDebugTo(l_ctx, fmt, ...)   LogTo(l_ctx, CLOG_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
+#define LogInfoTo(l_ctx,  fmt, ...)   LogTo(l_ctx, CLOG_LOG_LEVEL_INFO,  fmt, ##__VA_ARGS__)
+#define LogWarnTo(l_ctx,  fmt, ...)   LogTo(l_ctx, CLOG_LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
+#define LogErrorTo(l_ctx, fmt, ...)   LogTo(l_ctx, CLOG_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#define LogFatalTo(l_ctx, fmt, ...)   LogTo(l_ctx, CLOG_LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
 #define StartLogTo(l_ctx, level)      { clog_start_log(l_ctx, __FILE__, __LINE__, __func__, level)
 #define PartialLogTo(l_ctx, fmt, ...)   clog_partial_log(l_ctx, __FILE__, fmt, ##__VA_ARGS__)
 #define EndLogTo(l_ctx)               } clog_end_log(l_ctx, __FILE__)
 
-#define LogAs(name, level, fmt, ...) clog_log_as(name, __FILE__, __LINE__, __func__, level,                fmt, ##__VA_ARGS__)
-#define LogTraceAs(name, fmt, ...)   clog_log_as(name, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
-#define LogDebugAs(name, fmt, ...)   clog_log_as(name, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
-#define LogInfoAs(name,  fmt, ...)   clog_log_as(name, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_INFO,  fmt, ##__VA_ARGS__)
-#define LogWarnAs(name,  fmt, ...)   clog_log_as(name, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
-#define LogErrorAs(name, fmt, ...)   clog_log_as(name, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
-#define LogFatalAs(name, fmt, ...)   clog_log_as(name, __FILE__, __LINE__, __func__, CLOG_LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
+#define LogAs(name, level, fmt, ...) clog_log_as(name, __FILE__, __LINE__, __func__, level, fmt, ##__VA_ARGS__)
+#define LogTraceAs(name, fmt, ...)   LogAs(name, CLOG_LOG_LEVEL_TRACE, fmt, ##__VA_ARGS__)
+#define LogDebugAs(name, fmt, ...)   LogAs(name, CLOG_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
+#define LogInfoAs(name,  fmt, ...)   LogAs(name, CLOG_LOG_LEVEL_INFO,  fmt, ##__VA_ARGS__)
+#define LogWarnAs(name,  fmt, ...)   LogAs(name, CLOG_LOG_LEVEL_WARN,  fmt, ##__VA_ARGS__)
+#define LogErrorAs(name, fmt, ...)   LogAs(name, CLOG_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#define LogFatalAs(name, fmt, ...)   LogAs(name, CLOG_LOG_LEVEL_FATAL, fmt, ##__VA_ARGS__)
 #define StartLogAs(name, level)      { clog_start_log_as(name, __FILE__, __LINE__, __func__, level)
 #define PartialLogAs(name, fmt, ...)   clog_partial_log_as(name, fmt, ##__VA_ARGS__)
 #define EndLogAs(name)               } clog_end_log_as(name)

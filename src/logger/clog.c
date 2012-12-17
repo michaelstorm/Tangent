@@ -9,16 +9,12 @@
 #include "chord/logger/clog.h"
 #include "chord/logger/color.h"
 #include "chord/logger/hashmap.h"
-
-#define BASENAME(file) strrchr(file, '/') ? strrchr(file, '/') + 1 : file
+#include "chord/logger/file.h"
+#include "clog_internal.h"
 
 static map_t loggers;
 
 static int clog_default_log_level = 0;
-
-static int default_level_colors[] = {
-	FG_PURPLE|MOD_INTENSE_FG, FG_CYAN|MOD_INTENSE_FG, FG_GREEN|MOD_INTENSE_FG, FG_YELLOW|MOD_INTENSE_FG, FG_RED|MOD_INTENSE_FG, FG_WHITE|BG_RED
-};
 
 struct timespec start_time;
 
@@ -67,67 +63,27 @@ void clog_set_default_log_level(int level)
 	clog_default_log_level = level;
 }
 
-int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func, int level)
-{	
-	FILE *fp = (FILE *)l->data;
-
-	int color = level >= CLOG_LOG_LEVEL_TRACE && level <= CLOG_LOG_LEVEL_FATAL ? default_level_colors[level] : 0;
-	start_color(fp, color|ATTR_BOLD);
-
-#ifdef LOG_BRACKET_LEADER
-	char leader[level+1];
-	memset(leader, '>', level);
-	leader[level] = '\0';
-	fprintf(fp, "%s> ", leader);
-#endif
-	
+int clog_time_offset(struct timespec *diff_time)
+{
 	struct timespec current_time;
 
 	if (start_time.tv_sec == 0 && start_time.tv_nsec == 0) {
-		clock_gettime(CLOCK_MONOTONIC, &start_time);
+		if (clock_gettime(CLOCK_MONOTONIC, &start_time)) return -1;
 		current_time.tv_sec = start_time.tv_sec;
 		current_time.tv_nsec = start_time.tv_nsec;
 	}
 	else
-		clock_gettime(CLOCK_MONOTONIC, &current_time);
+		if (clock_gettime(CLOCK_MONOTONIC, &current_time)) return -1;
 	
-	struct timespec diff_time;
-	diff_time.tv_sec = current_time.tv_sec - start_time.tv_sec;
-	diff_time.tv_nsec = current_time.tv_nsec - start_time.tv_nsec;
-	if (diff_time.tv_nsec < 0) {
-		diff_time.tv_sec--;
-		diff_time.tv_nsec += 1000000000L;
+	diff_time->tv_sec = current_time.tv_sec - start_time.tv_sec;
+	diff_time->tv_nsec = current_time.tv_nsec - start_time.tv_nsec;
+	if (diff_time->tv_nsec < 0) {
+		diff_time->tv_sec--;
+		diff_time->tv_nsec += 1000000000L;
 	}
-	diff_time.tv_nsec = (diff_time.tv_nsec - (diff_time.tv_nsec % 1000000L)) / 1000000L;
+	diff_time->tv_nsec = (diff_time->tv_nsec - (diff_time->tv_nsec % 1000000L)) / 1000000L;
 	
-	int ret = fprintf(fp, "[%3lu.%.3lu] {%s} (%s) %s@%d: ", diff_time.tv_sec, diff_time.tv_nsec, l->name, func, BASENAME(file), line);
-	
-	default_color(fp);
-	start_color(fp, color);
-	
-	return ret;
-}
-
-ssize_t write_file(FILE *file, const char *buf, size_t size)
-{
-	return fwrite(buf, 1, size, file);
-}
-
-int end_file_msg(logger_ctx_t *l)
-{
-	FILE *fp = (FILE *)l->data;
-	default_color(fp);
-	int ret = fwrite("\n", 1, 1, fp) != 1;
-	ret |= fflush(fp);
-	return ret;
-}
-
-ssize_t logger_call_write(logger_ctx_t *l, const char *buf, size_t size)
-{
-	if (l->log_partial)
-		return l->write(l->data, buf, size);
-	else
-		return size;
+	return 0;
 }
 
 int logger_ctx_init(logger_ctx_t *l, const char *name, int min_level, void *data, start_msg_func start_msg, printf_func printf, write_func write, end_msg_func end_msg)
@@ -169,17 +125,10 @@ logger_ctx_t *logger_ctx_new(const char *name, int min_level, void *data, start_
 	return l;
 }
 
-logger_ctx_t *logger_ctx_new_file(const char *name, int min_level, FILE *file)
-{
-	logger_ctx_t *l = malloc(sizeof(logger_ctx_t));
-	if (logger_ctx_init(l, name, min_level, file, (start_msg_func)start_file_msg, (printf_func)vfprintf, (write_func)write_file, (end_msg_func)end_file_msg))
-		return NULL;
-	
-	return l;
-}
-
 void logger_ctx_close(logger_ctx_t *l)
 {
+	if (l->fp != NULL)
+		fclose(l->fp);
 }
 
 void logger_ctx_free(logger_ctx_t *l)
