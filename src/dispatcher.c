@@ -3,6 +3,7 @@
 #include "chord/chord.h"
 #include "chord/dispatcher.h"
 #include "chord/message_print.h"
+#include "chord/util.h"
 
 struct packet_handler
 {
@@ -200,6 +201,10 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from,
 					int *process_ret)
 {
 	Header *header = header__unpack(NULL, n, buf);
+
+	LogTrace("Received from %s:%s:%d packet of type %s (x%02x) and length %d",
+			 chordID_to_str(&from->id), v6addr_to_str(&from->addr), from->port,
+			 PACKET_NAMES[header->type], buf[header->type], n);
 
 	struct packet_handler *handler = get_handler(d, header->type);
 	if (!handler)

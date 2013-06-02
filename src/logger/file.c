@@ -40,6 +40,9 @@ int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func
 	else
 		ret = fprintf(fp, "[%3lu.%.3lu] {%s} (%s) %s@%d: ", diff_time.tv_sec, diff_time.tv_nsec, l->name, func, BASENAME(file), line);
 	
+	if (ret > 0)
+		fprintf(fp, "%*s", -70 + ret, "");
+
 	default_color(fp);
 	start_color(fp, color);
 	

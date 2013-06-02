@@ -1,6 +1,6 @@
 #include <openssl/evp.h>
 #include <string.h>
-#include "chord/chord.h"
+#include <chord/chord.h>
 #include "chord/message_print.h"
 #include "chord/util.h"
 

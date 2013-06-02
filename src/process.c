@@ -14,7 +14,7 @@
 
 #define LOG_PROCESS(id, from_addr, from_port) \
 { \
-	StartLog(DEBUG); \
+	StartLog(TRACE); \
 	print_process(clog_file_logger()->fp, srv, (char *)__func__, id, from_addr, from_port); \
 	EndLog(); \
 }

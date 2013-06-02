@@ -32,12 +32,15 @@ static void clean_finger_list(Server *srv);
 
 void stabilize(evutil_socket_t sock, short what, void *arg)
 {
-	Info("Stabilizing");
-	
 	Server *srv = arg;
 	static int idx = 0, i;
 	Finger *succ, *pred;
 
+	StartLog(DEBUG);
+	PartialLog("Stabilizing\n");
+	print_server(clog_file_logger()->fp, srv);
+	EndLog();
+	
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {
 		for (i = 0; ((i < srv->nknown) && (i < MAX_SIMJOIN)); i++) {

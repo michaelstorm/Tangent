@@ -89,7 +89,7 @@ void set_loworder_bits(chordID *id)
 {
     int i;
 #define ID_SERVER_LEN 6
-    for (i = ID_SERVER_LEN; i < ID_LEN; i++)
+    for (i = ID_SERVER_LEN; i < CHORD_ID_LEN; i++)
 	id->x[i] = 0xff;
 }
 
