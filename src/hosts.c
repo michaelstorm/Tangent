@@ -176,7 +176,7 @@ int resolve_v6name(const char *name, in6_addr *v6addr)
 	return 0;
 }
 
-void chord_bind_v6socket(int sock, const in6_addr *addr, ushort port)
+void bind_v6socket(int sock, const in6_addr *addr, ushort port)
 {
 	int reuse = 1;
 	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
@@ -192,7 +192,7 @@ void chord_bind_v6socket(int sock, const in6_addr *addr, ushort port)
 		eprintf("bind failed:");
 }
 
-void chord_bind_v4socket(int sock, ulong addr, ushort port)
+void bind_v4socket(int sock, ulong addr, ushort port)
 {
 	int reuse = 1;
 	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));

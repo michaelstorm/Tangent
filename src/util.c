@@ -424,7 +424,7 @@ void print_finger_list(FILE *out, Finger *fhead)
 	}
 }
 
-void print_server(FILE *out, Server *s)
+void print_server(FILE *out, ChordServer *s)
 {
 	print_node(out, &s->node);
 	fprintf(out, "\n(%d passive)\n", s->num_passive_fingers);
@@ -433,7 +433,7 @@ void print_server(FILE *out, Server *s)
 }
 
 
-void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_addr *addr,
+void print_process(FILE *out, ChordServer *srv, char *process_type, chordID *id, in6_addr *addr,
 				   ushort port)
 {
 #define TYPE_LEN 16
@@ -456,7 +456,7 @@ void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_
 	print_current_time(out, " Time:", "");
 }
 
-void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
+void print_send(FILE *out, ChordServer *srv, char *send_type, chordID *id, in6_addr *addr, ushort port)
 {
 	//int i = TYPE_LEN - strlen(send_type);
 
@@ -475,7 +475,7 @@ void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *
 	print_current_time(out, " Time:", "");
 }
 
-void print_fun(FILE *out, Server *srv, char *fun_name, chordID *id)
+void print_fun(FILE *out, ChordServer *srv, char *fun_name, chordID *id)
 {
 	fprintf(out, "%s: ", fun_name);
 	print_chordID(out, &srv->node.id);

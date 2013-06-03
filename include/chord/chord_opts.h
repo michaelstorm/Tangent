@@ -20,9 +20,6 @@ enum {
 	MAX_WELLKNOWN = 50,            /* maximum number of other known servers
 									*  (read from configuration file)
 									*/
-	MAX_SIMJOIN = 4,               /* maximum number of servers
-									* contacted simultaneously when joining
-									*/
 	MAX_PASSIVE_FINGERS = 20,	   /* maximum number of fingers to keep that
 									* have yet to respond to ping
 									*/

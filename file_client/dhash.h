@@ -16,7 +16,7 @@ typedef void (*dhash_request_reply_handler)(void *ctx, int code,
 struct Dispatcher;
 struct event;
 struct event_base;
-struct Server;
+struct ChordServer;
 struct Transfer;
 typedef struct DHash DHash;
 typedef struct DHashPacketArgs DHashPacketArgs;
@@ -25,7 +25,7 @@ typedef struct ControlPacketArgs ControlPacketArgs;
 
 struct DHash
 {
-	struct Server **servers;
+	struct ChordServer **servers;
 	int *chord_tunnel_socks;
 	int nservers;
 
@@ -46,7 +46,7 @@ struct DHash
 struct ChordDataPacketArgs
 {
 	DHash *dhash;
-	struct Server *srv;
+	struct ChordServer *srv;
 } __attribute__((__packed__));
 
 struct ControlPacketArgs

@@ -22,7 +22,7 @@ Finger *new_finger(Node *node)
 
 /**********************************************************************/
 
-Finger *succ_finger(Server *srv)
+Finger *succ_finger(ChordServer *srv)
 {
 	Finger *f;
 	for (f = srv->head_flist; f; f = f->next) {
@@ -34,7 +34,7 @@ Finger *succ_finger(Server *srv)
 
 /**********************************************************************/
 
-Finger *pred_finger(Server *srv)
+Finger *pred_finger(ChordServer *srv)
 {
 	Finger *f;
 	for (f = srv->tail_flist; f; f = f->prev) {
@@ -49,7 +49,7 @@ Finger *pred_finger(Server *srv)
 /* closest_preceding_node: search table for highest predecessor of id */
 /* closest_preceding_finger: search table for highest predecessor of id */
 
-Finger *closest_preceding_finger(Server *srv, chordID *id, int fall)
+Finger *closest_preceding_finger(ChordServer *srv, chordID *id, int fall)
 {
 	Finger *f;
 	for (f = srv->tail_flist; f; f = f->prev) {
@@ -65,7 +65,7 @@ Finger *closest_preceding_finger(Server *srv, chordID *id, int fall)
 	return NULL;
 }
 
-Node *closest_preceding_node(Server *srv, chordID *id, int fall)
+Node *closest_preceding_node(ChordServer *srv, chordID *id, int fall)
 {
 	Finger *f = closest_preceding_finger(srv, id, fall);
 
@@ -77,7 +77,7 @@ Node *closest_preceding_node(Server *srv, chordID *id, int fall)
 
 /**********************************************************************/
 
-Finger *get_finger(Server *srv, chordID *id, int *index)
+Finger *get_finger(ChordServer *srv, chordID *id, int *index)
 {
 	Finger *f;
 	int i;
@@ -92,7 +92,7 @@ Finger *get_finger(Server *srv, chordID *id, int *index)
 }
 
 /* find the finger that has failed to respond to the greatest number of pings */
-Finger *get_worst_passive_finger(Server *srv)
+Finger *get_worst_passive_finger(ChordServer *srv)
 {
 	Finger *f;
 	Finger *worst_finger = NULL;
@@ -113,9 +113,9 @@ Finger *get_worst_passive_finger(Server *srv)
 
 /**********************************************************************/
 
-void fingerlist_insert(Server *srv, Finger *f);
+void fingerlist_insert(ChordServer *srv, Finger *f);
 
-Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
+Finger *insert_finger(ChordServer *srv, chordID *id, in6_addr *addr, in_port_t port,
 					  int *fnew)
 {
 	Node n;
@@ -198,7 +198,7 @@ Finger *insert_finger(Server *srv, chordID *id, in6_addr *addr, in_port_t port,
 	return new_f;
 }
 
-void fingerlist_insert(Server *srv, Finger *new_f)
+void fingerlist_insert(ChordServer *srv, Finger *new_f)
 {
 	if (srv->head_flist == NULL)
 		srv->head_flist = srv->tail_flist = new_f;
@@ -222,7 +222,7 @@ void fingerlist_insert(Server *srv, Finger *new_f)
 	}
 }
 
-void activate_finger(Server *srv, Finger *f)
+void activate_finger(ChordServer *srv, Finger *f)
 {
 	if (f->status == F_PASSIVE) {
 		srv->num_passive_fingers--;
@@ -237,7 +237,7 @@ void activate_finger(Server *srv, Finger *f)
 
 /**********************************************************************/
 
-void remove_finger(Server *srv, Finger *f)
+void remove_finger(ChordServer *srv, Finger *f)
 {
 	StartLog(DEBUG);
 	PartialLog("Removing finger ");

@@ -20,7 +20,7 @@ void dhash_send_push(DHash *dhash, const uchar *name, int name_len)
 
 	int i;
 	for (i = 0; i < dhash->nservers; i++) {
-		Server *srv = dhash->servers[i];
+		ChordServer *srv = dhash->servers[i];
 
 		/* pack the server's reply address and port */
 		n = dhash_pack_push(buf, &srv->node.addr, srv->node.port, name,
@@ -56,7 +56,7 @@ void dhash_send_query(DHash *dhash, const uchar *name, int name_len)
 
 	int i;
 	for (i = 0; i < dhash->nservers; i++) {
-		Server *srv = dhash->servers[i];
+		ChordServer *srv = dhash->servers[i];
 
 		/* pack the server's reply address and port */
 		n = dhash_pack_query(buf, &srv->node.addr, srv->node.port, name,
@@ -76,7 +76,7 @@ void dhash_send_query(DHash *dhash, const uchar *name, int name_len)
    might want to introduce a fallback mechanism that routes them over Chord as
    well, at the cost of increased network load and latency for queries.
  */
-static void send_chord_pkt_directly(Server *srv, in6_addr *addr, ushort port,
+static void send_chord_pkt_directly(ChordServer *srv, in6_addr *addr, ushort port,
 									const uchar *data, int n)
 {
 	chordID id;
@@ -90,7 +90,7 @@ static void send_chord_pkt_directly(Server *srv, in6_addr *addr, ushort port,
 
 /* Notify the requesting node that we have the file.
  */
-void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
+void dhash_send_query_reply_success(DHash *dhash, ChordServer *srv, in6_addr *addr,
 									ushort port, const uchar *name, int name_len)
 {
 	fprintf(stderr, "sending query reply SUCCESS to [%s]:%d\n",
@@ -104,7 +104,7 @@ void dhash_send_query_reply_success(DHash *dhash, Server *srv, in6_addr *addr,
 /* Notify the requesting node that we are the file's successor, but don't have
    it.
  */
-void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
+void dhash_send_query_reply_failure(DHash *dhash, ChordServer *srv, in6_addr *addr,
 									ushort port, const uchar *name, int name_len)
 {
 	fprintf(stderr, "sending query reply FAILURE to [%s]:%d\n",
@@ -115,7 +115,7 @@ void dhash_send_query_reply_failure(DHash *dhash, Server *srv, in6_addr *addr,
 	send_chord_pkt_directly(srv, addr, port, buf, n);
 }
 
-void dhash_send_push_reply(DHash *dhash, Server *srv, in6_addr *addr,
+void dhash_send_push_reply(DHash *dhash, ChordServer *srv, in6_addr *addr,
 						   ushort port, const uchar *name, int name_len)
 {
 	fprintf(stderr, "sending push reply to [%s]:%d\n", v6addr_to_str(addr),

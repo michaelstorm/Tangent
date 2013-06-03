@@ -16,9 +16,14 @@
 extern "C" {
 #endif
 
+typedef unsigned char uchar;
+typedef unsigned short ushort;
+typedef unsigned long ulong;
+typedef struct in6_addr in6_addr;
+typedef struct in_addr in_addr;
 typedef struct Finger Finger;
 typedef struct Node Node;
-typedef struct Server Server;
+typedef struct ChordServer ChordServer;
 
 #define NELEMS(a) (sizeof(a) / sizeof(a[0]))
 
@@ -55,7 +60,7 @@ enum {
 	CHORD_FINGER_ERROR,
 };
 
-typedef int (*chord_packet_handler)(void *ctx, Server *srv, void *msg,
+typedef int (*chord_packet_handler)(void *ctx, ChordServer *srv, void *msg,
 									Node *from);
 
 struct Node
@@ -78,7 +83,7 @@ struct WellKnown
 
 typedef void (*send_func_t)(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 
-struct Server
+struct ChordServer
 {
 	Node node;          /* addr and ID */
 	chordID pred_bound; /* left bound on ID range; right bound is node.id */
@@ -119,14 +124,14 @@ struct Server
 
 /* chord.c */
 int chord_check_library_versions();
-Server *new_server(struct event_base *ev_base);
-void server_initialize_from_file(Server *srv, char *conf_file);
-void server_start(Server *srv);
-void server_initialize_socket(Server *srv);
+ChordServer *new_server(struct event_base *ev_base);
+void server_initialize_from_file(ChordServer *srv, char *conf_file);
+void server_start(ChordServer *srv);
+void server_initialize_socket(ChordServer *srv);
 
 void handle_packet(evutil_socket_t sock, short what, void *arg);
 
-void chord_update_range(Server *srv, chordID *l, chordID *r);
+void chord_update_range(ChordServer *srv, chordID *l, chordID *r);
 
 /* join.c */
 void discover_addr(evutil_socket_t sock, short what, void *arg);

@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "chord/chord_api.h"
+
 double f_rand();
 double funif_rand(double a, double b);
 int n_rand(int n);
@@ -38,12 +40,12 @@ void print_three_chordIDs(FILE *out, char *preffix, chordID *id1,
 void print_node(FILE *out, Node *node);
 void print_finger(FILE *out, Finger *f, char *prefix, char *suffix);
 void print_finger_list(FILE *out, Finger *fhead);
-void print_server(FILE *out, Server *s);
-void print_send(FILE *out, Server *srv, char *send_type, chordID *id, in6_addr *addr,
+void print_server(FILE *out, ChordServer *s);
+void print_send(FILE *out, ChordServer *srv, char *send_type, chordID *id, in6_addr *addr,
 				ushort port);
-void print_process(FILE *out, Server *srv, char *process_type, chordID *id, in6_addr *addr,
+void print_process(FILE *out, ChordServer *srv, char *process_type, chordID *id, in6_addr *addr,
 				   ushort port);
-void print_fun(FILE *out, Server *srv, char *fun_name, chordID *id);
+void print_fun(FILE *out, ChordServer *srv, char *fun_name, chordID *id);
 void print_current_time(FILE *out, char *prefix, char *suffix);
 int match_key(chordID *key_array, int num_keys, chordID *key);
 int v6_addr_equals(const in6_addr *addr1, const in6_addr *addr2);

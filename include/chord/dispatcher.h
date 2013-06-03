@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "chord/chord_api.h"
+#include "chord/chord.h"
 #include "messages.pb-c.h"
 
 #ifdef __cplusplus
@@ -13,7 +13,7 @@ extern "C" {
 typedef struct Dispatcher Dispatcher;
 
 struct Node;
-struct Server;
+struct ChordServer;
 struct _ProtobufCAllocator;
 typedef void *(*unpack_fn)(struct _ProtobufCAllocator *, size_t,
 						   const uint8_t *);

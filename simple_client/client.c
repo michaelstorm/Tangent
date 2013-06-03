@@ -43,21 +43,11 @@ void create_chord_servers(struct event_base *ev_base, char **conf_files, int nse
 {
 	int i;
 	for (i = 0; i < nservers; i++) {
-		Server *srv = new_server(ev_base);
+		ChordServer *srv = new_server(ev_base);
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 		server_start(srv);
 	}
-}
-
-struct event_base *create_event_base()
-{
-	// create an event_base that works with events on file descriptors
-	struct event_config *cfg = event_config_new();
-	event_config_require_features(cfg, EV_FEATURE_FDS);
-	struct event_base *ev_base = event_base_new_with_config(cfg);
-	event_config_free(cfg);
-	return ev_base;
 }
 
 void init_logging()
@@ -80,7 +70,7 @@ int main(int argc, char **argv)
 	chord_check_library_versions();
 	init_global_libevent();
 
-	struct event_base *ev_base = create_event_base();
+	struct event_base *ev_base = event_base_new();
 	create_chord_servers(ev_base, argv+1, argc-1);
 
 	Debug("Starting event loop...");

@@ -43,7 +43,7 @@ const char *PACKET_NAMES[] = {
 
 int MAX_PACKET_TYPE = sizeof(PACKET_NAMES) / sizeof(char *);
 
-static void init_ticket_key(Server *srv);
+static void init_ticket_key(ChordServer *srv);
 
 int chord_check_library_versions()
 {
@@ -57,7 +57,7 @@ int chord_check_library_versions()
 	return ret;
 }
 
-void init_discover_addr_event(Server *srv)
+void init_discover_addr_event(ChordServer *srv)
 {
 	srv->discover_addr_event = event_new(srv->ev_base, -1,
 										 EV_TIMEOUT|EV_PERSIST, discover_addr,
@@ -70,15 +70,15 @@ void init_discover_addr_event(Server *srv)
 	event_active(srv->discover_addr_event, 0, 1);
 }
 
-void init_stabilize_event(Server *srv)
+void init_stabilize_event(ChordServer *srv)
 {
 	srv->stab_event = event_new(srv->ev_base, -1, EV_TIMEOUT|EV_PERSIST,
 								stabilize, srv);
 }
 
-Server *new_server(struct event_base *ev_base)
+ChordServer *new_server(struct event_base *ev_base)
 {
-	Server *srv = calloc(1, sizeof(Server));
+	ChordServer *srv = calloc(1, sizeof(ChordServer));
 	srv->to_fix_finger = NFINGERS-1;
 
 	srv->ev_base = ev_base;
@@ -118,7 +118,7 @@ Server *new_server(struct event_base *ev_base)
 	return srv;
 }
 
-void server_initialize_from_file(Server *srv, char *conf_file)
+void server_initialize_from_file(ChordServer *srv, char *conf_file)
 {
 	char id[4*CHORD_ID_LEN];
 	int ip_ver;
@@ -185,7 +185,7 @@ void server_initialize_from_file(Server *srv, char *conf_file)
 		Error("Didn't find any known hosts.");
 }
 
-void log_events(Server *srv)
+void log_events(ChordServer *srv)
 {
 	logger_ctx_t *l = clog_get_logger("events");
 	StartLogTo(l, DEBUG);
@@ -194,19 +194,19 @@ void log_events(Server *srv)
 	EndLogTo(l);
 }
 
-void server_start(Server *srv)
+void server_start(ChordServer *srv)
 {
 }
 
-void server_initialize_socket(Server *srv)
+void server_initialize_socket(ChordServer *srv)
 {
 	srv->sock = socket(srv->is_v6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
 	if (srv->is_v6) {
-		chord_bind_v6socket(srv->sock, &in6addr_any, srv->node.port);
+		bind_v6socket(srv->sock, &in6addr_any, srv->node.port);
 		srv->send_func = &send_raw_v6;
 	}
 	else {
-		chord_bind_v4socket(srv->sock, INADDR_ANY, srv->node.port);
+		bind_v4socket(srv->sock, INADDR_ANY, srv->node.port);
 		srv->send_func = &send_raw_v4;
 	}
 
@@ -219,7 +219,7 @@ void server_initialize_socket(Server *srv)
 
 /**********************************************************************/
 
-static void init_ticket_key(Server *srv)
+static void init_ticket_key(ChordServer *srv)
 {
 	if (!RAND_load_file("/dev/urandom", 64)) {
 		Fatal("Could not seed random number generator.\n");
@@ -240,7 +240,7 @@ static void init_ticket_key(Server *srv)
 /* handle_packet: snarf packet from network and dispatch */
 void handle_packet(evutil_socket_t sock, short what, void *arg)
 {
-	Server *srv = arg;
+	ChordServer *srv = arg;
 	ssize_t packet_len;
 	socklen_t from_len;
 	Node from;
@@ -295,7 +295,7 @@ long double id_to_radians(const chordID *id)
 	return rad*2*PI;
 }
 
-void chord_print_circle(Server *srv, FILE *fp)
+void chord_print_circle(ChordServer *srv, FILE *fp)
 {
 	return;
 #define ROW_RATIO ((long double)0.5)
@@ -372,7 +372,7 @@ void chord_print_circle(Server *srv, FILE *fp)
 	free_grid(g);
 }
 
-void chord_update_range(Server *srv, chordID *l, chordID *r)
+void chord_update_range(ChordServer *srv, chordID *l, chordID *r)
 {
 	StartLog(INFO);
 	PartialLog("range: ");
@@ -391,13 +391,13 @@ void chord_update_range(Server *srv, chordID *l, chordID *r)
 }
 
 /* get_range: returns the range (l,r] that this node is responsible for */
-void chord_get_range(Server *srv, chordID *l, chordID *r)
+void chord_get_range(ChordServer *srv, chordID *l, chordID *r)
 {
 	*l = srv->pred_bound;
 	*r = srv->node.id;
 }
 
-int chord_is_local(Server *srv, chordID *x)
+int chord_is_local(ChordServer *srv, chordID *x)
 {
 	return equals(x, &srv->node.id) || is_between(x, &srv->pred_bound,
 												  &srv->node.id);

@@ -9,11 +9,11 @@ extern "C" {
 
 struct ChordPacketArgs
 {
-	Server *srv;
+	ChordServer *srv;
 } __attribute__((__packed__));
 typedef struct ChordPacketArgs ChordPacketArgs;
 
-Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last);
+Node *next_route_node(ChordServer *srv, chordID *id, int last, int *next_is_last);
 int process_addr_discover(Header *header, ChordPacketArgs *args,
 						  AddrDiscover *msg, Node *from);
 int process_addr_discover_reply(Header *header, ChordPacketArgs *args,

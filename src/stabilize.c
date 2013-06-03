@@ -12,10 +12,10 @@
 #include "chord/util.h"
 
 /* local functions */
-static void fix_fingers(Server *srv);
-static void fix_succs_preds(Server *srv);
-static void ping(Server *srv);
-static void clean_finger_list(Server *srv);
+static void fix_fingers(ChordServer *srv);
+static void fix_succs_preds(ChordServer *srv);
+static void ping(ChordServer *srv);
+static void clean_finger_list(ChordServer *srv);
 
 /* stabilize: the following things are done periodically
  *	- stabilize successor by asking for its predecessor
@@ -32,7 +32,7 @@ static void clean_finger_list(Server *srv);
 
 void stabilize(evutil_socket_t sock, short what, void *arg)
 {
-	Server *srv = arg;
+	ChordServer *srv = arg;
 	static int idx = 0, i;
 	Finger *succ, *pred;
 
@@ -43,7 +43,7 @@ void stabilize(evutil_socket_t sock, short what, void *arg)
 	
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {
-		for (i = 0; ((i < srv->nknown) && (i < MAX_SIMJOIN)); i++) {
+		for (i = 0; i < srv->nknown; i++) {
 			send_fs(srv, DEF_TTL, &srv->well_known[i].node.addr,
 					srv->well_known[i].node.port, &srv->node.addr,
 					srv->node.port);
@@ -97,7 +97,7 @@ void stabilize(evutil_socket_t sock, short what, void *arg)
 
 /**********************************************************************/
 
-void fix_fingers(Server *srv)
+void fix_fingers(ChordServer *srv)
 {
 	Finger *f, *succ = succ_finger(srv);
 	chordID id = successor(srv->node.id, srv->to_fix_finger);
@@ -160,7 +160,7 @@ void fix_fingers(Server *srv)
 /* fix backup successors and predecessors in a round-robin fashion	  */
 /**********************************************************************/
 
-void fix_succs_preds(Server *srv)
+void fix_succs_preds(ChordServer *srv)
 {
 	int k;
 	Finger *f, *succ;
@@ -224,7 +224,7 @@ void fix_succs_preds(Server *srv)
 
 /************************************************************************/
 
-void ping(Server *srv)
+void ping(ChordServer *srv)
 {
 	int i;
 	Finger *f, *f_next, *f_pinged = NULL;
@@ -268,7 +268,7 @@ void ping(Server *srv)
  * remove anything else from finger list
  ***********************************************************************/
 
-void clean_finger_list(Server *srv)
+void clean_finger_list(ChordServer *srv)
 {
 	Finger *f, *f_lastsucc, *f_lastpred, *f_tmp;
 	int k;

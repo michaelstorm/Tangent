@@ -170,7 +170,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 	evthread_use_pthreads();
 	dhash->ev_base = event_base_new();
 
-	dhash->servers = (Server **)malloc(sizeof(Server *)*nservers);
+	dhash->servers = (ChordServer **)malloc(sizeof(ChordServer *)*nservers);
 	dhash->chord_tunnel_socks = (int *)malloc(sizeof(int)*nservers);
 	dhash->nservers = nservers;
 
@@ -183,7 +183,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		dhash->servers[i] = new_server(dhash->ev_base);
 		dhash->chord_tunnel_socks[i] = 0 /*chord_tunnel[0]*/;
 
-		Server *srv = dhash->servers[i];
+		ChordServer *srv = dhash->servers[i];
 		server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 

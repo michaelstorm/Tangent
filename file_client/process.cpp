@@ -15,7 +15,7 @@ int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 						Node *from)
 {
 	DHash *dhash = args->dhash;
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 
 	in6_addr reply_addr;
 	v6_addr_set(&reply_addr, msg->reply_addr.data);
@@ -116,7 +116,7 @@ int dhash_process_query_reply_success(Header *header, ChordDataPacketArgs *args,
 									  QueryReplySuccess *msg, Node *from)
 {
 	DHash *dhash = args->dhash;
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 
 	fprintf(stderr, "receiving transfer of \"%s\" from [%s]:%d\n",
 			buf_to_str(msg->name.data, msg->name.len),
@@ -142,7 +142,7 @@ int dhash_process_push(Header *header, ChordDataPacketArgs *args, Push *msg,
 					   Node *from)
 {
 	DHash *dhash = args->dhash;
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 
 	in6_addr reply_addr;
 	v6_addr_set(&reply_addr, msg->reply_addr.data);
@@ -168,7 +168,7 @@ int dhash_process_push_reply(Header *header, ChordDataPacketArgs *args,
 							 PushReply *msg, Node *from)
 {
 	DHash *dhash = args->dhash;
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 
 	fprintf(stderr, "received push reply for \"%s\"\n",
 			buf_to_str(msg->name.data, msg->name.len));

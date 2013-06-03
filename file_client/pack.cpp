@@ -29,7 +29,7 @@ int dhash_unpack_chord_data(Header *header, DHashPacketArgs *args, Data *msg,
 							Node *from)
 {
 	fprintf(stderr, "received routing packet\n");
-	Server *srv = args->chord_args.srv;
+	ChordServer *srv = args->chord_args.srv;
 	DHash *dhash = args->dhash;
 
 	int type = dispatcher_get_type(msg->data.data, msg->data.len);

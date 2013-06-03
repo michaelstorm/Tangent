@@ -22,7 +22,7 @@
 int process_addr_discover(Header *header, ChordPacketArgs *args,
 						  AddrDiscover *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	send_addr_discover_reply(srv, msg->ticket.data, msg->ticket.len, &from->addr, from->port);
@@ -32,7 +32,7 @@ int process_addr_discover(Header *header, ChordPacketArgs *args,
 int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 								AddrDiscoverReply *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	LOG_PROCESS(&from->id, &from->addr, from->port);
 
 	if (!verify_ticket(srv->ticket_salt, srv->ticket_salt_len,
@@ -63,7 +63,7 @@ int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 	return CHORD_NO_ERROR;
 }
 
-Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last)
+Node *next_route_node(ChordServer *srv, chordID *id, int last, int *next_is_last)
 {
 	Finger *pf, *sf;
 
@@ -95,7 +95,7 @@ Node *next_route_node(Server *srv, chordID *id, int last, int *next_is_last)
 
 int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	chordID id;
 	memcpy(id.x, msg->id.data, CHORD_ID_LEN);
 
@@ -130,7 +130,7 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 			   Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	Node *succ, *np;
 	chordID reply_id;
 	in6_addr reply_addr;
@@ -179,7 +179,7 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 int process_fs_reply(Header *header, ChordPacketArgs *args,
 					 FindSuccessorReply *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	int fnew;
 	chordID id;
 
@@ -211,7 +211,7 @@ int process_fs_reply(Header *header, ChordPacketArgs *args,
 int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 				 Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	Finger *pred = pred_finger(srv);
 	int		 fnew;
 	chordID id;
@@ -238,7 +238,7 @@ int process_stab(Header *header, ChordPacketArgs *args, Stabilize *msg,
 int process_stab_reply(Header *header, ChordPacketArgs *args,
 					   StabilizeReply *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	Finger *succ;
 	int fnew;
 	chordID id;
@@ -271,7 +271,7 @@ int process_stab_reply(Header *header, ChordPacketArgs *args,
 int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 				   Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	int fnew;
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
@@ -288,7 +288,7 @@ int process_notify(Header *header, ChordPacketArgs *args, Notify *msg,
 
 int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	int fnew;
 	Finger *pred;
 
@@ -319,7 +319,7 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 
 int process_pong(Header *header, ChordPacketArgs *args, Pong *msg, Node *from)
 {
-	Server *srv = args->srv;
+	ChordServer *srv = args->srv;
 	Finger *f, *pred, *newpred;
 	ulong	 new_rtt;
 	int		 fnew;
