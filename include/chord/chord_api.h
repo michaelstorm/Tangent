@@ -23,10 +23,11 @@ typedef struct {
 	uchar x[CHORD_ID_LEN];
 } chordID;
 
-/* init: initialize chord server, provide configuration file */
-int chord_init(char **conf_file, int nservers);
+typedef struct Server Server;
 
-void chord_cleanup(int signum);
+void chord_get_range(Server *srv, chordID *l, chordID *r);
+int chord_is_local(Server *srv, chordID *x);
+void chord_print_circle(Server *srv);
 
 #ifdef __cplusplus
 }

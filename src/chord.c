@@ -76,13 +76,10 @@ void init_stabilize_event(Server *srv)
 								stabilize, srv);
 }
 
-Server *new_server(struct event_base *ev_base, int tunnel_sock)
+Server *new_server(struct event_base *ev_base)
 {
 	Server *srv = calloc(1, sizeof(Server));
 	srv->to_fix_finger = NFINGERS-1;
-
-	srv->tunnel_sock = tunnel_sock;
-	//eventqueue_listen_socket(srv->tunnel_sock, srv, (socket_func)handle_packet);
 
 	srv->ev_base = ev_base;
 
@@ -220,25 +217,6 @@ void server_initialize_socket(Server *srv)
 	event_add(srv->sock_event, NULL);
 }
 
-void chord_main(char **conf_files, int nservers, int tunnel_sock)
-{
-	/*setprogname("chord");
-	srandom(getpid() ^ time(0));
-
-	init_global_eventqueue();
-
-	Server *servers[nservers];
-	int i;
-	for (i = 0; i < nservers; i++) {
-		servers[i] = new_server(tunnel_sock);
-		server_initialize_from_file(servers[i], conf_files[i]);
-		server_initialize_socket(servers[i]);
-		server_start(servers[i]);
-	}
-
-	eventqueue_loop();*/
-}
-
 /**********************************************************************/
 
 static void init_ticket_key(Server *srv)
@@ -303,22 +281,6 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 }
 
 /**********************************************************************/
-
-int read_keys(char *file, chordID *key_array, int max_num_keys)
-{
-	FILE *fp = fopen(file, "r");
-	if (fp == NULL)
-		return -1;
-
-	int i;
-	for (i = 0; i < max_num_keys; i++) {
-		if (fscanf(fp, "%20c\n", (char *)&key_array[i]) != 1)
-			break;
-	}
-
-	fclose(fp);
-	return i;
-}
 
 long double id_to_radians(const chordID *id)
 {

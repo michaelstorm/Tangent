@@ -21,6 +21,48 @@
 #include "send.h"
 #include "transfer.h"
 
+void process_reply(void *ctx, int code, const uchar *name, int name_len)
+{
+	switch (code) {
+	case DHASH_CLIENT_REPLY_LOCAL:
+		printf("%s is local\n", name);
+		break;
+	case DHASH_CLIENT_REPLY_SUCCESS:
+		printf("%s retrieved successfully\n", name);
+		break;
+	case DHASH_CLIENT_REPLY_FAILURE:
+		printf("%s retrieval failed\n", name);
+		break;
+	default:
+		printf("unknown code\n");
+		break;
+	}
+}
+
+void handle_reply(evutil_socket_t sock, short what, void *arg)
+{
+	uchar buf[1024];
+	int n;
+
+	if ((n = read(sock, buf, 1024)) < 0)
+		perror("reading file request reply");
+
+	dhash_client_unpack_request_reply(buf, n, arg, process_reply);
+}
+
+void handle_request(evutil_socket_t sock, short what, void *arg)
+{
+	int n;
+	uchar file[128];
+
+	if ((n = read(sock, file, sizeof(file)-1)) < 0)
+		perror("reading file request reply");
+
+	// disabled until control_sock is passed in somehow; should be enabled
+	/*if (n > 0)
+		dhash_client_send_request(control_sock, file, n-1); // skip newline */
+}
+
 DHash *new_dhash(const char *files_path, const char *cert_path)
 {
 	DHash *dhash = (DHash *)malloc(sizeof(DHash));
@@ -138,7 +180,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		if (socketpair(AF_UNIX, SOCK_DGRAM, 0, chord_tunnel) < 0)
 			eprintf("socket_pair failed:");*/
 
-		dhash->servers[i] = new_server(dhash->ev_base, 0 /*chord_tunnel[1]*/);
+		dhash->servers[i] = new_server(dhash->ev_base);
 		dhash->chord_tunnel_socks[i] = 0 /*chord_tunnel[0]*/;
 
 		Server *srv = dhash->servers[i];

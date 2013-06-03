@@ -119,29 +119,17 @@ struct Server
 
 /* chord.c */
 int chord_check_library_versions();
-Server *new_server(struct event_base *ev_base, int tunnel_sock);
+Server *new_server(struct event_base *ev_base);
 void server_initialize_from_file(Server *srv, char *conf_file);
 void server_start(Server *srv);
 void server_initialize_socket(Server *srv);
 
-void chord_main(char **conf_files, int nservers, int tunnel_sock);
-void initialize(Server *srv, int is_v6);
 void handle_packet(evutil_socket_t sock, short what, void *arg);
-int read_keys(char *file, chordID *keyarray, int max_num_keys);
 
 void chord_update_range(Server *srv, chordID *l, chordID *r);
-void chord_get_range(Server *srv, chordID *l, chordID *r);
-int chord_is_local(Server *srv, chordID *x);
-
-void chord_set_packet_handler(Server *srv, int event,
-							  chord_packet_handler handler);
-void chord_set_packet_handler_ctx(Server *srv, void *ctx);
-
-void chord_print_circle(Server *srv);
 
 /* join.c */
 void discover_addr(evutil_socket_t sock, short what, void *arg);
-void join(Server *srv, FILE *fp);
 
 /* stabilize.c */
 void stabilize(evutil_socket_t sock, short what, void *arg);
