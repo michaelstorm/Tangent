@@ -5,7 +5,7 @@
 #define PROTOBUF_C_NO_DEPRECATED
 #endif
 
-#include "client/d_messages.pb-c.h"
+#include "file_client/d_messages.pb-c.h"
 void   client_request__init
                      (ClientRequest         *message)
 {

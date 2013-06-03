@@ -202,3 +202,8 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 
 	event_base_dispatch(dhash->ev_base);
 }
+
+int main(int argc, char **argv)
+{
+	return 1; // not implemented
+}

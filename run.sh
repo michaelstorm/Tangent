@@ -1,1 +1,1 @@
-./build/client files/ certs/stelcert.pem node/$1/4.conf
+./build/simple_client node/$1/4.conf

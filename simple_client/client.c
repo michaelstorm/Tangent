@@ -68,7 +68,6 @@ void init_logging()
 
 void init_global_libevent()
 {
-	evthread_use_pthreads();
 	event_set_log_callback(&event_logging_cb);
 	event_enable_debug_logging(EVENT_DBG_ALL);
 }
@@ -82,7 +81,7 @@ int main(int argc, char **argv)
 	init_global_libevent();
 
 	struct event_base *ev_base = create_event_base();
-	create_chord_servers(ev_base, argv+3, argc-3);
+	create_chord_servers(ev_base, argv+1, argc-1);
 
 	Debug("Starting event loop...");
 	return event_base_dispatch(ev_base);
