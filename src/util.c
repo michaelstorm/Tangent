@@ -13,51 +13,6 @@
 #include "chord/finger.h"
 #include "chord/util.h"
 
-/* f_rand: return a random double between 0.0 and 1.0 */
-double f_rand(void)
-{
-	int64_t l = (int64_t)(random() & ((1 << 26) - 1));
-	int64_t r = (int64_t)(random() & ((1 << 27) - 1));
-	return ((l << 27) + r) / (double)(1LL << 53);
-}
-
-/**********************************************************************/
-
-/* funif_rand: Return a random number between a and b */
-double funif_rand(double a, double b)
-{
-	return a + (b - a) * f_rand();
-}
-
-/**********************************************************************/
-
-/* n_rand: return a random integer in [0, n),
-   borrowed from Java Random class */
-int n_rand(int n)
-{
-	int bits, val;
-
-	assert(n > 0);	 /* n must be positive */
-
-	/* Special case: power of 2 */
-	if ((n & -n) == n)
-		return random() & (n - 1);
-
-	do {
-		bits = random();
-		val = bits % n;
-	} while (bits - val + (n - 1) < 0);
-	return val;
-}
-
-/**********************************************************************/
-
-/* unif_rand: return a random integer number in the interval [a, b) */
-int unif_rand(int a, int b)
-{
-	return a + n_rand(b - a);
-}
-
 /**********************************************************************/
 
 /* getusec: return wall time in usec */
@@ -87,24 +42,10 @@ void update_rtt(long *rtt_avg, long *rtt_dev, long new_rtt)
 		*rtt_dev += (err - *rtt_dev) >> 2;
 }
 
-
-/**********************************************************************/
-
-/* randID: return a random ID */
-chordID rand_ID()
-{
-	chordID id;
-
-	int i;
-	for (i = 0; i < CHORD_ID_LEN; i++)
-		id.x[i] = (uchar)(random() & 0xff);
-	return id;
-}
-
 /**********************************************************************/
 
 /* successorID: id + (1 << n) */
-chordID successor(chordID id, int n)
+chordID chord_id_successor(chordID id, int n)
 {
 	uchar old;
 	int start, i;
@@ -127,7 +68,7 @@ chordID successor(chordID id, int n)
 /**********************************************************************/
 
 /* predecessorID: id - (1 << n) */
-chordID predecessor(chordID id, int n)
+chordID chord_id_predecessor(chordID id, int n)
 {
 	uchar old;
 	int start, i;
@@ -152,7 +93,7 @@ chordID predecessor(chordID id, int n)
 /**********************************************************************/
 
 /* add: res = a + b (mod 2^n) */
-void add(chordID *a, chordID *b, chordID *res)
+void id_add(chordID *a, chordID *b, chordID *res)
 {
 	int i, carry = 0;
 	for (i = CHORD_ID_LEN - 1; i >= 0; i--) {
@@ -164,7 +105,7 @@ void add(chordID *a, chordID *b, chordID *res)
 /**********************************************************************/
 
 /* subtract: res = a - b (mod 2^n) */
-void subtract(chordID *a, chordID *b, chordID *res)
+void id_subtract(chordID *a, chordID *b, chordID *res)
 {
 	int i, borrow = 0;
 	for (i = CHORD_ID_LEN - 1; i >= 0; i--) {
@@ -193,57 +134,19 @@ chordID random_from(chordID *a)
 
 /**********************************************************************/
 
-void random_between(chordID *a, chordID *b, chordID *res)
+void id_random_between(chordID *a, chordID *b, chordID *res)
 {
-	subtract(b, a, res);
+	id_subtract(b, a, res);
 	chordID r = random_from(res);
-	add(a, &r, res);
-}
-
-/**********************************************************************/
-
-static int msb_tab[256] = {
-	0,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-	5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
-	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-	6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-	7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7
-};
-
-/* msb: most significant bit */
-int msb(chordID *x)
-{
-	int i;
-	for (i = 0; i < CHORD_ID_LEN; i++)
-	if (x->x[i])
-		return 8 * i + msb_tab[x->x[i]];
-	return 0;
+	id_add(a, &r, res);
 }
 
 /**********************************************************************/
 
 /* equals: a == b? */
-int equals(chordID *a, chordID *b)
+int id_equals(chordID *a, chordID *b)
 {
 	return memcmp(a->x, b->x, sizeof(chordID)) == 0;
-}
-
-/* equals: a == b? */
-int equals_id_str(chordID *a, char *b)
-{
-	chordID idb = atoid(b);
-	return memcmp(a->x, idb.x, sizeof(chordID)) == 0;
-}
-
-/**********************************************************************/
-
-int is_zero(chordID *x)
-{
-	static chordID zero;
-	return memcmp(x->x, zero.x, sizeof(chordID)) == 0;
 }
 
 /**********************************************************************/
@@ -255,78 +158,19 @@ static int is_less(chordID *a, chordID *b)
 }
 
 /* between: is x in (a,b) on circle? */
-int is_between(chordID *x, chordID *a, chordID *b)
+int id_is_between(chordID *x, chordID *a, chordID *b)
 {
-	if (equals(a, b))
-		return !equals(x, a);	 /* x is only node not in (x,x) */
+	if (id_equals(a, b))
+		return !id_equals(x, a);	 /* x is only node not in (x,x) */
 	else if (is_less(a, b))
 		return is_less(a, x) && is_less(x, b);
 	else
 		return is_less(a, x) || is_less(x, b);
 }
 
-/***********************************************/
-int copy_id( chordID *a, chordID *b)
-{
-	assert(a);
-	assert(b);
-
-	int i;
-	for (i = 0; i < sizeof(chordID); i++)
-		a->x[i] = b->x[i];
-	return 1;
-}
-
 /**********************************************************************/
 
-static unsigned char todigit(char ch)
-{
-	if (isdigit((int) ch))
-		return (ch - '0');
-	else
-		return (10 + ch - 'a');
-}
-
-chordID atoid(const char *str)
-{
-	chordID id;
-	int i;
-
-	assert(strlen(str) == 2*CHORD_ID_LEN);
-	for (i = 0; i < CHORD_ID_LEN; i++)
-		 id.x[i] = (todigit(str[2*i]) << 4) | todigit(str[2*i+1]);
-	return id;
-}
-
-/**********************************************************************/
-
-enum {
-	MULTIPLIER = 31			 /* for hash() */
-};
-
-/* hash: compute hash value for ID */
-unsigned hash(chordID *id, unsigned n)
-{
-	unsigned h = 0;
-	int i;
-
-	for (i = 0; i < CHORD_ID_LEN; i++)
-		h = MULTIPLIER * h + id->x[ i ];
-
-	return h % n;
-}
-
-int match_key(chordID *key_array, int num_keys, chordID *key)
-{
-	int i;
-	for (i = 0; i < num_keys; i++) {
-		if (memcmp((char *)&key->x[0], (char *)&key_array[i].x[0], CHORD_ID_LEN) == 0)
-			return 1;
-	}
-	return 0;
-}
-
-const char *chordID_to_str(chordID *id)
+const char *id_to_str(chordID *id)
 {
 	static char id_str[CHORD_ID_LEN*2+1];
 	if (id) {
@@ -374,24 +218,6 @@ void print_two_chordIDs(FILE *out, char *prefix, chordID *id1,
 	print_chordID(out, id2);
 	fprintf(out, "%s", suffix);
 }
-
-/***********************************************************************/
-
-void print_three_chordIDs(FILE *out, char *prefix, chordID *id1,
-						  char *middle1, chordID *id2,
-						  char *middle2, chordID *id3,
-						  char *suffix)
-{
-	assert(prefix && id1 && middle1 && id2 && middle2 && id3 && suffix);
-	fprintf(out, "%s", prefix);
-	print_chordID(out, id1);
-	fprintf(out, "%s", middle1);
-	print_chordID(out, id2);
-	fprintf(out, "%s", middle2);
-	print_chordID(out, id3);
-	fprintf(out, "%s", suffix);
-}
-
 
 /***********************************************************************/
 

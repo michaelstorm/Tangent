@@ -57,7 +57,7 @@ Finger *closest_preceding_finger(ChordServer *srv, chordID *id, int fall)
 		 * reach the passive fingers
 		 */
 		if (fall || f->status == F_ACTIVE) {
-			if (is_between(&f->node.id, &srv->node.id, id))
+			if (id_is_between(&f->node.id, &srv->node.id, id))
 				return f;
 		}
 	}
@@ -82,7 +82,7 @@ Finger *get_finger(ChordServer *srv, chordID *id, int *index)
 	Finger *f;
 	int i;
 	for (f = srv->head_flist, i = 0; f; f = f->next, i++) {
-		if (equals(id, &f->node.id)) {
+		if (id_equals(id, &f->node.id)) {
 			if (index != NULL)
 				*index = i;
 			return f;

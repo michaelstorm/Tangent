@@ -100,15 +100,15 @@ void stabilize(evutil_socket_t sock, short what, void *arg)
 void fix_fingers(ChordServer *srv)
 {
 	Finger *f, *succ = succ_finger(srv);
-	chordID id = successor(srv->node.id, srv->to_fix_finger);
-	chordID to_id = successor(srv->node.id, NFINGERS-1);
+	chordID id = chord_id_successor(srv->node.id, srv->to_fix_finger);
+	chordID to_id = chord_id_successor(srv->node.id, NFINGERS-1);
 
 	StartLog(DEBUG);
 	print_fun(clog_file_logger()->fp, srv, "fix_finger", &id);
 	EndLog();
 
 	/* Only loop across most significant fingers */
-	if (is_between(&id, &srv->node.id, &succ->node.id)
+	if (id_is_between(&id, &srv->node.id, &succ->node.id)
 		|| (srv->to_fix_finger == 0)) {
 		/* the problem we are trying to solve here is the one of
 		 * loopy graphs, i.e., graphs that are locally consistent
@@ -122,7 +122,7 @@ void fix_fingers(ChordServer *srv)
 		 * To alleviate loopy graph we ask a random node to resolve
 		 * a query to a random id between us and our successor.
 		 */
-		random_between(&srv->node.id, &succ->node.id, &id);
+		id_random_between(&srv->node.id, &succ->node.id, &id);
 		Node *n = &srv->well_known[random() % srv->nknown].node;
 		if (srv->nknown)
 			send_fs(srv, DEF_TTL, &n->addr, n->port, &srv->node.addr,
@@ -148,7 +148,7 @@ void fix_fingers(ChordServer *srv)
 		/* once in a while try to get a better predecessor, as well */
 		if (srv->to_fix_finger == NFINGERS-1) {
 			if (srv->tail_flist != NULL) {
-				random_between(&srv->tail_flist->node.id, &srv->node.id, &id);
+				id_random_between(&srv->tail_flist->node.id, &srv->node.id, &id);
 				send_fs(srv, DEF_TTL, &f->node.addr, f->node.port,
 						&srv->node.addr, srv->node.port);
 			}
@@ -185,7 +185,7 @@ void fix_succs_preds(ChordServer *srv)
 	}
 
 	/* find f's successor */
-	id = successor(f->node.id, 0);
+	id = chord_id_successor(f->node.id, 0);
 	send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &srv->node.addr,
 			srv->node.port);
 	succ = f;
@@ -210,7 +210,7 @@ void fix_succs_preds(ChordServer *srv)
 			break;
 		if (k == srv->to_fix_backup) {
 			/* fix predecessor */
-			random_between(&f->node.id, &f->next->node.id, &id);
+			id_random_between(&f->node.id, &f->next->node.id, &id);
 			send_fs(srv, DEF_TTL, &f->node.addr, f->node.port, &srv->node.addr,
 					srv->node.port);
 			break;
@@ -297,20 +297,20 @@ void clean_finger_list(ChordServer *srv)
 			return;
 
 		/* compute srv.id + 2^k */
-		id = successor(srv->node.id, k);
+		id = chord_id_successor(srv->node.id, k);
 
-		if (is_between(&id, &f_lastpred->node.id, &srv->node.id)
-			|| equals(&id, &f_lastpred->node.id)) {
+		if (id_is_between(&id, &f_lastpred->node.id, &srv->node.id)
+			|| id_equals(&id, &f_lastpred->node.id)) {
 			/* proper finger for id is one of the (backup) predecessors */
 			continue;
 		}
 
-		if (is_between(&id, &srv->node.id, &f_lastsucc->node.id)
-			|| equals(&id, &srv->node.id))
+		if (id_is_between(&id, &srv->node.id, &f_lastsucc->node.id)
+			|| id_equals(&id, &srv->node.id))
 			/* proper finger for id is one of the (backup) successors */
 			break;
 
-		if (is_between(&f->node.id, &srv->node.id, &id)) {
+		if (id_is_between(&f->node.id, &srv->node.id, &id)) {
 			/* f cannot be a proper finger for id, because it
 			 * is between current node and id; try next finger
 			 */
@@ -321,8 +321,8 @@ void clean_finger_list(ChordServer *srv)
 		while (1) {
 			if (f->prev == NULL || f == f_lastsucc)
 				return;
-			if (is_between(&f->prev->node.id, &id, &f->node.id)
-				|| equals(&f->prev->node.id, &id)) {
+			if (id_is_between(&f->prev->node.id, &id, &f->node.id)
+				|| id_equals(&f->prev->node.id, &id)) {
 				/* this is not a proper finger (i.e., f's predecessor
 				 * is between id and f), so remove f
 				 */

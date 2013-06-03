@@ -203,7 +203,7 @@ int dispatch_packet(Dispatcher *d, uchar *buf, int n, Node *from,
 	Header *header = header__unpack(NULL, n, buf);
 
 	LogTrace("Received from %s:%s:%d packet of type %s (x%02x) and length %d",
-			 chordID_to_str(&from->id), v6addr_to_str(&from->addr), from->port,
+			 id_to_str(&from->id), v6addr_to_str(&from->addr), from->port,
 			 PACKET_NAMES[header->type], buf[header->type], n);
 
 	struct packet_handler *handler = get_handler(d, header->type);

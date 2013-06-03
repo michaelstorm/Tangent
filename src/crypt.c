@@ -205,10 +205,3 @@ void get_address_id(chordID *id, in6_addr *addr, ushort port)
 	EVP_DigestFinal_ex(&ctx, id->x, &len);
 	EVP_MD_CTX_cleanup(&ctx);
 }
-
-int verify_address_id(chordID *id, in6_addr *addr, ushort port)
-{
-	chordID correct_id;
-	get_address_id(&correct_id, addr, port);
-	return equals(&correct_id, id);
-}

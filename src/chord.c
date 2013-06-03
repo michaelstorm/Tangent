@@ -399,6 +399,6 @@ void chord_get_range(ChordServer *srv, chordID *l, chordID *r)
 
 int chord_is_local(ChordServer *srv, chordID *x)
 {
-	return equals(x, &srv->node.id) || is_between(x, &srv->pred_bound,
+	return id_equals(x, &srv->node.id) || id_is_between(x, &srv->pred_bound,
 												  &srv->node.id);
 }

@@ -78,8 +78,8 @@ Node *next_route_node(ChordServer *srv, chordID *id, int last, int *next_is_last
 	}
 
 	if ((sf = succ_finger(srv)) != NULL) {
-		if (is_between(id, &srv->node.id, &sf->node.id)
-			|| equals(id, &sf->node.id)) {
+		if (id_is_between(id, &srv->node.id, &sf->node.id)
+			|| id_equals(id, &sf->node.id)) {
 			/* according to our info the successor should be responsible
 				 * for id; send the packet to the successor.
 			 */
@@ -163,7 +163,7 @@ int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 	}
 	succ = &succ_finger(srv)->node;
 
-	if (is_between(&reply_id, &srv->node.id, &succ->id) || equals(&reply_id,
+	if (id_is_between(&reply_id, &srv->node.id, &succ->id) || id_equals(&reply_id,
 																  &succ->id)) {
 		send_fs_reply(srv, msg->ticket.data, msg->ticket.len, &reply_addr, reply_port,
 					  &succ->addr, succ->port);
@@ -302,7 +302,7 @@ int process_ping(Header *header, ChordPacketArgs *args, Ping *msg, Node *from)
 		Debug("Inserted a new possible finger");
 	
 	pred = pred_finger(srv);
-	if (fnew && (pred == NULL || (pred != NULL && is_between(&from->id, &pred->node.id, &srv->node.id)))) {
+	if (fnew && (pred == NULL || (pred != NULL && id_is_between(&from->id, &pred->node.id, &srv->node.id)))) {
 		if (pred == NULL)
 			Debug("We have no predecessor, and this is a possible new finger, so we ping it");
 		else

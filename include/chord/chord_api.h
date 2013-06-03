@@ -26,6 +26,9 @@ void chord_get_range(struct ChordServer *srv, chordID *l, chordID *r);
 int chord_is_local(struct ChordServer *srv, chordID *x);
 void chord_print_circle(struct ChordServer *srv, FILE *fp);
 
+chordID chord_id_successor(chordID id, int n);
+chordID chord_id_predecessor(chordID id, int n);
+
 #ifdef __cplusplus
 }
 #endif
