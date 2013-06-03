@@ -88,10 +88,4 @@ void setprogname(const char *name)
 {
 	progname = name;
 }
-
-/* getprogname: return name of program */
-const char *getprogname(void)
-{
-	return progname;
-}
 #endif

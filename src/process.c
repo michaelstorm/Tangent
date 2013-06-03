@@ -97,7 +97,7 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 {
 	ChordServer *srv = args->srv;
 	chordID id;
-	memcpy(id.x, msg->id.data, CHORD_ID_LEN);
+	memcpy(id.x, msg->id.data, CHORD_ID_BYTES);
 
 	if (IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr))
 		return CHORD_ADDR_UNDISCOVERED;
@@ -113,7 +113,7 @@ int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from)
 	}
 
 	/* handle request locally? */
-	if (chord_is_local(srv, &id)) {
+	if (chord_id_is_local(srv, &id)) {
 		/* Upcall goes here... */
 		Debug("id is local");
 		//chord_deliver(len, data, from);

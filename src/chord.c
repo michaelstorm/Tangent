@@ -120,7 +120,7 @@ ChordServer *new_server(struct event_base *ev_base)
 
 void server_initialize_from_file(ChordServer *srv, char *conf_file)
 {
-	char id[4*CHORD_ID_LEN];
+	char id[4*CHORD_ID_BYTES];
 	int ip_ver;
 
 	FILE *fp = fopen(conf_file, "r");
@@ -226,7 +226,7 @@ static void init_ticket_key(ChordServer *srv)
 		exit(2);
 	}
 
-	srv->ticket_salt = malloc(TICKET_SALT_LEN);
+	srv->ticket_salt = emalloc(TICKET_SALT_LEN);
 	srv->ticket_salt_len = TICKET_SALT_LEN;
 	srv->ticket_hash_len = TICKET_HASH_LEN;
 	if (!RAND_bytes(srv->ticket_salt, TICKET_SALT_LEN)) {
@@ -287,7 +287,7 @@ long double id_to_radians(const chordID *id)
 	int i;
 	long double rad = 0.0;
 
-	for (i = 0; i < CHORD_ID_LEN; i++) {
+	for (i = 0; i < CHORD_ID_BYTES; i++) {
 		long double numerator = id->x[i];
 		long double denominator = powl(256, i+1);
 		rad += numerator/denominator;
@@ -397,7 +397,7 @@ void chord_get_range(ChordServer *srv, chordID *l, chordID *r)
 	*r = srv->node.id;
 }
 
-int chord_is_local(ChordServer *srv, chordID *x)
+int chord_id_is_local(ChordServer *srv, chordID *x)
 {
 	return id_equals(x, &srv->node.id) || id_is_between(x, &srv->pred_bound,
 												  &srv->node.id);

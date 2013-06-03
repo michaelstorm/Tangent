@@ -24,7 +24,7 @@ struct odd_packet_handler
 
 Dispatcher *new_dispatcher(int size)
 {
-	Dispatcher *d = malloc(sizeof(Dispatcher));
+	Dispatcher *d = emalloc(sizeof(Dispatcher));
 	d->handlers = calloc(1, sizeof(struct packet_handler)*size);
 	d->size = size;
 	d->odd = 0;
@@ -98,10 +98,10 @@ void dispatcher_set_error_handlers(Dispatcher *d, unpack_error_fn u_err,
 static void init_handler(struct packet_handler *handler, int value, char *name,
 						 void *arg, unpack_fn unpack, process_fn process)
 {
-	handler->name = malloc(strlen(name)+1);
+	handler->name = emalloc(strlen(name)+1);
 	strcpy(handler->name, name);
 
-	handler->process_args = malloc(sizeof(void *));
+	handler->process_args = emalloc(sizeof(void *));
 	handler->process_args[0] = arg;
 	handler->nargs = 1;
 
@@ -142,7 +142,7 @@ void dispatcher_create_handler(Dispatcher *d, int value, char *name, void *arg,
 	else {
 		struct odd_packet_handler *odd;
 		if (!d->odd) {
-			d->odd = malloc(sizeof(struct packet_handler));
+			d->odd = emalloc(sizeof(struct packet_handler));
 			d->odd->next = 0;
 			odd = d->odd;
 		}
@@ -151,7 +151,7 @@ void dispatcher_create_handler(Dispatcher *d, int value, char *name, void *arg,
 				odd = odd->next;
 
 			if (!odd->next) {
-				odd->next = malloc(sizeof(struct packet_handler));
+				odd->next = emalloc(sizeof(struct packet_handler));
 				odd->next->next = 0;
 				odd = odd->next;
 			}
@@ -159,7 +159,7 @@ void dispatcher_create_handler(Dispatcher *d, int value, char *name, void *arg,
 				odd = odd->next;
 			else {
 				struct odd_packet_handler *next = odd->next;
-				odd->next = malloc(sizeof(struct packet_handler));
+				odd->next = emalloc(sizeof(struct packet_handler));
 				odd->next->next = next;
 				odd = odd->next;
 			}

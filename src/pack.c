@@ -53,7 +53,7 @@ int pack_data(uchar *buf, int last, uchar ttl, chordID *id, ushort len,
 			  const uchar *data)
 {
 	Data msg = DATA__INIT;
-	msg.id.len = CHORD_ID_LEN;
+	msg.id.len = CHORD_ID_BYTES;
 	msg.id.data = id->x;
 
 	msg.ttl = ttl;

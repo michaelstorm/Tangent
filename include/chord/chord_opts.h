@@ -5,12 +5,15 @@
 extern "C" {
 #endif
 
+#undef CHORD_MESSAGE_DEBUG
+#undef CHORD_PRINT_LONG_IDS
+#undef CHORD_PRINT_LONG_TIME
+
 enum {
 	CHORD_WIRE_VERSION = 1,
 	TICKET_TIMEOUT = 1000000,		   /* seconds for which a ticket is valid */
 	TICKET_HASH_LEN = 4,
 	TICKET_SALT_LEN = 16,
-	ADDRESS_SALTS = 3,			   /* number of IDs an address can have */
 	NFINGERS     = CHORD_ID_BITS,  /* # fingers per node */
 	NSUCCESSORS  = 8,              /* # successors kept */
 	NPREDECESSORS = 3,             /* # predecessors kept */
