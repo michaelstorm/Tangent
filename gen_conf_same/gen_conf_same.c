@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "chord/chord.h"
-#include "chord/hosts.h"
 #include "chord/util.h"
 
 int main(int argc, char **argv)
@@ -27,8 +26,8 @@ int main(int argc, char **argv)
   n = atoi(argv[2]);
   srandom(getpid() ^ time(0));
 
-  resolve_v6name("::1", &v6addr);
-  resolve_v6name("::ffff:127.0.0.1", &v4addr);
+  inet_pton(AF_INET6, "::1", &v6addr);
+  inet_pton(AF_INET6, "::ffff:127.0.0.1", &v4addr);
 
   nodes = (Node *)malloc(n * sizeof(Node));
   for (i = 0; i < n; i++) {

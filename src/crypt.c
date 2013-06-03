@@ -40,10 +40,10 @@ void vpack_hash(int debug, EVP_MD_CTX *ctx, const char *fmt, va_list args)
 
 		case 'x':	 /* id */
 			id = va_arg(args, chordID *);
-			EVP_DigestUpdate(ctx, id->x, CHORD_ID_LEN);
+			EVP_DigestUpdate(ctx, id->x, CHORD_ID_BYTES);
 
 			if (debug)
-				Trace("hashing id %s", buf_to_hex(id->x, CHORD_ID_LEN));
+				Trace("hashing id %s", buf_to_hex(id->x, CHORD_ID_BYTES));
 			break;
 
 		case '6':

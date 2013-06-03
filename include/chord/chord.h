@@ -16,6 +16,10 @@
 extern "C" {
 #endif
 
+#ifdef __APPLE__
+typedef u_long ulong;
+#endif
+
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef unsigned long ulong;
@@ -123,11 +127,11 @@ struct ChordServer
 };
 
 /* chord.c */
-int chord_check_library_versions();
-ChordServer *new_server(struct event_base *ev_base);
-void server_initialize_from_file(ChordServer *srv, char *conf_file);
-void server_start(ChordServer *srv);
-void server_initialize_socket(ChordServer *srv);
+int chord_check_library_versions() DLL_PUBLIC;
+ChordServer *new_server(struct event_base *ev_base) DLL_PUBLIC;
+void server_initialize_from_file(ChordServer *srv, char *conf_file) DLL_PUBLIC;
+void server_start(ChordServer *srv) DLL_PUBLIC;
+void server_initialize_socket(ChordServer *srv) DLL_PUBLIC;
 
 void handle_packet(evutil_socket_t sock, short what, void *arg);
 

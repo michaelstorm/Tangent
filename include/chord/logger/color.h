@@ -1,6 +1,8 @@
 #ifndef COLOR_H
 #define COLOR_H
 
+#include "chord/visibility.h"
+
 #define ATTR_DEFAULT    0x00000000
 #define ATTR_OFF        0x00000001
 #define ATTR_BOLD       0x00000002
@@ -39,7 +41,7 @@ extern "C" {
 
 void start_color(FILE *stream, int color);
 void default_color(FILE *stream);
-int  cfprintf(FILE *stream, int color, const char *fmt, ...);
+int  cfprintf(FILE *stream, int color, const char *fmt, ...) DLL_PUBLIC;
 int  cvfprintf(FILE *stream, int color, const char *fmt, va_list args);
 
 #ifdef __cplusplus

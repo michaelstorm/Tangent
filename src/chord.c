@@ -222,7 +222,7 @@ void server_initialize_socket(ChordServer *srv)
 static void init_ticket_key(ChordServer *srv)
 {
 	if (!RAND_load_file("/dev/urandom", 64)) {
-		Fatal("Could not seed random number generator.\n");
+		Fatal("Could not seed random number generator.");
 		exit(2);
 	}
 

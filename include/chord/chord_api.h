@@ -6,10 +6,7 @@ extern "C" {
 #endif
 
 #include <stdio.h>
-
-#ifdef __APPLE__
-typedef u_long ulong;
-#endif
+#include "chord/visibility.h"
 
 enum {
   CHORD_ID_BITS = 160,
@@ -22,12 +19,12 @@ typedef struct {
 
 struct ChordServer;
 
-void chord_get_range(struct ChordServer *srv, chordID *l, chordID *r);
-void chord_print_circle(struct ChordServer *srv, FILE *fp);
+void chord_get_range(struct ChordServer *srv, chordID *l, chordID *r) DLL_PUBLIC;
+void chord_print_circle(struct ChordServer *srv, FILE *fp) DLL_PUBLIC;
 
-int chord_id_is_local(struct ChordServer *srv, chordID *x);
-chordID chord_id_successor(chordID id, int n);
-chordID chord_id_predecessor(chordID id, int n);
+int chord_id_is_local(struct ChordServer *srv, chordID *x) DLL_PUBLIC;
+chordID chord_id_successor(chordID id, int n) DLL_PUBLIC;
+chordID chord_id_predecessor(chordID id, int n) DLL_PUBLIC;
 
 #ifdef __cplusplus
 }

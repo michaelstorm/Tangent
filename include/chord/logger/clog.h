@@ -2,6 +2,7 @@
 #define CLOG_H
 
 #include <stdarg.h>
+#include "chord/visibility.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,7 +56,7 @@ struct logger_ctx_t
 
 struct timespec;
 
-void clog_init();
+void clog_init() DLL_PUBLIC;
  int clog_get_default_log_level();
 void clog_set_default_log_level(int level);
  int clog_time_offset(struct timespec *diff_time);
@@ -67,10 +68,10 @@ logger_ctx_t *logger_ctx_new(const char *name, int min_level, void *data, start_
 
  		 int  clog_add_logger(logger_ctx_t *l_new);
 logger_ctx_t *clog_get_logger(const char *name);
-logger_ctx_t *clog_get_logger_for_file(const char *file);
+logger_ctx_t *clog_get_logger_for_file(const char *file) DLL_PUBLIC;
 
-void clog_log(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, ...);
-void clog_log_as(const char *name, const char *file, int line, const char *func, int level, const char *fmt, ...);
+void clog_log(logger_ctx_t *l, const char *file, int line, const char *func, int level, const char *fmt, ...) DLL_PUBLIC;
+void clog_log_as(const char *name, const char *file, int line, const char *func, int level, const char *fmt, ...) DLL_PUBLIC;
 
 void clog_start_log(logger_ctx_t *l, const char *file, int line, const char *func, int level);
 void clog_partial_log(logger_ctx_t *l, const char *file, const char *fmt, ...);

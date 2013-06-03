@@ -36,24 +36,24 @@ struct Dispatcher
 	process_error_fn process_error;
 };
 
-Dispatcher *new_dispatcher(int size);
-void free_dispatcher(Dispatcher *d);
+Dispatcher *new_dispatcher(int size) DLL_PUBLIC;
+void free_dispatcher(Dispatcher *d) DLL_PUBLIC;
 
-const char *dispatcher_get_packet_name(Dispatcher *d, int value);
+const char *dispatcher_get_packet_name(Dispatcher *d, int value) DLL_PUBLIC;
 
 void dispatcher_set_error_handlers(Dispatcher *d, unpack_error_fn u_err,
-								   process_error_fn p_err);
+								   process_error_fn p_err) DLL_PUBLIC;
 void dispatcher_set_packet_body(Dispatcher *d, int value, char *name, void *arg,
-								unpack_fn unpack, process_fn process);
+								unpack_fn unpack, process_fn process) DLL_PUBLIC;
 int dispatcher_set_packet_handlers(Dispatcher *d, int value, unpack_fn unpack,
-								   process_fn process);
+								   process_fn process) DLL_PUBLIC;
 void dispatcher_create_handler(Dispatcher *d, int value, char *name, void *arg,
-							   unpack_fn unpack, process_fn process);
-int dispatcher_push_arg(Dispatcher *d, int value, void *arg);
-void *dispatcher_pop_arg(Dispatcher *d, int value);
-int dispatcher_get_type(uchar *buf, int n);
+							   unpack_fn unpack, process_fn process) DLL_PUBLIC;
+int dispatcher_push_arg(Dispatcher *d, int value, void *arg) DLL_PUBLIC;
+void *dispatcher_pop_arg(Dispatcher *d, int value) DLL_PUBLIC;
+int dispatcher_get_type(uchar *buf, int n) DLL_PUBLIC;
 int dispatch_packet(Dispatcher *d, uchar *buf, int n, struct Node *from,
-					int *process_ret);
+					int *process_ret) DLL_PUBLIC;
 
 #define dispatcher_set_packet(d, value, arg, unpack, process) \
 	dispatcher_set_packet_body(d, value, (char *)#value, arg, (unpack_fn)unpack, \

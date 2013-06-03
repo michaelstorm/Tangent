@@ -52,7 +52,7 @@ chordID chord_id_successor(chordID id, int n)
 
 	assert(n >= 0 && n < CHORD_ID_BITS);
 	/* Note id.x[0] is most significant bit */
-	start = CHORD_ID_LEN-1 - n/8;
+	start = CHORD_ID_BYTES-1 - n/8;
 	old = id.x[start];
 	id.x[start] += 1 << (n%8);
 	if (id.x[start] < old) {
@@ -74,7 +74,7 @@ chordID chord_id_predecessor(chordID id, int n)
 	int start, i;
 
 	assert(n >= 0 && n < CHORD_ID_BITS);
-	start = CHORD_ID_LEN-1 - n/8;
+	start = CHORD_ID_BYTES-1 - n/8;
 	old = id.x[start];
 	id.x[start] -= 1 << (n%8);
 	if (id.x[start] > old) {
@@ -96,7 +96,7 @@ chordID chord_id_predecessor(chordID id, int n)
 void id_add(chordID *a, chordID *b, chordID *res)
 {
 	int i, carry = 0;
-	for (i = CHORD_ID_LEN - 1; i >= 0; i--) {
+	for (i = CHORD_ID_BYTES - 1; i >= 0; i--) {
 		res->x[i] = (a->x[i] + b->x[i] + carry) & 0xff;
 		carry = (a->x[i] + b->x[i] + carry) >> 8;
 	}
@@ -108,7 +108,7 @@ void id_add(chordID *a, chordID *b, chordID *res)
 void id_subtract(chordID *a, chordID *b, chordID *res)
 {
 	int i, borrow = 0;
-	for (i = CHORD_ID_LEN - 1; i >= 0; i--) {
+	for (i = CHORD_ID_BYTES - 1; i >= 0; i--) {
 		if (a->x[i] - borrow < b->x[i]) {
 			res->x[i] = 256 + a->x[i] - borrow - b->x[i];
 			borrow = 1;
@@ -127,7 +127,7 @@ chordID random_from(chordID *a)
 	int	m = random()%10 + 1;
 
 	int i;
-	for (i = 0; i < CHORD_ID_LEN; i++)
+	for (i = 0; i < CHORD_ID_BYTES; i++)
 		b.x[i] = a->x[i]*m/11;
 	return b;
 }
@@ -172,16 +172,16 @@ int id_is_between(chordID *x, chordID *a, chordID *b)
 
 const char *id_to_str(chordID *id)
 {
-	static char id_str[CHORD_ID_LEN*2+1];
+	static char id_str[CHORD_ID_BYTES*2+1];
 	if (id) {
 		int i;
 #ifdef CHORD_PRINT_LONG_IDS
-		for (i = 0; i < CHORD_ID_LEN; i++)
+		for (i = 0; i < CHORD_ID_BYTES; i++)
 #else
 		for (i = 0; i < 4; i++)
 #endif
 			sprintf(id_str+i*2, "%02x", id->x[i]);
-		id_str[CHORD_ID_LEN*2] = '\0';
+		id_str[CHORD_ID_BYTES*2] = '\0';
 	}
 	else
 		id_str[0] = '\0';
@@ -195,7 +195,7 @@ void print_chordID(FILE* out, chordID *id)
 	if (id) {
 		int i;
 #ifdef CHORD_PRINT_LONG_IDS
-		for (i = 0; i < CHORD_ID_LEN; i++)
+		for (i = 0; i < CHORD_ID_BYTES; i++)
 #else
 		for (i = 0; i < 4; i++)
 #endif

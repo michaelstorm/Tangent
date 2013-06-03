@@ -10,7 +10,7 @@ void send_packet(ChordServer *srv, in6_addr *addr, in_port_t port, int n,
 void send_raw_v4(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_raw_v6(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 void send_data(ChordServer *srv, int last, uchar ttl, Node *np, chordID *id,
-			   ushort n, const uchar *data);
+			   ushort n, const uchar *data) DLL_PUBLIC;
 void send_fs(ChordServer *srv, uchar ttl, in6_addr *to_addr, ushort to_port,
 			 in6_addr *addr, ushort port);
 void send_fs_forward(ChordServer *srv, uchar *ticket, int ticket_len, uchar ttl,

@@ -13,12 +13,12 @@ struct ChordPacketArgs
 } __attribute__((__packed__));
 typedef struct ChordPacketArgs ChordPacketArgs;
 
-Node *next_route_node(ChordServer *srv, chordID *id, int last, int *next_is_last);
+Node *next_route_node(ChordServer *srv, chordID *id, int last, int *next_is_last) DLL_PUBLIC;
 int process_addr_discover(Header *header, ChordPacketArgs *args,
 						  AddrDiscover *msg, Node *from);
 int process_addr_discover_reply(Header *header, ChordPacketArgs *args,
 								AddrDiscoverReply *msg, Node *from);
-int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from);
+int process_data(Header *header, ChordPacketArgs *args, Data *msg, Node *from) DLL_PUBLIC;
 int process_fs(Header *header, ChordPacketArgs *args, FindSuccessor *msg,
 			   Node *from);
 int process_fs_reply(Header *header, ChordPacketArgs *args,

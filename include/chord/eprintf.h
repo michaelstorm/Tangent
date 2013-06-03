@@ -7,19 +7,20 @@
 
 #include <sysexits.h>
 #include "logger/clog.h"
+#include "chord/visibility.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void eprintf_impl(logger_ctx_t *l, const char *fmt, ...);
+void eprintf_impl(logger_ctx_t *l, const char *fmt, ...) DLL_PUBLIC;
 void weprintf_impl(logger_ctx_t *l, const char *fmt, ...);
 
 char *estrdup(char *);
 void *emalloc(size_t);
 void *erealloc(void *, size_t);
 void *ecalloc(size_t, size_t);
-void setprogname(const char *);
+void setprogname(const char *) DLL_PUBLIC;
 
 #define eprintf(fmt, ...)  eprintf_impl (clog_file_logger(), fmt, ##__VA_ARGS__)
 #define weprintf(fmt, ...) weprintf_impl(clog_file_logger(), fmt, ##__VA_ARGS__)

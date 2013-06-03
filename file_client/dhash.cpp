@@ -14,6 +14,7 @@
 #include <openssl/pem.h>
 #include "chord/chord.h"
 #include "chord/dispatcher.h"
+#include "chord/pack.h"
 #include "dhash.h"
 #include "d_messages.pb-c.h"
 #include "pack.h"
@@ -188,7 +189,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		server_initialize_socket(srv);
 
 		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_DATA,
-									   (unpack_fn)data__unpack,
+									   (unpack_fn)data_unpack_public,
 									   (process_fn)dhash_unpack_chord_data);
 		dispatcher_push_arg(srv->dispatcher, CHORD_DATA, dhash);
 

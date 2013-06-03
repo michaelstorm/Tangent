@@ -12,6 +12,11 @@
 
 static uchar msg_buf[BUFSIZE];
 
+void *data_unpack_public(struct _ProtobufCAllocator *allocator, size_t len, const uint8_t *data)
+{
+	return data__unpack(allocator, len, data);
+}
+
 int pack_header(uchar *buf, int version, int type, const ProtobufCMessage *msg)
 {
 	Header header = HEADER__INIT;

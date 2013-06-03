@@ -11,7 +11,11 @@ extern "C" {
 #define pack_chord_header(buf, type, msg) \
 	pack_header(buf, CHORD_WIRE_VERSION, type, (const ProtobufCMessage *)msg)
 
-int pack_header(uchar *buf, int version, int type, const ProtobufCMessage *msg);
+// the actual data__unpack function is generator by protobuf, so we can't declare its
+// visibility directly
+void *data_unpack_public(struct _ProtobufCAllocator *, size_t, const uint8_t *) DLL_PUBLIC;
+
+int pack_header(uchar *buf, int version, int type, const ProtobufCMessage *msg) DLL_PUBLIC;
 int pack_addr_discover(uchar *buf, uchar *ticket, int ticket_len);
 int pack_addr_discover_reply(uchar *buf, uchar *ticket, int ticket_len,
 							 in6_addr *addr);

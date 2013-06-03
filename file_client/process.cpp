@@ -52,7 +52,7 @@ int dhash_process_query(Header *header, ChordDataPacketArgs *args, Query *msg,
 
 		/* if we should have the file, as its successor, but don't, also notify
 		   the requesting node */
-		if (chord_is_local(srv, &id)) {
+		if (chord_id_is_local(srv, &id)) {
 			fprintf(stderr, "but we should, so we're replying\n");
 			dhash_send_query_reply_failure(dhash, srv, &reply_addr,
 										   msg->reply_port, msg->name.data,
