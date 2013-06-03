@@ -295,7 +295,7 @@ long double id_to_radians(const chordID *id)
 	return rad*2*PI;
 }
 
-void chord_print_circle(Server *srv)
+void chord_print_circle(Server *srv, FILE *fp)
 {
 	return;
 #define ROW_RATIO ((long double)0.5)
@@ -365,7 +365,7 @@ void chord_print_circle(Server *srv)
 
 	StartLog(INFO);
 	PartialLog("\n");
-	print_grid(clog_file_logger()->fp, g);
+	print_grid(fp, g);
 	EndLog();
 	
 	free_circle(c);
@@ -384,7 +384,10 @@ void chord_update_range(Server *srv, chordID *l, chordID *r)
 	srv->pred_bound = *l;
 	srv->node.id = *r;
 
-	chord_print_circle(srv);
+	StartLog(INFO);
+	PartialLog("\n");
+	chord_print_circle(srv, clog_file_logger()->fp);
+	EndLog();
 }
 
 /* get_range: returns the range (l,r] that this node is responsible for */

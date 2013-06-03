@@ -227,7 +227,11 @@ void activate_finger(Server *srv, Finger *f)
 	if (f->status == F_PASSIVE) {
 		srv->num_passive_fingers--;
 		f->status = F_ACTIVE;
-		chord_print_circle(srv);
+
+		StartLog(INFO);
+		PartialLog("\n");
+		chord_print_circle(srv, clog_file_logger()->fp);
+		EndLog();
 	}
 }
 
