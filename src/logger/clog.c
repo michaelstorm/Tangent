@@ -18,6 +18,8 @@ static int clog_default_log_level = 0;
 
 struct timespec start_time;
 
+static char event_context[256];
+
 void clog_init()
 {
 	loggers = hashmap_new();
@@ -51,6 +53,21 @@ void clog_init()
 	
 	start_time.tv_sec = 0;
 	start_time.tv_nsec = 0;
+}
+
+void clog_set_event_context(const char *context)
+{
+	strncpy(event_context, context, sizeof(event_context)-1);
+}
+
+void clog_clear_event_context()
+{
+	strcpy(event_context, "");
+}
+
+const char *clog_get_event_context()
+{
+	return event_context;
 }
 
 int clog_get_default_log_level()
@@ -139,13 +156,13 @@ void logger_ctx_free(logger_ctx_t *l)
 
 int clog_add_logger(logger_ctx_t *l_new)
 {
-	return hashmap_put(loggers, (char *)l_new->name, l_new);
+	return hashmap_put(loggers, (char *)l_new->name, l_new) != MAP_OK;
 }
 
 logger_ctx_t *clog_get_logger(const char *name)
 {
 	logger_ctx_t *l;
-	if (hashmap_get(loggers, (char *)name, (any_t *)&l)) {
+	if (hashmap_get(loggers, (char *)name, (any_t *)&l) == MAP_MISSING) {
 		l = logger_ctx_new_file(name, clog_default_log_level, stdout);
 		if (clog_add_logger(l))
 			return NULL;

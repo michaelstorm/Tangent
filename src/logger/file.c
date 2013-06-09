@@ -13,7 +13,8 @@ static int default_level_colors[] = {
 logger_ctx_t *logger_ctx_new_file(const char *name, int min_level, FILE *file)
 {
 	logger_ctx_t *l = malloc(sizeof(logger_ctx_t));
-	if (logger_ctx_init(l, name, min_level, file, (start_msg_func)start_file_msg, (printf_func)vfprintf, (write_func)write_file, (end_msg_func)end_file_msg))
+	if (logger_ctx_init(l, name, min_level, file, (start_msg_func)start_file_msg,
+	                    (printf_func)vfprintf, (write_func)write_file, (end_msg_func)end_file_msg))
 		return NULL;
 	
 	return l;
@@ -33,20 +34,29 @@ int start_file_msg(logger_ctx_t *l, const char *file, int line, const char *func
 	fprintf(fp, "%s> ", leader);
 #endif
 
-	int ret;
+	int written = 0;
 	struct timespec diff_time;
 	if (clog_time_offset(&diff_time))
-		ret = fprintf(fp, "[<unkwn>] {%s} (%s) %s@%d: ", l->name, func, BASENAME(file), line);
+		written += fprintf(fp, "[<unkwn>] ");
 	else
-		ret = fprintf(fp, "[%3lu.%.3lu] {%s} (%s) %s@%d: ", diff_time.tv_sec, diff_time.tv_nsec, l->name, func, BASENAME(file), line);
+		written += fprintf(fp, "[%3lu.%.3lu] ", diff_time.tv_sec, diff_time.tv_nsec);
 	
-	if (ret > 0)
-		fprintf(fp, "%*s", -70 + ret, "");
+	const char *context = clog_get_event_context();
+	if (context[0] != '\0')
+		written += fprintf(fp, "<%s> ", context);
+
+	/*if (l->name[0] != '\0')
+		written += fprintf(fp, "{%s} ", l->name);*/
+
+	written += fprintf(fp, "(%s) %s@%d: ", func, BASENAME(file), line);
+
+	if (written > 0)
+		written += fprintf(fp, "%*s", -75 + written, "");
 
 	default_color(fp);
 	start_color(fp, color);
 	
-	return ret;
+	return written;
 }
 
 ssize_t write_file(FILE *file, const char *buf, size_t size)

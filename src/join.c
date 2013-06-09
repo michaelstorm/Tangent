@@ -5,6 +5,8 @@
 
 void discover_addr(evutil_socket_t sock, short what, void *arg)
 {
+	clog_set_event_context("discover_addr");
+
 	Info("Discovering address");
 	
 	ChordServer *srv = arg;
@@ -20,4 +22,6 @@ void discover_addr(evutil_socket_t sock, short what, void *arg)
 		EndLog();
 		send_addr_discover(srv, &node->addr, node->port);
 	});
+
+	clog_clear_event_context();
 }

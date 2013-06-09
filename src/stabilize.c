@@ -33,6 +33,8 @@ static void clean_finger_list(ChordServer *srv);
 
 void stabilize(evutil_socket_t sock, short what, void *arg)
 {
+	clog_set_event_context("stabilize");
+
 	ChordServer *srv = arg;
 	static int idx = 0;
 	Finger *succ, *pred;
@@ -90,7 +92,7 @@ void stabilize(evutil_socket_t sock, short what, void *arg)
 		clean_finger_list(srv);
 	}
 
-	return;
+	clog_clear_event_context();
 }
 
 /**********************************************************************/

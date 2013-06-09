@@ -57,6 +57,9 @@ struct logger_ctx_t
 struct timespec;
 
 void clog_init() DLL_PUBLIC;
+void clog_set_event_context(const char *context) DLL_PUBLIC;
+void clog_clear_event_context();
+const char *clog_get_event_context();
  int clog_get_default_log_level();
 void clog_set_default_log_level(int level);
  int clog_time_offset(struct timespec *diff_time);

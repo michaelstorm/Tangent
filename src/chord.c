@@ -245,9 +245,15 @@ static void init_ticket_key(ChordServer *srv)
 
 /**********************************************************************/
 
+static ulong packet_num;
+
 /* handle_packet: snarf packet from network and dispatch */
 void handle_packet(evutil_socket_t sock, short what, void *arg)
 {
+	char packet_context[32];
+	sprintf(packet_context, "packet:%lu", packet_num++);
+	clog_set_event_context(packet_context);
+
 	ChordServer *srv = arg;
 	ssize_t packet_len;
 	socklen_t from_len;
@@ -286,6 +292,8 @@ void handle_packet(evutil_socket_t sock, short what, void *arg)
 
 	if (!dispatch_packet(srv->dispatcher, buf, packet_len, &from, NULL))
 		Warn("dropped unknown packet type 0x%02x", buf[0]);
+
+	clog_clear_event_context();
 }
 
 /**********************************************************************/

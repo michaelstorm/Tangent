@@ -66,6 +66,8 @@ int main(int argc, char **argv)
 	srandom(getpid() ^ time(0));
 
 	init_logging();
+	clog_set_event_context("init");
+
 	chord_check_library_versions();
 	init_global_libevent();
 
