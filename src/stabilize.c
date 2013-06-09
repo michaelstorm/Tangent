@@ -10,6 +10,7 @@
 #include "chord/finger.h"
 #include "chord/sendpkt.h"
 #include "chord/util.h"
+#include "sglib.h"
 
 /* local functions */
 static void fix_fingers(ChordServer *srv);
@@ -33,7 +34,7 @@ static void clean_finger_list(ChordServer *srv);
 void stabilize(evutil_socket_t sock, short what, void *arg)
 {
 	ChordServer *srv = arg;
-	static int idx = 0, i;
+	static int idx = 0;
 	Finger *succ, *pred;
 
 	StartLog(DEBUG);
@@ -43,13 +44,10 @@ void stabilize(evutil_socket_t sock, short what, void *arg)
 	
 	/* While there is no successor, we fix that! */
 	if (srv->head_flist == NULL) {
-		for (i = 0; i < srv->nknown; i++) {
-			send_fs(srv, DEF_TTL, &srv->well_known[i].node.addr,
-					srv->well_known[i].node.port, &srv->node.addr,
-					srv->node.port);
-			send_ping(srv, &srv->well_known[i].node.addr,
-					  srv->well_known[i].node.port, get_current_time());
-		}
+		SGLIB_LIST_MAP_ON_ELEMENTS(struct Node, srv->well_known, node, next, {
+			send_fs(srv, DEF_TTL, &node->addr, node->port, &srv->node.addr, srv->node.port);
+			send_ping(srv, &node->addr,	node->port, get_current_time());
+		});
 		return;
 	}
 
@@ -110,6 +108,8 @@ void fix_fingers(ChordServer *srv)
 	/* Only loop across most significant fingers */
 	if (id_is_between(&id, &srv->node.id, &succ->node.id)
 		|| (srv->to_fix_finger == 0)) {
+		srv->to_fix_finger = NFINGERS-1;
+
 		/* the problem we are trying to solve here is the one of
 		 * loopy graphs, i.e., graphs that are locally consistent
 		 * but globally inconsistent (see the Chord TR). Loopy
@@ -123,11 +123,21 @@ void fix_fingers(ChordServer *srv)
 		 * a query to a random id between us and our successor.
 		 */
 		id_random_between(&srv->node.id, &succ->node.id, &id);
-		Node *n = &srv->well_known[random() % srv->nknown].node;
-		if (srv->nknown)
-			send_fs(srv, DEF_TTL, &n->addr, n->port, &srv->node.addr,
-					srv->node.port);
-		srv->to_fix_finger = NFINGERS-1;
+
+		int num_well_known;
+		SGLIB_LIST_LEN(struct Node, srv->well_known, next, num_well_known);
+
+		if (num_well_known > 0) {
+			int rnd_node_idx = random() % num_well_known;
+			int i = 0;
+			SGLIB_LIST_MAP_ON_ELEMENTS(struct Node, srv->well_known, node, next, {
+				i++;
+				if (i == rnd_node_idx) {
+					send_fs(srv, DEF_TTL, &node->addr, node->port, &srv->node.addr,
+							srv->node.port);
+				}
+			});
+		}
 	}
 	else
 		srv->to_fix_finger--;

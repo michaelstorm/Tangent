@@ -1,9 +1,11 @@
 #include "chord/chord.h"
 #include "chord/sendpkt.h"
+#include "chord/util.h"
+#include "sglib.h"
 
 void discover_addr(evutil_socket_t sock, short what, void *arg)
 {
-	Log(INFO, "Discovering address");
+	Info("Discovering address");
 	
 	ChordServer *srv = arg;
 	if (!IN6_IS_ADDR_UNSPECIFIED(&srv->node.addr)) {
@@ -11,9 +13,11 @@ void discover_addr(evutil_socket_t sock, short what, void *arg)
 		return;
 	}
 
-	int i;
-	for (i = 0; i < srv->nknown; i++) {
-		send_addr_discover(srv, &srv->well_known[i].node.addr,
-						   srv->well_known[i].node.port);
-	}
+	SGLIB_LIST_MAP_ON_ELEMENTS(struct Node, srv->well_known, node, next, {
+		StartLog(DEBUG);
+		PartialLog("Querying ");
+		print_node(clog_file_logger()->fp, node);
+		EndLog();
+		send_addr_discover(srv, &node->addr, node->port);
+	});
 }

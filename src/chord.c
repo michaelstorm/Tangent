@@ -139,7 +139,7 @@ struct ChordServerElement *server_initialize_list_from_file(struct event_base *e
 	};
 
     cfg_t *cfg = cfg_init(opts, CFGF_NOCASE);
-	if (cfg_parse(cfg, "test.cfg"))
+	if (cfg_parse(cfg, conf_file))
 		Die(EX_CONFIG, "Error parsing config file \"%s\"", conf_file);
 
 	struct ChordServerElement *srv_elem, *srv_list = NULL;
@@ -151,8 +151,9 @@ struct ChordServerElement *server_initialize_list_from_file(struct event_base *e
 		Debug("Parsing server titled \"%s\"", cfg_title(server));
 
 		int ip_ver = (int)cfg_getint(server, "ip-version");
+		ushort port = (int)cfg_getint(server, "port");
 		Debug("ip-version = %d", ip_ver);
-		Debug("port = %d", (int)cfg_getint(server, "port"));
+		Debug("port = %d", port);
 
 		ChordServer *srv = new_server(ev_base);
 		srv_elem = emalloc(sizeof(struct ChordServerElement));
@@ -160,100 +161,35 @@ struct ChordServerElement *server_initialize_list_from_file(struct event_base *e
 		SGLIB_LIST_ADD(struct ChordServerElement, srv_list, srv_elem, next);
 
 		srv->is_v6 = ip_ver == 6;
+		srv->node.port = port;
 
 		int num_peers = cfg_size(cfg, "peer");
 		int j;
 
 		for(j = 0; j < num_peers; j++) {
 			cfg_t *peer = cfg_getnsec(cfg, "peer", j);
-			ushort port = (int)cfg_getint(peer, "port");
+			ushort peer_port = (int)cfg_getint(peer, "port");
 			char *addr_str = cfg_getstr(peer, "address");
 
 			Debug("Parsing peer titled \"%s\"", cfg_title(peer));
 			Debug("ip-version = %d", (int)cfg_getint(peer, "ip-version"));
 			Debug("address = %s", addr_str);
-			Debug("port = %d", port);
+			Debug("port = %d", peer_port);
+
+			Node *node = emalloc(sizeof(Node));
 
 			/* resolve address */
-			if (resolve_v6name(addr_str,
-							   &srv->well_known[srv->nknown].node.addr)) {
-				Warn("could not join well-known node [%s]:%d", addr_str, port);
+			if (resolve_v6name(addr_str, &node->addr)) {
+				Warn("could not join well-known node [%s]:%d", addr_str, peer_port);
 				continue;
 			}
 
-			srv->well_known[srv->nknown].node.port = (in_port_t)port;
-			srv->nknown++;
+			node->port = (in_port_t)peer_port;
+			SGLIB_LIST_ADD(struct Node, srv->well_known, node, next);
 		}
 	}
 
 	return srv_list;
-}
-
-void server_initialize_from_file(ChordServer *srv, char *conf_file)
-{
-	char id[4*CHORD_ID_BYTES];
-	int ip_ver;
-
-	FILE *fp = fopen(conf_file, "r");
-	if (fp == NULL)
-		eprintf("fopen(%s,\"r\") failed:", conf_file);
-	if (fscanf(fp, "%d\n", &ip_ver) != 1)
-		Die(EX_CONFIG, "Didn't find ip version in \"%s\"", conf_file);
-	if (fscanf(fp, "%hd", (short *)&srv->node.port) != 1)
-		Die(EX_CONFIG, "Didn't find port in \"%s\"", conf_file);
-	if (fscanf(fp, " %s\n", id) != 1)
-		Die(EX_CONFIG, "Didn't find id in \"%s\"", conf_file);
-
-
-	srv->is_v6 = ip_ver == 6;
-
-	char addr_str[INET6_ADDRSTRLEN+16];
-	while (srv->nknown < MAX_WELLKNOWN && fscanf(fp, "%s\n", addr_str) == 1) {
-		in6_addr addr;
-		ushort port;
-
-		if (srv->is_v6) {
-			struct sockaddr_in6 sock_addr;
-			int outlen = sizeof(sock_addr);
-			if (evutil_parse_sockaddr_port(addr_str,
-										   (struct sockaddr *)&sock_addr,
-										   &outlen) != 0)
-			{
-				Fatal("error parsing address and port \"%s\"\n", addr_str);
-				exit(1);
-			}
-
-			v6_addr_copy(&addr, &sock_addr.sin6_addr);
-			port = ntohs(sock_addr.sin6_port);
-		}
-		else {
-			struct sockaddr_in sock_addr;
-			int outlen = sizeof(sock_addr);
-			if (evutil_parse_sockaddr_port(addr_str,
-										   (struct sockaddr *)&sock_addr,
-										   &outlen) != 0)
-			{
-				Fatal("error parsing address and port \"%s\"\n", addr_str);
-				exit(1);
-			}
-
-			to_v6addr(sock_addr.sin_addr.s_addr, &addr);
-			port = ntohs(sock_addr.sin_port);
-		}
-
-		/* resolve address */
-		if (resolve_v6name(v6addr_to_str(&addr),
-						   &srv->well_known[srv->nknown].node.addr)) {
-			Warn("could not join well-known node [%s]:%d", addr_str, port);
-			break;
-		}
-
-		srv->well_known[srv->nknown].node.port = (in_port_t)port;
-		srv->nknown++;
-	}
-
-	if (srv->nknown == 0)
-		Error("Didn't find any known hosts.");
 }
 
 void log_events(ChordServer *srv)
@@ -271,6 +207,7 @@ void server_start(ChordServer *srv)
 
 void server_initialize_socket(ChordServer *srv)
 {
+	Debug("Binding to port %hu", srv->node.port);
 	srv->sock = socket(srv->is_v6 ? AF_INET6 : AF_INET, SOCK_DGRAM, 0);
 	if (srv->is_v6) {
 		bind_v6socket(srv->sock, &in6addr_any, srv->node.port);

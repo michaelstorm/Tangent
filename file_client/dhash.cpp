@@ -185,7 +185,7 @@ int dhash_start(DHash *dhash, char **conf_files, int nservers)
 		dhash->chord_tunnel_socks[i] = 0 /*chord_tunnel[0]*/;
 
 		ChordServer *srv = dhash->servers[i];
-		server_initialize_from_file(srv, conf_files[i]);
+		//server_initialize_from_file(srv, conf_files[i]);
 		server_initialize_socket(srv);
 
 		dispatcher_set_packet_handlers(srv->dispatcher, CHORD_DATA,

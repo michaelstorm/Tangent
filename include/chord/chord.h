@@ -72,6 +72,7 @@ struct Node
 	chordID id;
 	in6_addr addr;
 	in_port_t port;
+	struct Node *next;
 };
 
 /* Finger table contains NFINGERS fingers, then predecessor, then
@@ -79,19 +80,7 @@ struct Node
 
 #define MAX_KEY_NUM 20
 
-struct WellKnown
-{
-	Node node;
-	in6_addr reflect_addr;
-};
-
 typedef void (*send_func_t)(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
-
-struct NodeElement
-{
-	struct WellKnown *value;
-	struct WellKnownElement *next;
-};
 
 struct ChordServerElement
 {
@@ -117,8 +106,7 @@ struct ChordServer
 
 	int tunnel_sock;
 
-	struct WellKnown well_known[MAX_WELLKNOWN];
-	int nknown;
+	struct Node *well_known;
 
 	chordID key_array[MAX_KEY_NUM];
 	int num_keys;
@@ -142,7 +130,6 @@ struct ChordServer
 int chord_check_library_versions() DLL_PUBLIC;
 ChordServer *new_server(struct event_base *ev_base) DLL_PUBLIC;
 struct ChordServerElement *server_initialize_list_from_file(struct event_base *ev_base, char *conf_file) DLL_PUBLIC;
-void server_initialize_from_file(ChordServer *srv, char *conf_file) DLL_PUBLIC;
 void server_start(ChordServer *srv) DLL_PUBLIC;
 void server_initialize_socket(ChordServer *srv) DLL_PUBLIC;
 
