@@ -64,10 +64,3 @@ add_executable(file_client ${file_client_sources})
 target_link_libraries(file_client chord)
 target_link_libraries(file_client udt)
 target_link_libraries(file_client pthread)
-
-######################
-# UTILITIES
-######################
-file(GLOB gen_conf_same_sources "gen_conf_same/*.c")
-add_executable(gen_conf_same ${gen_conf_same_sources})
-target_link_libraries(gen_conf_same chord)
