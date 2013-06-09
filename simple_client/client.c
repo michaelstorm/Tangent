@@ -9,6 +9,7 @@
 #include "chord/chord.h"
 #include "chord/grid.h"
 #include "chord/logger/color.h"
+#include "sglib.h"
 
 static void event_logging_cb(int severity, const char *msg)
 {
@@ -39,15 +40,13 @@ void print_separator()
 	cfprintf(stdout, FG_BLACK|BG_WHITE|MOD_INTENSE_BG, "%s\n", line);
 }
 
-void create_chord_servers(struct event_base *ev_base, char **conf_files, int nservers)
+void create_chord_servers(struct event_base *ev_base, char *conf_file)
 {
-	int i;
-	for (i = 0; i < nservers; i++) {
-		ChordServer *srv = new_server(ev_base);
-		server_initialize_from_file(srv, conf_files[i]);
-		server_initialize_socket(srv);
-		server_start(srv);
-	}
+	struct ChordServerElement *srv_list = server_initialize_list_from_file(ev_base, conf_file);
+	SGLIB_LIST_MAP_ON_ELEMENTS(struct ChordServerElement, srv_list, srv_elem, next, {
+		server_initialize_socket(srv_elem->value);
+		server_start(srv_elem->value);
+	});
 }
 
 void init_logging()
@@ -71,7 +70,7 @@ int main(int argc, char **argv)
 	init_global_libevent();
 
 	struct event_base *ev_base = event_base_new();
-	create_chord_servers(ev_base, argv+1, argc-1);
+	create_chord_servers(ev_base, argv[1]);
 
 	Debug("Starting event loop...");
 	return event_base_dispatch(ev_base);

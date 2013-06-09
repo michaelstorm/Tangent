@@ -87,6 +87,18 @@ struct WellKnown
 
 typedef void (*send_func_t)(int sock, in6_addr *addr, in_port_t port, int n, uchar *buf);
 
+struct NodeElement
+{
+	struct WellKnown *value;
+	struct WellKnownElement *next;
+};
+
+struct ChordServerElement
+{
+	struct ChordServer *value;
+	struct ChordServerElement *next;
+};
+
 struct ChordServer
 {
 	Node node;          /* addr and ID */
@@ -129,6 +141,7 @@ struct ChordServer
 /* chord.c */
 int chord_check_library_versions() DLL_PUBLIC;
 ChordServer *new_server(struct event_base *ev_base) DLL_PUBLIC;
+struct ChordServerElement *server_initialize_list_from_file(struct event_base *ev_base, char *conf_file) DLL_PUBLIC;
 void server_initialize_from_file(ChordServer *srv, char *conf_file) DLL_PUBLIC;
 void server_start(ChordServer *srv) DLL_PUBLIC;
 void server_initialize_socket(ChordServer *srv) DLL_PUBLIC;

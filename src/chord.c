@@ -26,6 +26,7 @@
 #include "chord/hosts.h"
 #include "chord/process.h"
 #include "chord/sendpkt.h"
+#include "sglib.h"
 #include "chord/util.h"
 
 const char *PACKET_NAMES[] = {
@@ -118,6 +119,76 @@ ChordServer *new_server(struct event_base *ev_base)
 	return srv;
 }
 
+struct ChordServerElement *server_initialize_list_from_file(struct event_base *ev_base, char *conf_file)
+{
+	static cfg_opt_t server_opts[] = {
+		CFG_INT("ip-version", 0, CFGF_NODEFAULT),
+		CFG_INT("port", 0, CFGF_NODEFAULT),
+		CFG_END()
+	};
+	static cfg_opt_t peer_opts[] = {
+		CFG_INT("ip-version", 0, CFGF_NODEFAULT),
+		CFG_STR("address", 0, CFGF_NODEFAULT),
+		CFG_INT("port", 0, CFGF_NODEFAULT),
+		CFG_END()
+	};
+	cfg_opt_t opts[] = {
+		CFG_SEC("server", server_opts, CFGF_MULTI | CFGF_TITLE),
+		CFG_SEC("peer", peer_opts, CFGF_MULTI | CFGF_TITLE),
+		CFG_END()
+	};
+
+    cfg_t *cfg = cfg_init(opts, CFGF_NOCASE);
+	if (cfg_parse(cfg, "test.cfg"))
+		Die(EX_CONFIG, "Error parsing config file \"%s\"", conf_file);
+
+	struct ChordServerElement *srv_elem, *srv_list = NULL;
+
+	int num_servers = cfg_size(cfg, "server");
+	int i;
+	for(i = 0; i < num_servers; i++) {
+		cfg_t *server = cfg_getnsec(cfg, "server", i);
+		Debug("Parsing server titled \"%s\"", cfg_title(server));
+
+		int ip_ver = (int)cfg_getint(server, "ip-version");
+		Debug("ip-version = %d", ip_ver);
+		Debug("port = %d", (int)cfg_getint(server, "port"));
+
+		ChordServer *srv = new_server(ev_base);
+		srv_elem = emalloc(sizeof(struct ChordServerElement));
+		srv_elem->value = srv;
+		SGLIB_LIST_ADD(struct ChordServerElement, srv_list, srv_elem, next);
+
+		srv->is_v6 = ip_ver == 6;
+
+		int num_peers = cfg_size(cfg, "peer");
+		int j;
+
+		for(j = 0; j < num_peers; j++) {
+			cfg_t *peer = cfg_getnsec(cfg, "peer", j);
+			ushort port = (int)cfg_getint(peer, "port");
+			char *addr_str = cfg_getstr(peer, "address");
+
+			Debug("Parsing peer titled \"%s\"", cfg_title(peer));
+			Debug("ip-version = %d", (int)cfg_getint(peer, "ip-version"));
+			Debug("address = %s", addr_str);
+			Debug("port = %d", port);
+
+			/* resolve address */
+			if (resolve_v6name(addr_str,
+							   &srv->well_known[srv->nknown].node.addr)) {
+				Warn("could not join well-known node [%s]:%d", addr_str, port);
+				continue;
+			}
+
+			srv->well_known[srv->nknown].node.port = (in_port_t)port;
+			srv->nknown++;
+		}
+	}
+
+	return srv_list;
+}
+
 void server_initialize_from_file(ChordServer *srv, char *conf_file)
 {
 	char id[4*CHORD_ID_BYTES];
@@ -132,7 +203,7 @@ void server_initialize_from_file(ChordServer *srv, char *conf_file)
 		Die(EX_CONFIG, "Didn't find port in \"%s\"", conf_file);
 	if (fscanf(fp, " %s\n", id) != 1)
 		Die(EX_CONFIG, "Didn't find id in \"%s\"", conf_file);
-//	srv->node.id = atoid(id);
+
 
 	srv->is_v6 = ip_ver == 6;
 
