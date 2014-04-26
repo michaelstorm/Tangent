@@ -102,11 +102,9 @@ required_field_print(const ProtobufCFieldDescriptor *field,
 		break;
 	case PROTOBUF_C_TYPE_ENUM:
 	{
-		uint32_t value = *(const uint32_t *)member;
-		const ProtobufCEnumDescriptor *desc = field->descriptor;
-		fprintf(out, "%u", value);
-		if (value < desc->n_values)
-			fprintf(out, " (%s)", desc->values[value].name);
+		int32_t value = *(const int32_t *) member;
+		const ProtobufCEnumValue *evalue = protobuf_c_enum_descriptor_get_value(field->descriptor, value);
+		fprintf(out, "%d (%s)", evalue->value, evalue->name);
 		break;
 	}
 	}
